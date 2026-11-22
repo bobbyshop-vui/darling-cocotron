@@ -20,6 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import "NSCustomObject.h"
 #import "NSIBObjectData.h"
 #import "NSNibHelpConnector.h"
+#import "UINibCoding.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSMenu.h>
 #import <AppKit/NSNib.h>
@@ -35,6 +36,7 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
 @implementation NSNib
 
 - initWithCoder: (NSCoder *) coder {
+    _allObjects = [NSMutableArray new];
     if ([coder allowsKeyedCoding]) {
         _data = [[coder decodeObjectForKey: @"NSNibFileData"] retain];
 
@@ -169,6 +171,15 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
 
     NSIBObjectData *objectData;
     @autoreleasepool {
+        NSData *archiveData = _data;
+        BOOL isNibArchive = NSIsNibArchive(archiveData);
+        if (isNibArchive) {
+            archiveData = NSKeyedArchiveFromNibArchive(archiveData);
+            if (archiveData == nil) {
+                NSLog(@"Unable to read NIBArchive data");
+                return NO;
+            }
+        }
         _nameTable = [nameTable retain];
 
         NSCoder *unarchiver;
@@ -176,10 +187,10 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
         NSMenu *menu;
         NSArray *topLevelObjects;
 
-        if (_flags._isKeyed) {
+        if (_flags._isKeyed || isNibArchive) {
             NSKeyedUnarchiver *keyed;
             unarchiver = keyed = [[[NSKeyedUnarchiver alloc]
-                    initForReadingWithData: _data] autorelease];
+                    initForReadingWithData: archiveData] autorelease];
             [keyed setDelegate: self];
 
             /*
@@ -204,6 +215,12 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
                          asClassName: @"NSNibHelpConnector"];
 
             objectData = [unkeyed decodeObject];
+        }
+
+        if (objectData == nil) {
+            [_nameTable release];
+            _nameTable = nil;
+            return NO;
         }
 
         [objectData buildConnectionsWithNameTable: _nameTable];
