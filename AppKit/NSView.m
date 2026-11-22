@@ -95,6 +95,59 @@ static BOOL NSShowAllViews = NO;
     return [NSCurrentFocusStack() lastObject];
 }
 
+// Interface Builder's design-time rendering plug-in swizzles these private
+// hooks during Xcode startup. Keep base implementations available so the
+// swizzler can install its wrappers before Interface Builder categories load.
+- (BOOL)ibCanAcceptContentsOfPasteboard:(NSPasteboard *)pasteboard
+                            inDocument:(id)document
+                   targetChildRelation:(id *)targetChildRelation {
+    if (targetChildRelation)
+        *targetChildRelation = nil;
+    return NO;
+}
+
+- (id)ibAcceptContentsOfPasteboard:(NSPasteboard *)pasteboard
+                        inDocument:(id)document
+                 insertionContext:(id)insertionContext {
+    return nil;
+}
+
+- (void)ibPopulateChildRelationOrder:(id)childRelationOrder {
+}
+
+- (void)ibRemoveChildren:(id)children {
+}
+
+- (void)ibArchivePlatformItems:(id)archiver {
+}
+
+- (void)ibUnArchivePlatformItems:(id)archiver {
+}
+
+- (NSArray *)ibLocalChildToOneRelationshipsKeyPaths {
+    return [NSArray array];
+}
+
+- (NSArray *)ibSubgroupIdentifiers {
+    return [NSArray array];
+}
+
+- (NSString *)ibTitleForSubgroupWithIdentifier:(id)identifier {
+    return nil;
+}
+
+- (NSImage *)ibImageForSubgroupWithIdentifier:(id)identifier {
+    return nil;
+}
+
+- (NSArray *)ibObjectsForSubgroupWithIdentifier:(id)identifier {
+    return [NSArray array];
+}
+
+- (void)ibPrepareCocoaDocumentForCompiling:(id)document
+                              withContext:(id)context {
+}
+
 + (NSMenu *) defaultMenu {
     return nil;
 }
