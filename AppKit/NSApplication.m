@@ -89,6 +89,10 @@ const NSAppKitVersion NSAppKitVersionNumber = 1504; // macOS 10.12
 
 NSApplication *NSApp = nil;
 
+// Reopen state belongs to the process's shared application.
+static NSUInteger reopeningDelayCount;
+static BOOL reopenPending;
+
 @interface NSDocumentController (forward)
 - (void) _updateRecentDocumentsMenu;
 @end
@@ -1540,6 +1544,11 @@ NSApplication *NSApp = nil;
 
 // private method called when the application is reopened
 - (void) _reopen {
+    if (reopeningDelayCount != 0) {
+        reopenPending = YES;
+        return;
+    }
+
     BOOL doReopen = YES;
     if ([_delegate respondsToSelector: @selector
                    (applicationShouldHandleReopen:hasVisibleWindows:)])
@@ -1549,6 +1558,21 @@ NSApplication *NSApp = nil;
         return;
     if (_isHidden)
         [self unhide: nil];
+}
+
+- (void) _delayReopening {
+    ++reopeningDelayCount;
+}
+
+- (void) _continueReopening {
+    if (reopeningDelayCount == 0)
+        return;
+
+    --reopeningDelayCount;
+    if (reopeningDelayCount == 0 && reopenPending) {
+        reopenPending = NO;
+        [self _reopen];
+    }
 }
 
 + (void) load {
