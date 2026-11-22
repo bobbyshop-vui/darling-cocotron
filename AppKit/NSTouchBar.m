@@ -69,3 +69,17 @@
 }
 
 @end
+
+// Xcode 10's Interface Builder DFR plug-in resolves this private AppKit class
+// by name and swizzles -ibManagedContainerBehavior during start-up.
+@interface NSTouchBarItemView : NSTouchBarView
+@end
+
+@implementation NSTouchBarItemView
+
+- (NSInteger)ibManagedContainerBehavior
+{
+    return 0;
+}
+
+@end
