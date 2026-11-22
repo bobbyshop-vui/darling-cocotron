@@ -98,6 +98,12 @@ static BOOL NSShowAllViews = NO;
 // Interface Builder's design-time rendering plug-in swizzles these private
 // hooks during Xcode startup. Keep base implementations available so the
 // swizzler can install its wrappers before Interface Builder categories load.
+- (BOOL)ibPropagatedTranslatesAutoresizingConstraintsOfChildView:(NSView *)childView
+                                            forCopyOfChildView:(NSView *)copyOfChildView {
+    (void)copyOfChildView;
+    return [childView translatesAutoresizingMaskIntoConstraints];
+}
+
 - (BOOL)ibCanAcceptContentsOfPasteboard:(NSPasteboard *)pasteboard
                             inDocument:(id)document
                    targetChildRelation:(id *)targetChildRelation {
