@@ -1698,9 +1698,11 @@ int NSApplicationMain(int argc, const char *argv[]) {
     return 0;
 }
 
-void NSUpdateDynamicServices(void) {
-    NSUnimplementedFunction();
-}
+/*
+ * Asks the system to rescan for Services providers.  Darling has no Services
+ * registry (pbs) to rescan, so there is nothing to refresh.
+ */
+void NSUpdateDynamicServices(void) {}
 
 BOOL NSPerformService(NSString *itemName, NSPasteboard *pasteboard) {
     NSUnimplementedFunction();
