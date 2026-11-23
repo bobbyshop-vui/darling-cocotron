@@ -33,7 +33,7 @@ typedef NS_ENUM(NSInteger, NSColorSpaceModel) {
     NSColorSpaceModelPatterned
 };
 
-@interface NSColorSpace : NSObject {
+@interface NSColorSpace : NSObject <NSCoding> {
     CGColorSpaceRef _cgColorSpace;
     NSString *_localizedName;
 }

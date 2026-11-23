@@ -808,13 +808,22 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     return NO;
 }
 
+// The value round-trips; there is no layer compositing to apply it with, so drawing
+// is not faded.
 - (CGFloat) alphaValue {
-    NSUnimplementedMethod();
-    return 0.;
+    return _alphaValueIsSet ? _alphaValue : 1.0;
 }
 
 - (void) setAlphaValue: (CGFloat) alpha {
-    NSUnimplementedMethod();
+    if (alpha < 0.0)
+        alpha = 0.0;
+    else if (alpha > 1.0)
+        alpha = 1.0;
+    if (_alphaValueIsSet && _alphaValue == alpha)
+        return;
+    _alphaValue = alpha;
+    _alphaValueIsSet = YES;
+    [self setNeedsDisplay: YES];
 }
 
 - (int) gState {

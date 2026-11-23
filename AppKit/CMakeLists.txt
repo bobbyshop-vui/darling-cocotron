@@ -157,6 +157,8 @@ set(AppKit_sources
 	nib.subproj/NSNibAuxiliaryActionConnector.m
 	nib.subproj/NSNibExternalObjectPlaceholder.m
 	nib.subproj/NSIBHelpConnector.m
+	NSStackViewContainer.m
+	NSComboTableView.m
 	nib.subproj/UINibCoding.m
 
 	NSTextFieldCell.m

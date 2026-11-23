@@ -1,18 +1,9 @@
-#import <Foundation/Foundation.h>
+#import <AppKit/NSNibHelpConnector.h>
 
-@interface NSIBHelpConnector : NSObject
+// Interface Builder archives help connectors under this name; the keys (NSDestination,
+// NSFile, NSMarker) are the ones NSNibHelpConnector already reads.
+@interface NSIBHelpConnector : NSNibHelpConnector
 @end
 
 @implementation NSIBHelpConnector
-
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
-}
-
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
-}
-
 @end

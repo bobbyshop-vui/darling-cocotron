@@ -89,6 +89,8 @@ APPKIT_EXPORT const NSNotificationName NSViewGlobalFrameDidChangeNotification;
 APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPresentationOptions;
 
 @interface NSView : NSResponder <NSAnimatablePropertyContainer, NSUserInterfaceItemIdentification, NSAppearanceCustomization> {
+    CGFloat _alphaValue;
+    BOOL _alphaValueIsSet;
     NSRect _frame;
     NSRect _bounds;
     NSWindow *_window;

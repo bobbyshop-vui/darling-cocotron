@@ -127,6 +127,27 @@ static NSColorSpace *_NSColorSpaceCreate(Class cls, CFStringRef name, int kind,
     return self;
 }
 
+// Nibs archive a colour space as an id ("NSID"), a model ("NSModel") and an optional ICC
+// profile ("NSICC"). Onyx2D cannot build a colour space from ICC data, so the archived
+// space is read as sRGB, which is what Interface Builder colours use in practice.
+- initWithCoder: (NSCoder *) coder {
+    CGColorSpaceRef cgSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    if (cgSpace == NULL)
+        cgSpace = CGColorSpaceCreateDeviceRGB();
+    self = [self initWithCGColorSpace: cgSpace];
+    CGColorSpaceRelease(cgSpace);
+    [_localizedName release];
+    _localizedName = [@"sRGB IEC61966-2.1" copy];
+    return self;
+}
+
+- (void) encodeWithCoder: (NSCoder *) coder {
+    if ([coder allowsKeyedCoding]) {
+        [coder encodeInt: 2 forKey: @"NSID"];
+        [coder encodeInt: (int) [self colorSpaceModel] forKey: @"NSModel"];
+    }
+}
+
 - (void) dealloc {
     [_localizedName release];
     CGColorSpaceRelease(_cgColorSpace);
