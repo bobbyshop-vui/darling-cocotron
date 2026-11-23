@@ -1292,8 +1292,9 @@ static void releasePatternInfo(void *info) {
 }
 
 - (NSColor *) colorUsingColorSpaceName: (NSColorSpaceName) colorSpace {
-    NSInvalidAbstractInvocation();
-    return nil;
+    // Concrete subclasses (NSColor_CGColor, ...) implement only the
+    // -colorUsingColorSpaceName:device: variant.
+    return [self colorUsingColorSpaceName: colorSpace device: nil];
 }
 
 - (NSColor *) colorUsingColorSpaceName: (NSColorSpaceName) colorSpace
