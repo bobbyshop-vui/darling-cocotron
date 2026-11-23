@@ -112,6 +112,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     CGFloat _frameRotation;
     CGFloat _boundsRotation;
     BOOL _translatesAutoresizingMaskIntoConstraints;
+    BOOL _canDrawConcurrently;
 
     BOOL _validTrackingAreas;
     BOOL _validTransforms;

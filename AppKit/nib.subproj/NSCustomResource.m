@@ -44,6 +44,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
  * nib.  Without it, loading Xcode's Welcome window raised
  * "-[NSCustomResource resourceName]: unrecognized selector" and aborted.
  */
+/*
+ * IDEInterfaceBuilderKit decides what to do with a custom resource by asking it
+ * for its -className.  NSObject's -className returns the receiver's class name
+ * ("NSCustomResource"), which made IB log "Unknown custom resource type
+ * NSCustomResource" and return nil from its swizzled awakeAfterUsingCoder:.
+ * The real class overrides -className to report the *archived* class name
+ * (usually "NSImage").
+ */
+- (NSString *) className {
+    return _className;
+}
+
 - (NSString *) resourceName {
     return _resourceName;
 }

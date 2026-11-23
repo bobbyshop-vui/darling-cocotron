@@ -2183,7 +2183,8 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (void) setCanDrawConcurrently: (BOOL) canDraw {
-    NSUnimplementedMethod();
+    // AppKit threads drawing itself; nothing to do without concurrent drawing.
+    _canDrawConcurrently = canDraw ? YES : NO;
 }
 
 - (void) _lockFocusInContext: (NSGraphicsContext *) context {

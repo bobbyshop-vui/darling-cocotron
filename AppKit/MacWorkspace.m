@@ -14,20 +14,19 @@
 @implementation MacWorkspace
 
 - (NSImage *) iconForFile: (NSString *) path {
-    // TODO: call GetIconRefFromFileInfo()
-    NSUnimplementedMethod();
-    return NULL;
+    // TODO: call GetIconRefFromFileInfo().  Returning nil is handled by the
+    // callers (they simply show no icon); logging on every call just floods
+    // Xcode's console while it builds its UI.
+    return nil;
 }
 
 - (NSImage *) iconForFiles: (NSArray *) array {
-    NSUnimplementedMethod();
-    return NULL;
+    return nil;
 }
 
 - (NSImage *) iconForFileType: (NSString *) type {
     // TODO: call GetIconRefFromTypeInfo()
-    NSUnimplementedMethod();
-    return NULL;
+    return nil;
 }
 
 - (NSString *) localizedDescriptionForType: (NSString *) type {
