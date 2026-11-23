@@ -23,6 +23,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSPasteboard.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSView.h>
+#import <objc/message.h>
 
 NSBitmapImageRepPropertyKey NSImageCompressionFactor =
         @"NSImageCompressionFactor";
@@ -814,6 +815,65 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
     if (_bitmapFormat & NSFloatingPointSamplesBitmapFormat)
         result |= kCGBitmapFloatComponents;
 
+    return result;
+}
+
+- (instancetype) initWithCIImage: (CIImage *) ciImage {
+    // Render through a CIContext, looked up at runtime so AppKit does not
+    // link against CoreImage.
+    CGImageRef cgImage = NULL;
+    Class contextClass = NSClassFromString(@"CIContext");
+
+    if (ciImage != nil && contextClass != Nil) {
+        id context = [contextClass performSelector: @selector(context)];
+        NSValue *extentValue = [ciImage valueForKey: @"extent"];
+        CGRect extent = [extentValue rectValue];
+
+        if (context != nil && !CGRectIsInfinite(extent) &&
+            !CGRectIsEmpty(extent)) {
+            CGImageRef (*create)(id, SEL, id, CGRect) =
+                    (CGImageRef(*)(id, SEL, id, CGRect))objc_msgSend;
+
+            cgImage = create(context, @selector(createCGImage:fromRect:),
+                             ciImage, extent);
+        }
+    }
+
+    if (cgImage == NULL) {
+        [self release];
+        return nil;
+    }
+
+    self = [self initWithCGImage: cgImage];
+    CGImageRelease(cgImage);
+    return self;
+}
+
+- (NSColorSpace *) colorSpace {
+    CGColorSpaceRef cgSpace = NULL;
+    BOOL owned = NO;
+
+    if (_cgImage != NULL)
+        cgSpace = CGImageGetColorSpace(_cgImage);
+
+    if (cgSpace == NULL) {
+        if ([_colorSpaceName isEqualToString: NSDeviceWhiteColorSpace] ||
+            [_colorSpaceName isEqualToString: NSCalibratedWhiteColorSpace] ||
+            [_colorSpaceName isEqualToString: NSDeviceBlackColorSpace] ||
+            [_colorSpaceName isEqualToString: NSCalibratedBlackColorSpace])
+            cgSpace = CGColorSpaceCreateDeviceGray();
+        else if ([_colorSpaceName isEqualToString: NSDeviceCMYKColorSpace])
+            cgSpace = CGColorSpaceCreateDeviceCMYK();
+        else
+            cgSpace = CGColorSpaceCreateDeviceRGB();
+        owned = YES;
+    }
+
+    NSColorSpace *result =
+            [[[NSColorSpace alloc] initWithCGColorSpace: cgSpace] autorelease];
+
+    if (owned)
+        CGColorSpaceRelease(cgSpace);
     return result;
 }
 

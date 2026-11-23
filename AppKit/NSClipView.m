@@ -42,6 +42,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         _drawsBackground = (flags & 0x04) ? YES : NO;
         _backgroundColor = [[keyed decodeObjectForKey: @"NSBGColor"] retain];
         _docView = [[keyed decodeObjectForKey: @"NSDocView"] retain];
+        _automaticallyAdjustsContentInsets = YES;
 
         if (_docView != nil)
             [[NSNotificationCenter defaultCenter]
@@ -66,6 +67,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [super initWithFrame: frame];
     _backgroundColor = [[NSColor controlBackgroundColor] retain];
     _drawsBackground = YES;
+    _automaticallyAdjustsContentInsets = YES;
     return self;
 }
 
@@ -182,6 +184,57 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         point.x = NSMaxX(docFrame) - bounds.size.width;
 
     return point;
+}
+
+- (NSRect) constrainBoundsRect: (NSRect) proposedBounds {
+    NSRect bounds = [self bounds];
+
+    // Constrain the origin as -constrainScrollPoint: does, keeping the
+    // proposed size; the origin is clamped against the document frame for the
+    // proposed size.
+    NSRect docFrame = [[self documentView] frame];
+    NSPoint point = proposedBounds.origin;
+
+    if (docFrame.size.height < proposedBounds.size.height)
+        point.y = docFrame.origin.y;
+    else {
+        if (point.y < docFrame.origin.y)
+            point.y = docFrame.origin.y;
+        if (point.y + proposedBounds.size.height > NSMaxY(docFrame))
+            point.y = NSMaxY(docFrame) - proposedBounds.size.height;
+    }
+
+    if (docFrame.size.width < proposedBounds.size.width)
+        point.x = docFrame.origin.x;
+    else {
+        if (point.x < docFrame.origin.x)
+            point.x = docFrame.origin.x;
+        if (point.x + proposedBounds.size.width > NSMaxX(docFrame))
+            point.x = NSMaxX(docFrame) - proposedBounds.size.width;
+    }
+
+    if (_docView == nil)
+        return bounds;
+
+    proposedBounds.origin = point;
+    return proposedBounds;
+}
+
+- (NSEdgeInsets) contentInsets {
+    return _contentInsets;
+}
+
+- (void) setContentInsets: (NSEdgeInsets) insets {
+    _contentInsets = insets;
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) automaticallyAdjustsContentInsets {
+    return _automaticallyAdjustsContentInsets;
+}
+
+- (void) setAutomaticallyAdjustsContentInsets: (BOOL) value {
+    _automaticallyAdjustsContentInsets = value;
 }
 
 - (NSPoint) _scrollPoint {

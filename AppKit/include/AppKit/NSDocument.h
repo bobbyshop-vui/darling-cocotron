@@ -56,7 +56,13 @@ typedef enum {
     NSUndoManager *_undoManager;
     BOOL _hasUndoManager;
     NSMutableArray *_activeEditors; // registered via NSEditorRegistration
+    NSString *_displayName;
+    BOOL _locked;
 }
+
++ (BOOL) autosavesInPlace;
++ (BOOL) preservesVersions;
++ (BOOL) autosavesDrafts;
 
 + (NSArray *) readableTypes;
 + (NSArray *) writableTypes;
@@ -271,5 +277,31 @@ completionHandler: (void (^)(NSError *errorOrNil)) completionHandler;
 
 - (void)autosaveWithImplicitCancellability: (BOOL) autosavingIsImplicitlyCancellable 
                          completionHandler: (void (^)(NSError *errorOrNil)) completionHandler;
+
+- (BOOL) autosavingIsImplicitlyCancellable;
+- (NSURL *) backupFileURL;
+- (id) changeCountTokenForSaveOperation: (NSSaveOperationType) saveOperation;
+- (void) updateChangeCountWithToken: (id) changeCountToken
+                   forSaveOperation: (NSSaveOperationType) saveOperation;
+- (void) continueActivityUsingBlock: (void (^)(void)) block;
+- (void) continueAsynchronousWorkOnMainThreadUsingBlock: (void (^)(void)) block;
+- (void) performAsynchronousFileAccessUsingBlock:
+        (void (^)(void (^fileAccessCompletionHandler)(void))) block;
+- (NSDocument *) duplicateAndReturnError: (NSError **) outError;
+- (void) encodeRestorableStateWithCoder: (NSCoder *) coder;
+- (void) restoreStateWithCoder: (NSCoder *) coder;
+- (void) invalidateRestorableState;
+- (void) restoreDocumentWindowWithIdentifier: (NSString *) identifier
+                                       state: (NSCoder *) state
+                           completionHandler: (void (^)(NSWindow *window,
+                                                        NSError *error)) completionHandler;
+- (NSString *) fileNameExtensionForType: (NSString *) typeName
+                          saveOperation: (NSSaveOperationType) saveOperation;
+- (id) handleCloseScriptCommand: (id) command;
+- (id) objectSpecifier;
+- (BOOL) isLocked;
+- (void) moveDocument: (id) sender;
+- (void) scheduleAutosaving;
+- (void) setDisplayName: (NSString *) displayNameOrNil;
 
 @end

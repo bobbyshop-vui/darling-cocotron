@@ -20,6 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSText.h>
 #import <AppKit/NSTextView.h>
+#import <AppKit/NSPasteboard.h>
+#import <AppKit/NSScrollView.h>
 
 NSString *const NSTextDidBeginEditingNotification =
         @"NSTextDidBeginEditingNotification";
@@ -318,6 +320,75 @@ NSString *const NSTextDidChangeNotification = @"NSTextDidChangeNotification";
 
 - (void) checkSpelling: sender {
     NSInvalidAbstractInvocation();
+}
+
+- (NSWritingDirection) baseWritingDirection {
+    return (NSWritingDirection)(_darlingBaseWritingDirection - 1);
+}
+
+- (void) setBaseWritingDirection: (NSWritingDirection) direction {
+    _darlingBaseWritingDirection = (NSInteger)direction + 1;
+}
+
+- (BOOL) isRulerVisible {
+    NSScrollView *scrollView = [self enclosingScrollView];
+
+    if (scrollView == nil)
+        return NO;
+
+    return [scrollView rulersVisible] &&
+           ([scrollView hasHorizontalRuler] || [scrollView hasVerticalRuler]);
+}
+
+- (void) copy: (id) sender {
+    NSRange range = [self selectedRange];
+
+    if (range.length == 0)
+        return;
+
+    NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+    NSMutableArray *types = [NSMutableArray arrayWithObject: NSStringPboardType];
+    NSData *rtf = nil;
+
+    if ([self isRichText]) {
+        rtf = [self RTFFromRange: range];
+        if (rtf != nil)
+            [types addObject: NSRTFPboardType];
+    }
+
+    [pasteboard declareTypes: types owner: nil];
+    [pasteboard setString: [[self string] substringWithRange: range]
+                  forType: NSStringPboardType];
+    if (rtf != nil)
+        [pasteboard setData: rtf forType: NSRTFPboardType];
+}
+
+- (void) cut: (id) sender {
+    if (![self isEditable])
+        return;
+
+    [self copy: sender];
+    [self delete: sender];
+}
+
+- (void) paste: (id) sender {
+    if (![self isEditable])
+        return;
+
+    NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+    NSRange range = [self selectedRange];
+
+    if ([self isRichText]) {
+        NSData *rtf = [pasteboard dataForType: NSRTFPboardType];
+        if (rtf != nil) {
+            [self replaceCharactersInRange: range withRTF: rtf];
+            return;
+        }
+    }
+
+    NSString *string = [pasteboard stringForType: NSStringPboardType];
+    if (string != nil)
+        [self replaceCharactersInRange: range withString: string];
 }
 
 @end

@@ -25,6 +25,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSNotification.h>
 #import <Foundation/NSRunLoop.h>
 
+@class NSAppearance, NSError, NSCoder;
 @class NSWindow, NSImage, NSMenu, NSPasteboard, NSDisplay, NSDockTile;
 
 APPKIT_EXPORT const NSRunLoopMode NSModalPanelRunLoopMode;
@@ -115,6 +116,21 @@ typedef NS_OPTIONS(NSUInteger, NSApplicationPresentationOptions) {
     NSApplicationPresentationDisableCursorLocationAssistance = 1 << 12,
 };
 
+typedef NS_OPTIONS(NSUInteger, NSApplicationOcclusionState) {
+    NSApplicationOcclusionStateVisible = 1UL << 1,
+};
+
+typedef NS_OPTIONS(NSInteger, NSWindowListOptions) {
+    NSWindowListOrderedFrontToBack = (1 << 0),
+};
+
+typedef NS_OPTIONS(NSUInteger, NSRemoteNotificationType) {
+    NSRemoteNotificationTypeNone = 0,
+    NSRemoteNotificationTypeBadge = 1 << 0,
+    NSRemoteNotificationTypeSound = 1 << 1,
+    NSRemoteNotificationTypeAlert = 1 << 2,
+};
+
 @interface NSApplication : NSResponder {
     NSDisplay *_display;
     id _delegate;
@@ -134,6 +150,8 @@ typedef NS_OPTIONS(NSUInteger, NSApplicationPresentationOptions) {
     BOOL _windowsNeedUpdate;
     NSEvent *_currentEvent;
     NSDockTile *_dockTile;
+    BOOL _automaticCustomizeTouchBarMenuItemEnabled;
+    NSUInteger _registeredRemoteNotificationTypes;
 
     NSMutableArray *_modalStack;
     void *_lock;
@@ -274,6 +292,21 @@ typedef NS_OPTIONS(NSUInteger, NSApplicationPresentationOptions) {
 - (void) showHelp: sender;
 
 - (NSDockTile *) dockTile;
+
+- (NSAppearance *) effectiveAppearance;
+- (void) enumerateWindowsWithOptions: (NSWindowListOptions) options
+                          usingBlock: (void (^)(NSWindow *window, BOOL *stop))
+                                              block;
+- (BOOL) isAutomaticCustomizeTouchBarMenuItemEnabled;
+- (void) setAutomaticCustomizeTouchBarMenuItemEnabled: (BOOL) flag;
+- (BOOL) isFullKeyboardAccessEnabled;
+- (NSApplicationOcclusionState) occlusionState;
+- (void) registerForRemoteNotificationTypes: (NSRemoteNotificationType) types;
+- (BOOL) restoreWindowWithIdentifier: (NSString *) identifier
+                               state: (NSCoder *) state
+                   completionHandler: (void (^)(NSWindow *window,
+                                                NSError *error)) completionHandler;
+- (NSUserInterfaceLayoutDirection) userInterfaceLayoutDirection;
 
 // private
 - (void) _addWindow: (NSWindow *) window;

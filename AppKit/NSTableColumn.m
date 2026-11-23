@@ -244,6 +244,45 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_tableView setSortDescriptors: allDescs];
 }
 
+- (BOOL) isHidden {
+    return _columnIsHidden;
+}
+
+- (void) setHidden: (BOOL) flag {
+    if (_columnIsHidden == flag)
+        return;
+    _columnIsHidden = flag;
+    [_tableView tile];
+    [_tableView setNeedsDisplay: YES];
+}
+
+- (NSString *) title {
+    return [_headerCell title];
+}
+
+- (void) setTitle: (NSString *) title {
+    [_headerCell setTitle: title];
+    [[_tableView headerView] setNeedsDisplay: YES];
+}
+
+- (void) sizeToFit {
+    CGFloat fit = [_headerCell cellSize].width;
+    NSInteger i, rows = [_tableView numberOfRows];
+
+    for (i = 0; i < rows; i++) {
+        NSCell *cell = [self dataCellForRow: i];
+        [self prepareCell: cell inRow: i];
+        CGFloat w = [cell cellSize].width;
+        if (w > fit)
+            fit = w;
+    }
+    if (fit < _minWidth)
+        fit = _minWidth;
+    if (_maxWidth > 0 && fit > _maxWidth)
+        fit = _maxWidth;
+    [self setWidth: fit];
+}
+
 @end
 
 @implementation NSTableColumn (Bindings)

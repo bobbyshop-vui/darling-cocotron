@@ -19,11 +19,30 @@
 
 #import <AppKit/NSView.h>
 
-@interface NSScrubberArrangedView : NSView
+@class NSScrubberLayoutAttributes, NSTextField;
+
+@interface NSScrubberArrangedView : NSView {
+    BOOL _selected;
+    BOOL _highlighted;
+}
+
+- (BOOL) isSelected;
+- (void) setSelected: (BOOL) flag;
+- (BOOL) isHighlighted;
+- (void) setHighlighted: (BOOL) flag;
+- (void) applyLayoutAttributes: (NSScrubberLayoutAttributes *) layoutAttributes;
+
 @end
 
 @interface NSScrubberItemView : NSScrubberArrangedView
 @end
 
-@interface NSScrubberTextItemView : NSScrubberItemView
+@interface NSScrubberTextItemView : NSScrubberItemView {
+    NSTextField *_textField;
+}
+
+- (NSTextField *) textField;
+- (NSString *) title;
+- (void) setTitle: (NSString *) title;
+
 @end

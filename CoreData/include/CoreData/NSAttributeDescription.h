@@ -38,6 +38,7 @@ typedef enum {
     NSString *_valueClassName;
     id _defaultValue;
     NSString *_valueTransformerName;
+    BOOL _darlingAllowsExternalBinaryDataStorage;
 }
 
 - (NSString *) attributeValueClassName;
@@ -47,5 +48,10 @@ typedef enum {
 
 - (void) setAttributeType: (NSAttributeType) value;
 - (void) setDefaultValue: (id) value;
+
+- (NSString *) valueTransformerName;
+- (void) setValueTransformerName: (NSString *) value;
+- (BOOL) allowsExternalBinaryDataStorage;
+- (void) setAllowsExternalBinaryDataStorage: (BOOL) flag;
 
 @end

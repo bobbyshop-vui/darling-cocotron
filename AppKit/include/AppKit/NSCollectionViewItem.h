@@ -18,11 +18,13 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSViewController.h>
 
-@class NSCollectionView;
+@class NSCollectionView, NSImageView, NSTextField;
 
 @interface NSCollectionViewItem : NSViewController <NSCoding, NSCopying> {
     NSCollectionView *_collectionView;
     BOOL _isSelected;
+    NSImageView *_imageView;
+    NSTextField *_textField;
 }
 
 - (NSCollectionView *) collectionView;
@@ -30,5 +32,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (BOOL) isSelected;
 
 - (void) setSelected: (BOOL) value;
+
+- (NSImageView *) imageView;
+- (void) setImageView: (NSImageView *) value;
+- (NSTextField *) textField;
+- (void) setTextField: (NSTextField *) value;
+
+- (void) _setCollectionView: (NSCollectionView *) value;
 
 @end

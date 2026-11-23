@@ -30,14 +30,187 @@
 
 @implementation NSTouchBar
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (instancetype) init {
+    self = [super init];
+    if (self) {
+        _tbCustomizationAllowedItemIdentifiers = [[NSArray alloc] init];
+        _tbCustomizationRequiredItemIdentifiers = [[NSArray alloc] init];
+        _tbDefaultItemIdentifiers = [[NSArray alloc] init];
+        _tbTemplateItems = [[NSSet alloc] init];
+        _tbItemCache = [[NSMutableDictionary alloc] init];
+    }
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (instancetype) initWithCoder: (NSCoder *) coder {
+    self = [self init];
+    if (self && [coder allowsKeyedCoding]) {
+        id obj;
+        if ((obj = [coder decodeObjectForKey: @"NSTouchBarCustomizationIdentifier"]) != nil)
+            [self setCustomizationIdentifier: obj];
+        if ((obj = [coder decodeObjectForKey: @"NSTouchBarCustomizationAllowedItemIdentifiers"]) != nil)
+            [self setCustomizationAllowedItemIdentifiers: obj];
+        if ((obj = [coder decodeObjectForKey: @"NSTouchBarCustomizationRequiredItemIdentifiers"]) != nil)
+            [self setCustomizationRequiredItemIdentifiers: obj];
+        if ((obj = [coder decodeObjectForKey: @"NSTouchBarDefaultItemIdentifiers"]) != nil)
+            [self setDefaultItemIdentifiers: obj];
+        if ((obj = [coder decodeObjectForKey: @"NSTouchBarPrincipalItemIdentifier"]) != nil)
+            [self setPrincipalItemIdentifier: obj];
+        if ((obj = [coder decodeObjectForKey: @"NSTouchBarTemplateItems"]) != nil)
+            [self setTemplateItems: obj];
+        _tbDelegate = [coder decodeObjectForKey: @"NSTouchBarDelegate"];
+    }
+    return self;
+}
+
+- (void) encodeWithCoder: (NSCoder *) coder {
+    if (![coder allowsKeyedCoding])
+        return;
+    [coder encodeObject: _tbCustomizationIdentifier
+                 forKey: @"NSTouchBarCustomizationIdentifier"];
+    [coder encodeObject: _tbCustomizationAllowedItemIdentifiers
+                 forKey: @"NSTouchBarCustomizationAllowedItemIdentifiers"];
+    [coder encodeObject: _tbCustomizationRequiredItemIdentifiers
+                 forKey: @"NSTouchBarCustomizationRequiredItemIdentifiers"];
+    [coder encodeObject: _tbDefaultItemIdentifiers
+                 forKey: @"NSTouchBarDefaultItemIdentifiers"];
+    [coder encodeObject: _tbPrincipalItemIdentifier
+                 forKey: @"NSTouchBarPrincipalItemIdentifier"];
+    [coder encodeObject: _tbTemplateItems forKey: @"NSTouchBarTemplateItems"];
+    [coder encodeConditionalObject: _tbDelegate forKey: @"NSTouchBarDelegate"];
+}
+
+- (void) dealloc {
+    [_tbCustomizationIdentifier release];
+    [_tbCustomizationAllowedItemIdentifiers release];
+    [_tbCustomizationRequiredItemIdentifiers release];
+    [_tbDefaultItemIdentifiers release];
+    [_tbPrincipalItemIdentifier release];
+    [_tbEscapeKeyReplacementItemIdentifier release];
+    [_tbTemplateItems release];
+    [_tbItemCache release];
+    [super dealloc];
+}
+
+- (NSTouchBarCustomizationIdentifier) customizationIdentifier {
+    return _tbCustomizationIdentifier;
+}
+
+- (void) setCustomizationIdentifier: (NSTouchBarCustomizationIdentifier) value {
+    value = [value copy];
+    [_tbCustomizationIdentifier release];
+    _tbCustomizationIdentifier = value;
+}
+
+- (NSArray *) customizationAllowedItemIdentifiers {
+    return _tbCustomizationAllowedItemIdentifiers;
+}
+
+- (void) setCustomizationAllowedItemIdentifiers: (NSArray *) value {
+    value = value ? [value copy] : [[NSArray alloc] init];
+    [_tbCustomizationAllowedItemIdentifiers release];
+    _tbCustomizationAllowedItemIdentifiers = value;
+}
+
+- (NSArray *) customizationRequiredItemIdentifiers {
+    return _tbCustomizationRequiredItemIdentifiers;
+}
+
+- (void) setCustomizationRequiredItemIdentifiers: (NSArray *) value {
+    value = value ? [value copy] : [[NSArray alloc] init];
+    [_tbCustomizationRequiredItemIdentifiers release];
+    _tbCustomizationRequiredItemIdentifiers = value;
+}
+
+- (NSArray *) defaultItemIdentifiers {
+    return _tbDefaultItemIdentifiers;
+}
+
+- (void) setDefaultItemIdentifiers: (NSArray *) value {
+    value = value ? [value copy] : [[NSArray alloc] init];
+    [_tbDefaultItemIdentifiers release];
+    _tbDefaultItemIdentifiers = value;
+}
+
+// Without a customization palette the resolved list is the default list.
+- (NSArray *) itemIdentifiers {
+    return _tbDefaultItemIdentifiers;
+}
+
+- (NSTouchBarItemIdentifier) principalItemIdentifier {
+    return _tbPrincipalItemIdentifier;
+}
+
+- (void) setPrincipalItemIdentifier: (NSTouchBarItemIdentifier) value {
+    value = [value copy];
+    [_tbPrincipalItemIdentifier release];
+    _tbPrincipalItemIdentifier = value;
+}
+
+- (NSTouchBarItemIdentifier) escapeKeyReplacementItemIdentifier {
+    return _tbEscapeKeyReplacementItemIdentifier;
+}
+
+- (void) setEscapeKeyReplacementItemIdentifier: (NSTouchBarItemIdentifier) value {
+    value = [value copy];
+    [_tbEscapeKeyReplacementItemIdentifier release];
+    _tbEscapeKeyReplacementItemIdentifier = value;
+}
+
+- (NSSet *) templateItems {
+    return _tbTemplateItems;
+}
+
+- (void) setTemplateItems: (NSSet *) value {
+    value = value ? [value copy] : [[NSSet alloc] init];
+    [_tbTemplateItems release];
+    _tbTemplateItems = value;
+    [_tbItemCache removeAllObjects];
+}
+
+- (id<NSTouchBarDelegate>) delegate {
+    return _tbDelegate;
+}
+
+- (void) setDelegate: (id<NSTouchBarDelegate>) value {
+    _tbDelegate = value;
+}
+
+- (NSTouchBarItem *) itemForIdentifier: (NSTouchBarItemIdentifier) identifier {
+    if (identifier == nil)
+        return nil;
+
+    NSTouchBarItem *item = [_tbItemCache objectForKey: identifier];
+    if (item != nil)
+        return item;
+
+    for (NSTouchBarItem *candidate in _tbTemplateItems) {
+        if ([[candidate identifier] isEqual: identifier]) {
+            item = candidate;
+            break;
+        }
+    }
+
+    if (item == nil && [_tbDelegate respondsToSelector:
+                @selector(touchBar:makeItemForIdentifier:)])
+        item = [_tbDelegate touchBar: self makeItemForIdentifier: identifier];
+
+    if (item == nil &&
+        ([identifier isEqual: NSTouchBarItemIdentifierFixedSpaceSmall] ||
+         [identifier isEqual: NSTouchBarItemIdentifierFixedSpaceLarge] ||
+         [identifier isEqual: NSTouchBarItemIdentifierFlexibleSpace] ||
+         [identifier isEqual: NSTouchBarItemIdentifierOtherItemsProxy]))
+        item = [[[NSTouchBarItem alloc] initWithIdentifier: identifier]
+                autorelease];
+
+    if (item != nil)
+        [_tbItemCache setObject: item forKey: identifier];
+    return item;
+}
+
+// There is no Touch Bar hardware or provider to attach to.
+- (BOOL) isVisible {
+    return NO;
 }
 
 @end

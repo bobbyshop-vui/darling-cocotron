@@ -18,45 +18,74 @@
  */
 
 #import <AppKit/NSScrubberItemView.h>
+#import <AppKit/NSScrubberLayoutAttributes.h>
+#import <AppKit/NSText.h>
+#import <AppKit/NSTextField.h>
 
 @implementation NSScrubberArrangedView
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (BOOL) isSelected {
+    return _selected;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (void) setSelected: (BOOL) flag {
+    if (_selected == flag)
+        return;
+    _selected = flag;
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) isHighlighted {
+    return _highlighted;
+}
+
+- (void) setHighlighted: (BOOL) flag {
+    if (_highlighted == flag)
+        return;
+    _highlighted = flag;
+    [self setNeedsDisplay: YES];
+}
+
+- (void) applyLayoutAttributes: (NSScrubberLayoutAttributes *) layoutAttributes {
+    if (layoutAttributes == nil)
+        return;
+    [self setFrame: [layoutAttributes frame]];
+    [self setAlphaValue: [layoutAttributes alpha]];
 }
 
 @end
 
 @implementation NSScrubberItemView
-
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
-}
-
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
-}
-
 @end
 
 @implementation NSScrubberTextItemView
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (void) dealloc {
+    [_textField release];
+    [super dealloc];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (NSTextField *) textField {
+    if (_textField == nil) {
+        _textField = [[NSTextField alloc] initWithFrame: [self bounds]];
+        [_textField setEditable: NO];
+        [_textField setSelectable: NO];
+        [_textField setBezeled: NO];
+        [_textField setBordered: NO];
+        [_textField setDrawsBackground: NO];
+        [_textField setAlignment: NSCenterTextAlignment];
+        [_textField setAutoresizingMask: NSViewWidthSizable | NSViewHeightSizable];
+        [self addSubview: _textField];
+    }
+    return _textField;
+}
+
+- (NSString *) title {
+    return [[self textField] stringValue];
+}
+
+- (void) setTitle: (NSString *) title {
+    [[self textField] setStringValue: title ? title : @""];
 }
 
 @end

@@ -31,6 +31,9 @@ APPKIT_EXPORT BOOL NSIsControllerMarker(id object);
 }
 
 - (BOOL) commitEditing;
+- (void) commitEditingWithDelegate: (id) delegate
+                 didCommitSelector: (SEL) didCommitSelector
+                       contextInfo: (void *) contextInfo;
 - (void) discardEditing;
 - (BOOL) isEditing;
 - (void) objectDidBeginEditing: editor;

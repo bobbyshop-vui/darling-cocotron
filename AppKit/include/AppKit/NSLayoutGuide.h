@@ -19,7 +19,33 @@
 
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
+#import <Foundation/NSLayoutAnchor.h>
+#import <AppKit/NSLayoutConstraint.h>
 
-@interface NSLayoutGuide : NSObject <NSCoding>
+@interface NSLayoutGuide : NSObject <NSCoding> {
+    NSString *_identifier;
+    NSLayoutAnchor *_leadingAnchor, *_trailingAnchor, *_leftAnchor,
+            *_rightAnchor, *_topAnchor, *_bottomAnchor, *_centerXAnchor,
+            *_centerYAnchor;
+    NSLayoutDimension *_widthAnchor, *_heightAnchor;
+}
+
+- (NSString *) identifier;
+- (void) setIdentifier: (NSString *) identifier;
+
+- (NSLayoutAnchor *) leadingAnchor;
+- (NSLayoutAnchor *) trailingAnchor;
+- (NSLayoutAnchor *) leftAnchor;
+- (NSLayoutAnchor *) rightAnchor;
+- (NSLayoutAnchor *) topAnchor;
+- (NSLayoutAnchor *) bottomAnchor;
+- (NSLayoutDimension *) widthAnchor;
+- (NSLayoutDimension *) heightAnchor;
+- (NSLayoutAnchor *) centerXAnchor;
+- (NSLayoutAnchor *) centerYAnchor;
+
+- (BOOL) hasAmbiguousLayout;
+- (NSArray *) constraintsAffectingLayoutForOrientation:
+        (NSLayoutConstraintOrientation) orientation;
 
 @end

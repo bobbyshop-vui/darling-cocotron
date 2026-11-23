@@ -1,7 +1,7 @@
 #import <AppKit/AppKitExport.h>
 #import <Foundation/NSObject.h>
 
-@class NSMutableDictionary;
+@class NSMutableDictionary, NSMutableArray, NSView, NSViewController, NSPrintInfo;
 
 enum {
 
@@ -20,6 +20,9 @@ typedef NSInteger NSPrintPanelOptions;
 @interface NSPrintPanel : NSObject {
     NSMutableDictionary *_attributes;
     NSInteger _options;
+    NSMutableArray *_accessoryControllers;
+    NSString *_defaultButtonTitle;
+    NSView *_accessoryView;
 }
 
 + (NSPrintPanel *) printPanel;
@@ -28,6 +31,13 @@ typedef NSInteger NSPrintPanelOptions;
 - (NSPrintPanelOptions) options;
 
 - (int) runModal;
+
+- (void) setAccessoryView: (NSView *) view;
+- (NSView *) accessoryView;
+- (void) addAccessoryController: (NSViewController *) accessoryController;
+- (NSPrintInfo *) printInfo;
+- (void) setDefaultButtonTitle: (NSString *) title;
+- (NSString *) defaultButtonTitle;
 
 - (void) updateFromPrintInfo;
 - (void) finalWritePrintInfo;

@@ -19,16 +19,75 @@
 
 #import <AppKit/NSLayoutGuide.h>
 
+#define NSLAYOUTGUIDE_LAZY_ANCHOR(name, ivar, cls)                             \
+    - (cls *) name {                                                           \
+        if (ivar == nil)                                                       \
+            ivar = [[cls alloc] init];                                         \
+        return ivar;                                                           \
+    }
+
 @implementation NSLayoutGuide
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (instancetype) initWithCoder: (NSCoder *) coder {
+    if ((self = [super init]) != nil) {
+        if ([coder allowsKeyedCoding])
+            _identifier = [[coder decodeObjectForKey: @"NSLayoutGuideIdentifier"]
+                    copy];
+    }
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (void) encodeWithCoder: (NSCoder *) coder {
+    if ([coder allowsKeyedCoding] && _identifier != nil)
+        [coder encodeObject: _identifier forKey: @"NSLayoutGuideIdentifier"];
+}
+
+- (void) dealloc {
+    [_identifier release];
+    [_leadingAnchor release];
+    [_trailingAnchor release];
+    [_leftAnchor release];
+    [_rightAnchor release];
+    [_topAnchor release];
+    [_bottomAnchor release];
+    [_centerXAnchor release];
+    [_centerYAnchor release];
+    [_widthAnchor release];
+    [_heightAnchor release];
+    [super dealloc];
+}
+
+- (NSString *) identifier {
+    return _identifier;
+}
+
+- (void) setIdentifier: (NSString *) identifier {
+    identifier = [identifier copy];
+    [_identifier release];
+    _identifier = identifier;
+}
+
+NSLAYOUTGUIDE_LAZY_ANCHOR(leadingAnchor, _leadingAnchor, NSLayoutAnchor)
+NSLAYOUTGUIDE_LAZY_ANCHOR(trailingAnchor, _trailingAnchor, NSLayoutAnchor)
+NSLAYOUTGUIDE_LAZY_ANCHOR(leftAnchor, _leftAnchor, NSLayoutAnchor)
+NSLAYOUTGUIDE_LAZY_ANCHOR(rightAnchor, _rightAnchor, NSLayoutAnchor)
+NSLAYOUTGUIDE_LAZY_ANCHOR(topAnchor, _topAnchor, NSLayoutAnchor)
+NSLAYOUTGUIDE_LAZY_ANCHOR(bottomAnchor, _bottomAnchor, NSLayoutAnchor)
+NSLAYOUTGUIDE_LAZY_ANCHOR(centerXAnchor, _centerXAnchor, NSLayoutAnchor)
+NSLAYOUTGUIDE_LAZY_ANCHOR(centerYAnchor, _centerYAnchor, NSLayoutAnchor)
+NSLAYOUTGUIDE_LAZY_ANCHOR(widthAnchor, _widthAnchor, NSLayoutDimension)
+NSLAYOUTGUIDE_LAZY_ANCHOR(heightAnchor, _heightAnchor, NSLayoutDimension)
+
+- (BOOL) hasAmbiguousLayout {
+    // There is no constraint solver, so layout is never ambiguous.
+    return NO;
+}
+
+- (NSArray *) constraintsAffectingLayoutForOrientation:
+        (NSLayoutConstraintOrientation) orientation
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    // No constraint is known to affect the layout without a solver.
+    return [NSArray array];
 }
 
 @end

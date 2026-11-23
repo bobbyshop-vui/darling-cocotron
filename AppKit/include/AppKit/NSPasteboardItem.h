@@ -17,13 +17,38 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#import <Foundation/NSObject.h>
+#import <Foundation/Foundation.h>
+#import <AppKit/NSPasteboard.h>
 
-@interface NSPasteboardItem : NSObject
+@protocol NSPasteboardItemDataProvider;
+
+@interface NSPasteboardItem : NSObject <NSPasteboardWriting, NSPasteboardReading> {
+    NSPasteboard *_pasteboard;
+    NSUInteger _index;
+    NSMutableArray *_types;
+    NSMutableDictionary *_data;
+    NSMutableDictionary *_providers;
+}
+
+- (NSArray<NSPasteboardType> *) types;
+- (NSPasteboardType) availableTypeFromArray: (NSArray<NSPasteboardType> *) types;
+- (BOOL) setDataProvider: (id<NSPasteboardItemDataProvider>) dataProvider
+                forTypes: (NSArray<NSPasteboardType> *) types;
+- (BOOL) setData: (NSData *) data forType: (NSPasteboardType) type;
+- (BOOL) setString: (NSString *) string forType: (NSPasteboardType) type;
+- (BOOL) setPropertyList: (id) propertyList forType: (NSPasteboardType) type;
+- (NSData *) dataForType: (NSPasteboardType) type;
+- (NSString *) stringForType: (NSPasteboardType) type;
+- (id) propertyListForType: (NSPasteboardType) type;
+
 @end
 
 @protocol NSPasteboardItemDataProvider <NSObject>
-
-// TODO
+@required
+- (void) pasteboard: (NSPasteboard *) pasteboard
+               item: (NSPasteboardItem *) item
+        provideDataForType: (NSPasteboardType) type;
+@optional
+- (void) pasteboardFinishedWithDataProvider: (NSPasteboard *) pasteboard;
 
 @end

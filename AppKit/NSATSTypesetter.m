@@ -21,6 +21,16 @@
 
 @implementation NSATSTypesetter
 
++ (NSATSTypesetter *) sharedTypesetter {
+    static NSATSTypesetter *shared = nil;
+    static dispatch_once_t once;
+
+    dispatch_once(&once, ^{
+      shared = [[NSATSTypesetter alloc] init];
+    });
+    return shared;
+}
+
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {
     return [NSMethodSignature signatureWithObjCTypes: "v@:"];

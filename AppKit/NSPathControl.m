@@ -4,6 +4,65 @@
 
 @implementation NSPathControl
 
+- (void) dealloc {
+    [_pathItems release];
+    [super dealloc];
+}
+
+- (NSArray<NSString *> *) allowedTypes {
+    NSPathCell *cell = [self cell];
+    return [cell allowedTypes];
+}
+
+- (void) setAllowedTypes: (NSArray<NSString *> *) allowedTypes {
+    NSPathCell *cell = [self cell];
+    [cell setAllowedTypes: allowedTypes];
+}
+
+- (NSString *) placeholderString {
+    NSPathCell *cell = [self cell];
+    return [cell placeholderString];
+}
+
+- (void) setPlaceholderString: (NSString *) string {
+    NSPathCell *cell = [self cell];
+    [cell setPlaceholderString: string];
+}
+
+- (NSAttributedString *) placeholderAttributedString {
+    NSPathCell *cell = [self cell];
+    return [cell placeholderAttributedString];
+}
+
+- (void) setPlaceholderAttributedString: (NSAttributedString *) string {
+    NSPathCell *cell = [self cell];
+    [cell setPlaceholderAttributedString: string];
+}
+
+- (NSArray<NSPathControlItem *> *) pathItems {
+    return _pathItems != nil ? _pathItems : [NSArray array];
+}
+
+- (void) setPathItems: (NSArray<NSPathControlItem *> *) items {
+    NSArray *copy = [items copy];
+    [_pathItems release];
+    _pathItems = copy;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSPathControlItem *) clickedPathItem {
+    // Items correspond one to one with the component cells
+    NSPathComponentCell *clicked = [self clickedPathComponentCell];
+    if (clicked == nil) {
+        return nil;
+    }
+    NSUInteger index = [[self pathComponentCells] indexOfObjectIdenticalTo: clicked];
+    if (index == NSNotFound || index >= [_pathItems count]) {
+        return nil;
+    }
+    return [_pathItems objectAtIndex: index];
+}
+
 - (BOOL) isFlipped {
     return YES;
 }

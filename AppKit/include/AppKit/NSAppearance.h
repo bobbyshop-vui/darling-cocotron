@@ -18,6 +18,8 @@
 */
 
 #import <AppKit/AppKitExport.h>
+#import <Foundation/NSArray.h>
+#import <Foundation/NSCoder.h>
 #import <Foundation/NSObject.h>
 #import <Foundation/NSString.h>
 
@@ -37,9 +39,19 @@ APPKIT_EXPORT NSString
 
 APPKIT_EXPORT NSString *const NSAppearanceNameControlStrip; // Undocumented
 
-@interface NSAppearance : NSObject <NSSecureCoding>
+@interface NSAppearance : NSObject <NSSecureCoding> {
+    NSAppearanceName _name;
+}
+
++ (NSAppearance *) currentAppearance;
++ (void) setCurrentAppearance: (NSAppearance *) appearance;
 
 + (NSAppearance *) appearanceNamed: (NSAppearanceName) name;
+
+- (NSAppearanceName) name;
+- (BOOL) allowsVibrancy;
+- (NSAppearanceName) bestMatchFromAppearancesWithNames:
+        (NSArray *) appearances;
 
 @end
 

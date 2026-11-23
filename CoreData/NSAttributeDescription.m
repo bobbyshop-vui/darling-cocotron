@@ -91,4 +91,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _defaultValue = value;
 }
 
+- (NSString *) valueTransformerName {
+    return _valueTransformerName;
+}
+
+- (void) setValueTransformerName: (NSString *) value {
+    if ([_entity _hasBeenInstantiated]) {
+        NSLog(@"Attempt to modify entity after instantiating it.");
+        return;
+    }
+
+    value = [value copy];
+    [_valueTransformerName release];
+    _valueTransformerName = value;
+}
+
+- (BOOL) allowsExternalBinaryDataStorage {
+    return _darlingAllowsExternalBinaryDataStorage;
+}
+
+- (void) setAllowsExternalBinaryDataStorage: (BOOL) flag {
+    if ([_entity _hasBeenInstantiated]) {
+        NSLog(@"Attempt to modify entity after instantiating it.");
+        return;
+    }
+
+    _darlingAllowsExternalBinaryDataStorage = flag;
+}
+
 @end

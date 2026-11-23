@@ -48,6 +48,24 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 - (void) _uniqueObjectID: (NSManagedObjectID *) objectID;
 @end
 
+/*
+ * Key under which the most recently used context of a thread is remembered, so
+ * +[NSManagedObject entity], +[NSManagedObject fetchRequest] and
+ * -[NSFetchRequest execute:] can find the context they implicitly operate on.
+ */
+static NSString *const NSManagedObjectContextThreadKey =
+        @"NSManagedObjectContextCurrentContext";
+
+static void NSManagedObjectContextSetCurrent(NSManagedObjectContext *context) {
+    NSMutableDictionary *dict = [[NSThread currentThread] threadDictionary];
+
+    if (context == nil)
+        [dict removeObjectForKey: NSManagedObjectContextThreadKey];
+    else
+        [dict setObject: [NSValue valueWithNonretainedObject: context]
+                 forKey: NSManagedObjectContextThreadKey];
+}
+
 @implementation NSManagedObjectContext
 
 - init {
@@ -62,6 +80,8 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     _objectIdToObject = NSCreateMapTable(NSObjectMapKeyCallBacks,
                                          NSObjectMapValueCallBacks, 0);
     _requestedProcessPendingChanges = NO;
+    _contextUserInfo = [[NSMutableDictionary alloc] init];
+    NSManagedObjectContextSetCurrent(self);
     return self;
 }
 
@@ -88,6 +108,7 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     if (block == nil) {
         return;
     }
+    NSManagedObjectContextSetCurrent(self);
     block();
 }
 
@@ -95,10 +116,19 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     if (block == nil) {
         return;
     }
+    NSManagedObjectContextSetCurrent(self);
     block();
 }
 
 - (void) dealloc {
+    NSValue *current = [[[NSThread currentThread] threadDictionary]
+            objectForKey: NSManagedObjectContextThreadKey];
+
+    if ([current nonretainedObjectValue] == self)
+        NSManagedObjectContextSetCurrent(nil);
+    [_contextName release];
+    [_parentContext release];
+    [_contextUserInfo release];
     [_storeCoordinator release];
     [_undoManager release];
     [_registeredObjects release];
@@ -285,6 +315,61 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     }
 }
 
+- (NSManagedObject *) existingObjectWithID: (NSManagedObjectID *) objectID
+                                     error: (NSError **) error
+{
+    NSManagedObject *result = nil;
+
+    if (objectID != nil) {
+        result = [self objectRegisteredForID: objectID];
+
+        if (result != nil && [_deletedObjects containsObject: result])
+            result = nil;
+
+        if (result == nil && ![objectID isTemporaryID] &&
+            [self _cacheNodeForObjectID: objectID] != nil)
+            result = [self objectWithID: objectID];
+    }
+
+    if (result == nil && error != NULL)
+        *error = [NSError
+                errorWithDomain: NSCocoaErrorDomain
+                           code: 133000
+                       userInfo: [NSDictionary
+                                         dictionaryWithObject: @"The object "
+                                                               @"does not "
+                                                               @"exist in the "
+                                                               @"context or "
+                                                               @"store."
+                                                       forKey:
+                                                               NSLocalizedDescriptionKey]];
+    return result;
+}
+
+- (NSString *) name {
+    return _contextName;
+}
+
+- (void) setName: (NSString *) value {
+    value = [value copy];
+    [_contextName release];
+    _contextName = value;
+}
+
+- (NSManagedObjectContext *) parentContext {
+    return _parentContext;
+}
+
+- (void) setParentContext: (NSManagedObjectContext *) value {
+    value = [value retain];
+    [_parentContext release];
+    _parentContext = value;
+}
+
+- (NSMutableDictionary *) userInfo {
+    return _contextUserInfo;
+}
+
 - (NSManagedObject *) objectWithID: (NSManagedObjectID *) objectID {
     NSManagedObject *result = NSMapGet(_objectIdToObject, objectID);
 
@@ -302,6 +387,8 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 - (NSArray *) executeFetchRequest: (NSFetchRequest *) fetchRequest
                             error: (NSError **) error
 {
+    NSManagedObjectContextSetCurrent(self);
+
     NSArray *affectedStores = [fetchRequest affectedStores];
 
     if (affectedStores == nil)

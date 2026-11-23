@@ -508,6 +508,26 @@ static NSSpellChecker *shared = nil;
 }
 
 #pragma mark -
+#pragma mark Automatic Substitutions
+
+static BOOL NSSpellCheckerDefaultsFlag(NSString *key) {
+    id value = [[NSUserDefaults standardUserDefaults] objectForKey: key];
+    return (value == nil) ? YES : [value boolValue];
+}
+
++ (BOOL) isAutomaticDashSubstitutionEnabled {
+    return NSSpellCheckerDefaultsFlag(@"NSAutomaticDashSubstitutionEnabled");
+}
+
++ (BOOL) isAutomaticQuoteSubstitutionEnabled {
+    return NSSpellCheckerDefaultsFlag(@"NSAutomaticQuoteSubstitutionEnabled");
+}
+
++ (BOOL) isAutomaticTextCompletionEnabled {
+    return NSSpellCheckerDefaultsFlag(@"NSAutomaticTextCompletionEnabled");
+}
+
+#pragma mark -
 #pragma mark Automatic Spelling Correction
 
 + (BOOL) isAutomaticSpellingCorrectionEnabled {

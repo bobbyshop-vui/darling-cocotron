@@ -148,6 +148,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_configurations setObject: entities forKey: configuration];
 }
 
+- (NSDictionary *) fetchRequestTemplatesByName {
+    return [NSDictionary dictionaryWithDictionary: _fetchRequestTemplates];
+}
+
 - (NSFetchRequest *) fetchRequestTemplateForName: (NSString *) name {
     return [_fetchRequestTemplates objectForKey: name];
 }

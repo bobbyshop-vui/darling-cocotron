@@ -288,6 +288,21 @@ static NSLock *_cacheLock = nil;
     return [self messageFontOfSize: size];
 }
 
++ (NSFont *) systemFontOfSize: (CGFloat) size weight: (NSFontWeight) weight {
+    // Only regular and bold faces are available; NSFontWeight values at or
+    // above semibold map to bold, everything else to the regular face.
+    if (weight >= 0.3)
+        return [self boldSystemFontOfSize: size];
+    return [self systemFontOfSize: size];
+}
+
++ (NSFont *) monospacedDigitSystemFontOfSize: (CGFloat) size
+                                      weight: (NSFontWeight) weight
+{
+    // The system fonts here have no separate monospaced digit variant.
+    return [self systemFontOfSize: size weight: weight];
+}
+
 + (NSFont *) titleBarFontOfSize: (CGFloat) size {
     return [self boldSystemFontOfSize: size];
 }
@@ -561,6 +576,23 @@ static NSLock *_cacheLock = nil;
     return 0;
 }
 
++ (NSFont *) fontWithDescriptor: (NSFontDescriptor *) descriptor
+                  textTransform: (NSAffineTransform *) transform
+{
+    CGFloat size = [descriptor pointSize];
+    if (size == 0)
+        size = [self systemFontSize];
+
+    if (transform != nil) {
+        NSAffineTransformStruct fields = [transform transformStruct];
+        // Only a uniform scale can be represented by a point size here.
+        if (fields.m11 > 0 && fields.m11 == fields.m22 &&
+            fields.m12 == 0 && fields.m21 == 0)
+            size *= fields.m11;
+    }
+    return [self fontWithDescriptor: descriptor size: size];
+}
+
 - copyWithZone: (NSZone *) zone {
     return [self retain];
 }
@@ -772,6 +804,12 @@ static NSLock *_cacheLock = nil;
 - (CGFloat) defaultLineHeightForFont {
     return roundf(CTFontGetAscent(_ctFont) + CTFontGetDescent(_ctFont) +
                   CTFontGetLeading(_ctFont));
+}
+
+- (BOOL) isVertical {
+    if (_ctFont != NULL)
+        return (CTFontGetSymbolicTraits(_ctFont) & kCTFontVerticalTrait) != 0;
+    return [_name hasPrefix: @"@"];
 }
 
 - (BOOL) isFixedPitch {

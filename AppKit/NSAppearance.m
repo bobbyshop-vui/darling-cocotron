@@ -42,22 +42,112 @@ NSString *const NSAppearanceNameControlStrip =
 
 @implementation NSAppearance
 
+static NSAppearance *_currentAppearance = nil;
+static NSMutableDictionary *_namedAppearances = nil;
+
++ (NSAppearance *) currentAppearance {
+    @synchronized(self) {
+        if (_currentAppearance == nil)
+            return [self appearanceNamed: NSAppearanceNameAqua];
+        return _currentAppearance;
+    }
+}
+
++ (void) setCurrentAppearance: (NSAppearance *) appearance {
+    @synchronized(self) {
+        if (appearance != _currentAppearance) {
+            [_currentAppearance release];
+            _currentAppearance = [appearance retain];
+        }
+    }
+}
+
 + (NSAppearance *) appearanceNamed: (NSAppearanceName) name {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return [NSAppearance alloc];
+    if (name == nil)
+        return nil;
+
+    @synchronized(self) {
+        NSAppearance *result = [_namedAppearances objectForKey: name];
+
+        if (result == nil) {
+            result = [[[NSAppearance alloc] init] autorelease];
+            result->_name = [name copy];
+
+            if (_namedAppearances == nil)
+                _namedAppearances = [[NSMutableDictionary alloc] init];
+            [_namedAppearances setObject: result forKey: name];
+        }
+        return result;
+    }
+}
+
+- (void) dealloc {
+    [_name release];
+    [super dealloc];
+}
+
+- (NSAppearanceName) name {
+    return _name;
+}
+
+- (BOOL) allowsVibrancy {
+    return [_name isEqualToString: NSAppearanceNameVibrantDark] ||
+           [_name isEqualToString: NSAppearanceNameVibrantLight] ||
+           [_name isEqualToString:
+                          NSAppearanceNameAccessibilityHighContrastVibrantDark] ||
+           [_name isEqualToString:
+                          NSAppearanceNameAccessibilityHighContrastVibrantLight];
+}
+
+// The appearance an appearance falls back to when it is not offered.
+static NSAppearanceName fallbackForAppearanceName(NSAppearanceName name) {
+    if ([name isEqualToString: NSAppearanceNameAccessibilityHighContrastAqua] ||
+        [name isEqualToString: NSAppearanceNameDarkAqua] ||
+        [name isEqualToString: NSAppearanceNameVibrantLight] ||
+        [name isEqualToString: NSAppearanceNameLightContent])
+        return NSAppearanceNameAqua;
+    if ([name isEqualToString:
+                      NSAppearanceNameAccessibilityHighContrastDarkAqua] ||
+        [name isEqualToString: NSAppearanceNameVibrantDark])
+        return NSAppearanceNameDarkAqua;
+    if ([name isEqualToString:
+                      NSAppearanceNameAccessibilityHighContrastVibrantLight])
+        return NSAppearanceNameVibrantLight;
+    if ([name isEqualToString:
+                      NSAppearanceNameAccessibilityHighContrastVibrantDark])
+        return NSAppearanceNameVibrantDark;
+    return nil;
+}
+
+- (NSAppearanceName) bestMatchFromAppearancesWithNames:
+        (NSArray *) appearances
+{
+    NSAppearanceName name = _name;
+
+    while (name != nil) {
+        if ([appearances containsObject: name])
+            return name;
+        name = fallbackForAppearanceName(name);
+    }
+    return nil;
 }
 
 - (void) encodeWithCoder: (NSCoder *) aCoder {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+    if ([aCoder allowsKeyedCoding])
+        [aCoder encodeObject: _name forKey: @"NSName"];
 }
 
 - (id) initWithCoder: (NSCoder *) aDecoder {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return self;
+    NSString *name = nil;
+
+    if ([aDecoder allowsKeyedCoding])
+        name = [aDecoder decodeObjectForKey: @"NSName"];
+
+    [self release];
+    return [[NSAppearance appearanceNamed: name ?: NSAppearanceNameAqua] retain];
 }
 
-+ (BOOL) supportsSecureCoding
-{
++ (BOOL) supportsSecureCoding {
     return YES;
 }
 

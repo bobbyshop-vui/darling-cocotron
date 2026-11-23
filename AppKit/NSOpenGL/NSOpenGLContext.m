@@ -94,6 +94,10 @@ static inline void _clearCurrentContext() {
     [super dealloc];
 }
 
+- (NSOpenGLPixelFormat *) pixelFormat {
+    return _pixelFormat;
+}
+
 - (NSView *) view {
     return _view;
 }

@@ -19,6 +19,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 // Original - Christopher Lloyd <cjwl@objc.net>
 #import <AppKit/NSApplication.h>
+#import <AppKit/NSColorSpace.h>
 #import <AppKit/NSDisplay.h>
 #import <AppKit/NSScreen.h>
 #import <AppKit/NSWindow.h>
@@ -48,6 +49,15 @@ NSNotificationName const NSScreenColorSpaceDidChangeNotification = @"NSScreenCol
     return result;
 }
 
++ (NSScreen *) deepestScreen {
+    NSScreen *best = nil;
+    for (NSScreen *screen in [self screens]) {
+        if (best == nil || [screen depth] > [best depth])
+            best = screen;
+    }
+    return best;
+}
+
 + (NSArray *) screens {
     return [[NSDisplay currentDisplay] screens];
 }
@@ -66,6 +76,40 @@ NSNotificationName const NSScreenColorSpaceDidChangeNotification = @"NSScreenCol
 
 - (CGFloat) userSpaceScaleFactor {
     return 1.0;
+}
+
+- (CGFloat) backingScaleFactor {
+    // No Retina backing stores are available.
+    return 1.0;
+}
+
+- (NSColorSpace *) colorSpace {
+    return [NSColorSpace genericRGBColorSpace];
+}
+
+- (BOOL) canRepresentDisplayGamut: (NSInteger) displayGamut {
+    // Only sRGB (NSDisplayGamutSRGB == 1) is available; P3 is not.
+    return displayGamut == 1;
+}
+
+- (NSRect) convertRectToBacking: (NSRect) rect {
+    CGFloat scale = [self backingScaleFactor];
+
+    return NSMakeRect(rect.origin.x * scale, rect.origin.y * scale,
+                      rect.size.width * scale, rect.size.height * scale);
+}
+
+- (NSRect) convertRectFromBacking: (NSRect) rect {
+    CGFloat scale = [self backingScaleFactor];
+
+    return NSMakeRect(rect.origin.x / scale, rect.origin.y / scale,
+                      rect.size.width / scale, rect.size.height / scale);
+}
+
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options {
+    NSRect backing = [self convertRectToBacking: rect];
+    backing = NSIntegralRectWithOptions(backing, options);
+    return [self convertRectFromBacking: backing];
 }
 
 - (id) description {

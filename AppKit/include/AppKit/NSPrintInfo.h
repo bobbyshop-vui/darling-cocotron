@@ -79,7 +79,7 @@ APPKIT_EXPORT NSPrintJobDispositionValue const NSPrintCancelJob;
 
 APPKIT_EXPORT NSString *const NSPrintSavePath;
 
-@interface NSPrintInfo : NSObject <NSCopying> {
+@interface NSPrintInfo : NSObject <NSCopying, NSCoding> {
     NSMutableDictionary *_attributes;
 }
 
@@ -129,5 +129,11 @@ APPKIT_EXPORT NSString *const NSPrintSavePath;
 - (void) setVerticallyCentered: (BOOL) value;
 
 - (void) setUpPrintOperationDefaultValues;
+
+- (CGFloat) scalingFactor;
+- (void) setScalingFactor: (CGFloat) value;
+
+- initWithCoder: (NSCoder *) coder;
+- (void) encodeWithCoder: (NSCoder *) coder;
 
 @end

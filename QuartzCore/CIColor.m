@@ -1,3 +1,5 @@
+#import <AppKit/NSColor.h>
+#import <AppKit/NSGraphics.h>
 #import <QuartzCore/CIColor.h>
 
 @implementation CIColor
@@ -33,6 +35,19 @@
 
 - initWithCGColor: (CGColorRef) cgColor {
     _cgColor = CGColorRetain(cgColor);
+    return self;
+}
+
+- (instancetype) initWithColor: (NSColor *) color {
+    NSColor *rgb = [color colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
+    CGFloat red = 0, green = 0, blue = 0, alpha = 1;
+
+    [rgb getRed: &red green: &green blue: &blue alpha: &alpha];
+
+    CGColorRef cgColor = CGColorCreateGenericRGB(red, green, blue, alpha);
+
+    self = [self initWithCGColor: cgColor];
+    CGColorRelease(cgColor);
     return self;
 }
 

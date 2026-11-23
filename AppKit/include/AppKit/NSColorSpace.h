@@ -19,18 +19,45 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/NSObject.h>
+#import <Foundation/NSArray.h>
+#import <Foundation/NSString.h>
+
+typedef NS_ENUM(NSInteger, NSColorSpaceModel) {
+    NSColorSpaceModelUnknown = -1,
+    NSColorSpaceModelGray,
+    NSColorSpaceModelRGB,
+    NSColorSpaceModelCMYK,
+    NSColorSpaceModelLAB,
+    NSColorSpaceModelDeviceN,
+    NSColorSpaceModelIndexed,
+    NSColorSpaceModelPatterned
+};
 
 @interface NSColorSpace : NSObject {
     CGColorSpaceRef _cgColorSpace;
+    NSString *_localizedName;
 }
 
 @property(class, strong, readonly) NSColorSpace *deviceRGBColorSpace;
 @property(class, strong, readonly) NSColorSpace *sRGBColorSpace;
 
 + (NSColorSpace *) deviceRGBColorSpace;
++ (NSColorSpace *) deviceGrayColorSpace;
++ (NSColorSpace *) deviceCMYKColorSpace;
++ (NSColorSpace *) genericRGBColorSpace;
++ (NSColorSpace *) genericGrayColorSpace;
++ (NSColorSpace *) genericCMYKColorSpace;
++ (NSColorSpace *) genericGamma22GrayColorSpace;
++ (NSColorSpace *) extendedSRGBColorSpace;
++ (NSColorSpace *) displayP3ColorSpace;
++ (NSColorSpace *) adobeRGB1998ColorSpace;
++ (NSArray *) availableColorSpacesWithModel: (NSColorSpaceModel) model;
 
 - initWithCGColorSpace: (CGColorSpaceRef) cgColorSpace;
 
 - (CGColorSpaceRef) CGColorSpace;
+- (NSInteger) numberOfColorComponents;
+- (NSColorSpaceModel) colorSpaceModel;
+- (NSString *) localizedName;
 
 @end

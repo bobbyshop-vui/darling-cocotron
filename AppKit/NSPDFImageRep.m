@@ -103,6 +103,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return mediaBox.size;
 }
 
+- (NSRect) bounds {
+    CGPDFPageRef page = CGPDFDocumentGetPage(_document, _currentPage + 1);
+
+    if (page == NULL)
+        return NSZeroRect;
+
+    return CGPDFPageGetBoxRect(page, kCGPDFCropBox);
+}
+
 - (BOOL) draw {
     CGContextRef context = [[NSGraphicsContext currentContext] graphicsPort];
     CGPDFPageRef page = CGPDFDocumentGetPage(_document, _currentPage + 1);

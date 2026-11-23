@@ -41,6 +41,7 @@ enum {
     BOOL _isEditable;
     NSUInteger _resizingMask;
     NSSortDescriptor *_sortDescriptorPrototype;
+    BOOL _columnIsHidden;
 }
 
 - (instancetype) initWithIdentifier: (NSUserInterfaceItemIdentifier) identifier;
@@ -69,6 +70,11 @@ enum {
 - (void) setEditable: (BOOL) flag;
 - (void) setResizingMask: (NSUInteger) value;
 
+- (BOOL) isHidden;
+- (void) setHidden: (BOOL) flag;
+- (NSString *) title;
+- (void) setTitle: (NSString *) title;
+- (void) sizeToFit;
 - (NSCell *) dataCellForRow: (NSInteger) row;
 
 - (NSSortDescriptor *) sortDescriptorPrototype;

@@ -77,6 +77,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _tabStops = [[[self class] _defaultTabStops] mutableCopy];
     _hyphenationFactor = 0;
     _tighteningFactorForTruncation = 0;
+    _allowsDefaultTighteningForTruncation = YES;
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -103,6 +104,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         _hyphenationFactor = [coder decodeFloatForKey: @"HyphenationFactor"];
         _tighteningFactorForTruncation =
                 [coder decodeFloatForKey: @"TighteningFactor"];
+        _allowsDefaultTighteningForTruncation = YES;
+        if ([coder containsValueForKey: @"AllowsTightening"])
+            _allowsDefaultTighteningForTruncation =
+                    [coder decodeBoolForKey: @"AllowsTightening"];
     } else {
         [NSException raise: NSInvalidArgumentException
                     format: @"-[%@ %s] is not implemented for coder %@",
@@ -137,6 +142,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _tabStops = [other->_tabStops copy];
     _hyphenationFactor = other->_hyphenationFactor;
     _tighteningFactorForTruncation = other->_tighteningFactorForTruncation;
+    _allowsDefaultTighteningForTruncation =
+            other->_allowsDefaultTighteningForTruncation;
     return self;
 }
 
@@ -164,6 +171,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         [coder encodeFloat: _hyphenationFactor forKey: @"HyphenationFactor"];
         [coder encodeFloat: _tighteningFactorForTruncation
                     forKey: @"TighteningFactor"];
+        [coder encodeBool: _allowsDefaultTighteningForTruncation
+                   forKey: @"AllowsTightening"];
     } else {
         NSUnimplementedMethod();
     }
@@ -273,6 +282,10 @@ static inline id mutableCopyWithZone(NSParagraphStyle *self, NSZone *zone) {
     return _tighteningFactorForTruncation;
 }
 
+- (BOOL) allowsDefaultTighteningForTruncation {
+    return _allowsDefaultTighteningForTruncation;
+}
+
 - (BOOL) isEqual: (id) object {
     if (self == object) {
         return YES;
@@ -298,6 +311,8 @@ static inline id mutableCopyWithZone(NSParagraphStyle *self, NSZone *zone) {
             _hyphenationFactor == other->_hyphenationFactor &&
             _tighteningFactorForTruncation ==
                     other->_tighteningFactorForTruncation &&
+            _allowsDefaultTighteningForTruncation ==
+                    other->_allowsDefaultTighteningForTruncation &&
             (_tabStops == other->_tabStops ||
              [_tabStops isEqual: other->_tabStops]) &&
             (_textBlocks == other->_textBlocks ||

@@ -35,6 +35,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @interface NSColorScaleSliderCell : NSSliderCell
 @end
 
+@interface NSSliderCell ()
+- (NSRect) _sliderRect;
+@end
+
 @implementation NSSliderCell
 
 - (void) encodeWithCoder: (NSCoder *) coder {
@@ -280,6 +284,46 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (NSRect) trackRect {
     NSUnimplementedMethod();
     return NSZeroRect;
+}
+
+- (NSRect) barRectFlipped: (BOOL) flipped {
+    return [self _sliderRect];
+}
+
+- (void) setVertical: (BOOL) vertical {
+    _isVertical = vertical ? 1 : 0;
+}
+
+- (id) titleCell {
+    return nil; // returns nil since 10.0
+}
+
+- (void) setTitleColor: (NSColor *) color {
+    if (_titleColor != color) {
+        [_titleColor release];
+        _titleColor = [color retain];
+    }
+}
+
+- (NSColor *) titleColor {
+    return _titleColor;
+}
+
+- (void) setTitleFont: (NSFont *) font {
+    if (_titleFont != font) {
+        [_titleFont release];
+        _titleFont = [font retain];
+    }
+}
+
+- (NSFont *) titleFont {
+    return _titleFont;
+}
+
+- (void) dealloc {
+    [_titleColor release];
+    [_titleFont release];
+    [super dealloc];
 }
 
 - (NSRect) rectOfTickMarkAtIndex: (NSInteger) index {

@@ -198,6 +198,93 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_cell setPlaceholderAttributedString: placeholderAttributedString];
 }
 
++ (instancetype) labelWithString: (NSString *) stringValue {
+    NSTextField *field = [[[self alloc] initWithFrame: NSZeroRect] autorelease];
+
+    [field setEditable: NO];
+    [field setSelectable: NO];
+    [field setBezeled: NO];
+    [field setBordered: NO];
+    [field setDrawsBackground: NO];
+    [field setStringValue: stringValue ? stringValue : @""];
+    [field sizeToFit];
+    return field;
+}
+
++ (instancetype) wrappingLabelWithString: (NSString *) stringValue {
+    NSTextField *field = [[[self alloc] initWithFrame: NSZeroRect] autorelease];
+
+    [field setEditable: NO];
+    [field setSelectable: YES];
+    [field setBezeled: NO];
+    [field setBordered: NO];
+    [field setDrawsBackground: NO];
+    [field setLineBreakMode: NSLineBreakByWordWrapping];
+    [field setStringValue: stringValue ? stringValue : @""];
+    return field;
+}
+
++ (instancetype) textFieldWithString: (NSString *) stringValue {
+    NSTextField *field = [[[self alloc] initWithFrame: NSZeroRect] autorelease];
+
+    [field setEditable: YES];
+    [field setSelectable: YES];
+    [field setBezeled: YES];
+    [field setBezelStyle: NSTextFieldSquareBezel];
+    [field setDrawsBackground: YES];
+    [field setStringValue: stringValue ? stringValue : @""];
+    [field sizeToFit];
+    return field;
+}
+
+- (NSTextFieldBezelStyle) bezelStyle {
+    return [_cell bezelStyle];
+}
+
+- (void) setBezelStyle: (NSTextFieldBezelStyle) style {
+    [_cell setBezelStyle: style];
+}
+
+- (BOOL) allowsDefaultTighteningForTruncation {
+    return _darlingAllowsDefaultTightening;
+}
+
+- (void) setAllowsDefaultTighteningForTruncation: (BOOL) flag {
+    _darlingAllowsDefaultTightening = flag;
+}
+
+- (BOOL) isAutomaticTextCompletionEnabled {
+    return _darlingAutomaticTextCompletion;
+}
+
+- (void) setAutomaticTextCompletionEnabled: (BOOL) flag {
+    _darlingAutomaticTextCompletion = flag;
+}
+
+- (BOOL) allowsCharacterPickerTouchBarItem {
+    return _darlingAllowsCharacterPicker;
+}
+
+- (void) setAllowsCharacterPickerTouchBarItem: (BOOL) flag {
+    _darlingAllowsCharacterPicker = flag;
+}
+
+- (BOOL) allowsEditingTextAttributes {
+    return [_cell allowsEditingTextAttributes];
+}
+
+- (void) setAllowsEditingTextAttributes: (BOOL) flag {
+    [_cell setAllowsEditingTextAttributes: flag];
+}
+
+- (BOOL) importsGraphics {
+    return [_cell importsGraphics];
+}
+
+- (void) setImportsGraphics: (BOOL) flag {
+    [_cell setImportsGraphics: flag];
+}
+
 - (NSInteger) maximumNumberOfLines {
     // TODO
     return 0;

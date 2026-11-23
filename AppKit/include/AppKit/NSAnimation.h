@@ -55,7 +55,7 @@ APPKIT_EXPORT NSString *NSAnimationTriggerOrderOut;
 
 @end
 
-@interface NSAnimation : NSObject <NSCopying> {
+@interface NSAnimation : NSObject <NSCopying, NSCoding> {
     NSTimeInterval _duration;
     NSAnimationCurve _curve;
     float _frameRate;
@@ -72,6 +72,9 @@ APPKIT_EXPORT NSString *NSAnimationTriggerOrderOut;
 
 - initWithDuration: (NSTimeInterval) duration
         animationCurve: (NSAnimationCurve) curve;
+
+- initWithCoder: (NSCoder *) coder;
+- (void) encodeWithCoder: (NSCoder *) coder;
 
 - (NSTimeInterval) duration;
 - (NSAnimationCurve) animationCurve;

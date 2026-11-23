@@ -19,14 +19,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <Foundation/Foundation.h>
 
-@class NSPrintInfo;
+@class NSPrintInfo, NSView, NSViewController;
 
 @interface NSPageLayout : NSObject {
+    NSMutableArray *_accessoryControllers;
+    NSPrintInfo *_printInfo;
 }
 
 + (NSPageLayout *) pageLayout;
 
 - (int) runModalWithPrintInfo: (NSPrintInfo *) printInfo;
 - (int) runModal;
+
+- (NSView *) accessoryView;
+- (void) setAccessoryView: (NSView *) accessoryView;
+- (void) addAccessoryController: (NSViewController *) accessoryController;
+- (NSPrintInfo *) printInfo;
 
 @end

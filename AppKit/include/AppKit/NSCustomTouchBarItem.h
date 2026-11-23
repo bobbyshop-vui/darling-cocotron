@@ -21,7 +21,18 @@
 #import <AppKit/NSTouchBarItem.h>
 #import <Foundation/Foundation.h>
 
-@interface NSCustomTouchBarItem : NSTouchBarItem
+@interface NSCustomTouchBarItem : NSTouchBarItem {
+    NSView *_view;
+    NSViewController *_viewController;
+    NSString *_customizationLabel;
+}
+
+- (NSView *) view;
+- (void) setView: (NSView *) view;
+- (NSViewController *) viewController;
+- (void) setViewController: (NSViewController *) viewController;
+- (NSString *) customizationLabel;
+- (void) setCustomizationLabel: (NSString *) label;
 @end
 
 // Undocumented, used by Xcode

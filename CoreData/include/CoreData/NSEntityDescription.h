@@ -18,7 +18,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/Foundation.h>
 
-@class NSManagedObject, NSManagedObjectContext, NSManagedObjectModel,
+@class NSExpression, NSManagedObject, NSManagedObjectContext, NSManagedObjectModel,
         NSPropertyDescription, NSAttributeDescription;
 
 @interface NSEntityDescription : NSObject {
@@ -33,6 +33,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSMutableDictionary *_selectorPropertyMap;
     BOOL _isAbstract;
     BOOL _hasBeenInstantiated;
+    NSArray *_darlingIndexes;
+    NSArray *_darlingCompoundIndexes;
+    NSArray *_darlingUniquenessConstraints;
+    NSExpression *_darlingCoreSpotlightDisplayNameExpression;
 }
 
 - (BOOL) _hasBeenInstantiated;
@@ -58,6 +62,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) setProperties: (NSArray *) value;
 - (void) setSubentities: (NSArray *) value;
 - (void) setUserInfo: (NSDictionary *) value;
+
+- (NSString *) versionHashModifier;
+- (void) setVersionHashModifier: (NSString *) value;
+- (NSArray *) indexes;
+- (void) setIndexes: (NSArray *) value;
+- (NSArray *) compoundIndexes;
+- (void) setCompoundIndexes: (NSArray *) value;
+- (NSArray *) uniquenessConstraints;
+- (void) setUniquenessConstraints: (NSArray *) value;
+- (NSExpression *) coreSpotlightDisplayNameExpression;
+- (void) setCoreSpotlightDisplayNameExpression: (NSExpression *) value;
 
 - (NSEntityDescription *) superentity;
 - (NSDictionary *) subentitiesByName;

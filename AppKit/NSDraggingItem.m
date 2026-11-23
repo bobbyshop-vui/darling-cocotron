@@ -18,34 +18,122 @@
 */
 
 #import <AppKit/NSDraggingItem.h>
+#import <Foundation/Foundation.h>
 
 NSDraggingImageComponentKey const NSDraggingImageComponentIconKey = @"icon";
 NSDraggingImageComponentKey const NSDraggingImageComponentLabelKey = @"label";
 
 @implementation NSDraggingImageComponent
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+
+- (instancetype)initWithKey:(NSDraggingImageComponentKey)key
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    if ((self = [super init])) {
+        _key = [key copy];
+    }
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (void)dealloc
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    [_key release];
+    [_contents release];
+    [super dealloc];
 }
+
+- (NSDraggingImageComponentKey)key
+{
+    return _key;
+}
+
+- (void)setKey:(NSDraggingImageComponentKey)key
+{
+    if (_key != key) {
+        [_key release];
+        _key = [key copy];
+    }
+}
+
+- (id)contents
+{
+    return _contents;
+}
+
+- (void)setContents:(id)contents
+{
+    if (_contents != contents) {
+        [_contents release];
+        _contents = [contents retain];
+    }
+}
+
+- (NSRect)frame
+{
+    return _frame;
+}
+
+- (void)setFrame:(NSRect)frame
+{
+    _frame = frame;
+}
+
 
 @end
 
 @implementation NSDraggingItem
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+
+- (instancetype)initWithPasteboardWriter:(id<NSPasteboardWriting>)pasteboardWriter
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    if ((self = [super init])) {
+        _item = [(id)pasteboardWriter retain];
+        _draggingFrame = NSZeroRect;
+    }
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (void)dealloc
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    [_item release];
+    [_imageComponents release];
+    [_imageComponentsProvider release];
+    [super dealloc];
 }
+
+- (id)item
+{
+    return _item;
+}
+
+- (NSRect)draggingFrame
+{
+    return _draggingFrame;
+}
+
+- (void)setDraggingFrame:(NSRect)frame
+{
+    _draggingFrame = frame;
+}
+
+- (void)setDraggingFrame:(NSRect)frame contents:(id)contents
+{
+    _draggingFrame = frame;
+
+    NSDraggingImageComponent *component = [[NSDraggingImageComponent alloc]
+        initWithKey:NSDraggingImageComponentIconKey];
+    [component setContents:contents];
+    [component setFrame:NSMakeRect(0, 0, frame.size.width, frame.size.height)];
+    [_imageComponents release];
+    _imageComponents = [[NSArray alloc] initWithObjects:component, nil];
+    [component release];
+}
+
+- (NSArray *)imageComponents
+{
+    if (_imageComponents == nil && _imageComponentsProvider != nil)
+        return _imageComponentsProvider();
+    return _imageComponents;
+}
+
 
 @end

@@ -20,7 +20,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSControl.h>
 #import <AppKit/NSSliderCell.h>
 
-@interface NSSlider : NSControl
+@class NSColor, NSFont, NSSliderAccessoryBehavior;
+
+@interface NSSlider : NSControl {
+    NSColor *_trackFillColor;
+}
 
 - (double) minValue;
 - (double) maxValue;
@@ -50,5 +54,37 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (NSRect) rectOfTickMarkAtIndex: (NSInteger) index;
 
 - (BOOL) acceptsFirstMouse: (NSEvent *) event;
+
+- (void) setVertical: (BOOL) vertical;
+- (id) titleCell;
+- (void) setTitle: (NSString *) title;
+- (NSString *) title;
+- (void) setTitleColor: (NSColor *) color;
+- (NSColor *) titleColor;
+- (void) setTitleFont: (NSFont *) font;
+- (NSFont *) titleFont;
+- (void) setTrackFillColor: (NSColor *) color;
+- (NSColor *) trackFillColor;
+
+@end
+
+@interface NSSliderAccessory : NSObject {
+    NSSliderAccessoryBehavior *_behavior;
+    BOOL _enabled;
+}
+
+- (NSSliderAccessoryBehavior *) behavior;
+- (void) setBehavior: (NSSliderAccessoryBehavior *) behavior;
+- (BOOL) isEnabled;
+- (void) setEnabled: (BOOL) enabled;
+
+@end
+
+@interface NSSliderAccessoryBehavior : NSObject {
+    NSInteger _kind;
+}
+
++ (NSSliderAccessoryBehavior *) valueStepBehavior;
++ (NSSliderAccessoryBehavior *) valueResetBehavior;
 
 @end

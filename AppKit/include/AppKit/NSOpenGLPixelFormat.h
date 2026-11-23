@@ -18,6 +18,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <Foundation/NSObject.h>
+#import <Foundation/NSData.h>
 #import <OpenGL/OpenGL.h>
 
 enum {
@@ -65,10 +66,16 @@ typedef uint32_t NSOpenGLPixelFormatAttribute;
 @interface NSOpenGLPixelFormat : NSObject {
     void *_cglPixelFormat;
     GLint _numberOfVirtualScreens;
+    NSData *_attributes;
 }
 
 - (instancetype) initWithAttributes:
         (const NSOpenGLPixelFormatAttribute *) attributes;
+
+- (instancetype) initWithData: (NSData *) attribs;
+
+- (NSData *) attributes;
+- (void) setAttributes: (NSData *) attribs;
 
 - (void *) CGLPixelFormatObj;
 - (GLint) numberOfVirtualScreens;

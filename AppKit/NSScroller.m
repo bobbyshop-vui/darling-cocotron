@@ -27,6 +27,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSScroller.h>
 #import <AppKit/NSWindow.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import <objc/runtime.h>
 
 @implementation NSScroller
 
@@ -35,7 +36,37 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 + (NSScrollerStyle) preferredScrollerStyle {
-    NSUnimplementedMethod();
+    // No overlay scrollers on this platform: always the legacy style.
+    return NSScrollerStyleLegacy;
+}
+
++ (CGFloat) scrollerWidthForControlSize: (NSControlSize) controlSize
+                          scrollerStyle: (NSScrollerStyle) scrollerStyle
+{
+    CGFloat width = [self scrollerWidth];
+
+    switch (controlSize) {
+    case NSSmallControlSize:
+        return floor(width * 11.0 / 15.0);
+    case NSMiniControlSize:
+        return floor(width * 10.0 / 15.0);
+    default:
+        return width;
+    }
+}
+
++ (BOOL) isCompatibleWithOverlayScrollers {
+    // Overlay scrollers are only usable by classes that do not customise the
+    // drawing of the knob or the slot.
+    Class base = [NSScroller class];
+    if (self == base)
+        return YES;
+    return class_getMethodImplementation(self, @selector(drawKnob)) ==
+                   class_getMethodImplementation(base, @selector(drawKnob)) &&
+           class_getMethodImplementation(
+                   self, @selector(drawKnobSlotInRect:highlight:)) ==
+                   class_getMethodImplementation(
+                           base, @selector(drawKnobSlotInRect:highlight:));
 }
 /* OS X has a global default "AppleScrollBarVariant" with the values: Single,
  DoubleMin, DoubleMax, and DoubleBoth This controls the default position of the
@@ -195,6 +226,34 @@ static NSAppleScrollBarVariant appleScrollBarVariant(NSScroller *self) {
 
 - (void) setScrollerStyle: (NSScrollerStyle) style {
     _scrollerStyle = style;
+    [self setNeedsDisplay: YES];
+}
+
+- (void) setKnobProportion: (CGFloat) proportion {
+    if (proportion > 1)
+        proportion = 1;
+    if (proportion < 0)
+        proportion = 0;
+    _knobProportion = proportion;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSScrollerKnobStyle) knobStyle {
+    return _knobStyle;
+}
+
+- (void) setKnobStyle: (NSScrollerKnobStyle) style {
+    _knobStyle = style;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSControlTint) controlTint {
+    return _controlTint;
+}
+
+- (void) setControlTint: (NSControlTint) tint {
+    _controlTint = tint;
+    [self setNeedsDisplay: YES];
 }
 
 - (NSRect) frameOfDecrementPage {

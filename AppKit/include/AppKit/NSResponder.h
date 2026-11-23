@@ -18,12 +18,14 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSEvent.h>
+#import <AppKit/NSInterfaceStyle.h>
 #import <Foundation/Foundation.h>
 
-@class NSMenu, NSUndoManager;
+@class NSMenu, NSUndoManager, NSTouchBar, NSWindow;
 
 @interface NSResponder : NSObject <NSCoding> {
     id _nextResponder;
+    NSInterfaceStyle _interfaceStyle;
 }
 
 - (NSResponder *) nextResponder;
@@ -72,6 +74,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) rightMouseUp: (NSEvent *) event;
 - (void) rightMouseDown: (NSEvent *) event;
 - (void) rightMouseDragged: (NSEvent *) event;
+
+- (void) beginGestureWithEvent: (NSEvent *) event;
+- (void) endGestureWithEvent: (NSEvent *) event;
+- (void) magnifyWithEvent: (NSEvent *) event;
+- (void) pressureChangeWithEvent: (NSEvent *) event;
+- (void) quickLookWithEvent: (NSEvent *) event;
+- (void) rotateWithEvent: (NSEvent *) event;
+- (void) smartMagnifyWithEvent: (NSEvent *) event;
+- (void) swipeWithEvent: (NSEvent *) event;
+- (void) touchesBeganWithEvent: (NSEvent *) event;
+- (void) touchesCancelledWithEvent: (NSEvent *) event;
+- (void) touchesEndedWithEvent: (NSEvent *) event;
+- (void) touchesMovedWithEvent: (NSEvent *) event;
+- (void) otherMouseDown: (NSEvent *) event;
+- (void) otherMouseDragged: (NSEvent *) event;
+- (void) otherMouseUp: (NSEvent *) event;
+- (void) tabletPoint: (NSEvent *) event;
+- (void) tabletProximity: (NSEvent *) event;
+- (BOOL) wantsScrollEventsForSwipeTrackingOnAxis: (NSInteger) axis;
+- (id) supplementalTargetForAction: (SEL) action sender: (id) sender;
+- (BOOL) validateProposedFirstResponder: (NSResponder *) responder
+                               forEvent: (NSEvent *) event;
+- (NSTouchBar *) makeTouchBar;
+- (void) performTextFinderAction: (id) sender;
+- (void) newWindowForTab: (id) sender;
+- (NSInterfaceStyle) interfaceStyle;
+- (void) setInterfaceStyle: (NSInterfaceStyle) style;
+- (void) encodeRestorableStateWithCoder: (NSCoder *) coder;
+- (void) restoreStateWithCoder: (NSCoder *) coder;
+- (void) invalidateRestorableState;
 
 @end
 

@@ -48,6 +48,7 @@ typedef enum {
     NSMutableArray *_tabStops;
     float _hyphenationFactor;
     float _tighteningFactorForTruncation;
+    BOOL _allowsDefaultTighteningForTruncation;
 }
 
 + (NSParagraphStyle *) defaultParagraphStyle;
@@ -81,6 +82,7 @@ typedef enum {
 
 - (float) hyphenationFactor;
 - (float) tighteningFactorForTruncation;
+- (BOOL) allowsDefaultTighteningForTruncation;
 
 @end
 

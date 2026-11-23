@@ -19,16 +19,44 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSPrinter.h>
 
+#import <Foundation/Foundation.h>
+#import <AppKit/NSGraphics.h>
+
 @implementation NSPrinter
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (void) dealloc {
+    [_name release];
+    [_type release];
+    [super dealloc];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (NSString *) name {
+    return _name != nil ? _name : @"";
+}
+
+- (NSString *) type {
+    return _type != nil ? _type : @"";
+}
+
+- (NSDictionary *) deviceDescription {
+    return [NSDictionary dictionaryWithObject: [NSNumber numberWithBool: YES]
+                                       forKey: NSDeviceIsPrinter];
+}
+
+- (NSString *) domain {
+    return @"";
+}
+
+- (NSString *) host {
+    return @"localhost";
+}
+
+- (NSString *) note {
+    return @"";
+}
+
+- (BOOL) isColor {
+    return NO;
 }
 
 @end

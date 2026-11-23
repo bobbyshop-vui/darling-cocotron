@@ -19,6 +19,29 @@
 
 #import <Foundation/Foundation.h>
 
-@interface NSMergeConflict : NSObject
+@class NSManagedObject;
+
+@interface NSMergeConflict : NSObject {
+    NSManagedObject *_source;
+    NSDictionary *_objectSnapshot;
+    NSDictionary *_cachedSnapshot;
+    NSDictionary *_persistedSnapshot;
+    NSUInteger _newVersion;
+    NSUInteger _oldVersion;
+}
+
+@property (readonly, retain) NSManagedObject *sourceObject;
+@property (nullable, readonly, retain) NSDictionary<NSString *, id> *objectSnapshot;
+@property (nullable, readonly, retain) NSDictionary<NSString *, id> *cachedSnapshot;
+@property (nullable, readonly, retain) NSDictionary<NSString *, id> *persistedSnapshot;
+@property (readonly) NSUInteger newVersionNumber;
+@property (readonly) NSUInteger oldVersionNumber;
+
+- (instancetype) initWithSource: (NSManagedObject *) srcObject
+                     newVersion: (NSUInteger) newvers
+                     oldVersion: (NSUInteger) oldvers
+                 cachedSnapshot: (NSDictionary *) cachesnap
+              persistedSnapshot: (NSDictionary *) persnap;
+- (instancetype) init NS_UNAVAILABLE;
 
 @end

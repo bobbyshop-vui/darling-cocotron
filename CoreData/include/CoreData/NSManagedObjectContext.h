@@ -22,7 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSObject.h>
 #import <Foundation/NSString.h>
 
-@class NSSet, NSMutableSet, NSNotification, NSUndoManager, NSMapTable;
+@class NSMutableDictionary, NSError, NSSet, NSMutableSet, NSNotification, NSUndoManager, NSMapTable;
 @class NSManagedObject, NSManagedObjectID, NSFetchRequest, NSPersistentStore,
         NSPersistentStoreCoordinator;
 
@@ -58,6 +58,10 @@ COREDATA_EXPORT NSString *const NSPersistentStoreSaveConflictsErrorKey;
 
     //
     BOOL _requestedProcessPendingChanges;
+
+    NSString *_contextName;
+    NSManagedObjectContext *_parentContext;
+    NSMutableDictionary *_contextUserInfo;
 }
 
 - (instancetype) initWithConcurrencyType: (NSUInteger) concurrencyType;
@@ -98,6 +102,15 @@ COREDATA_EXPORT NSString *const NSPersistentStoreSaveConflictsErrorKey;
 - (NSManagedObject *) objectRegisteredForID: (NSManagedObjectID *) objectID;
 
 - (NSManagedObject *) objectWithID: (NSManagedObjectID *) objectID;
+
+- (NSManagedObject *) existingObjectWithID: (NSManagedObjectID *) objectID
+                                     error: (NSError **) error;
+
+- (NSString *) name;
+- (void) setName: (NSString *) value;
+- (NSManagedObjectContext *) parentContext;
+- (void) setParentContext: (NSManagedObjectContext *) value;
+- (NSMutableDictionary *) userInfo;
 
 - (NSArray *) executeFetchRequest: (NSFetchRequest *) request
                             error: (NSError **) error;

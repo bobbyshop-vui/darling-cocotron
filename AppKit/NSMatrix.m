@@ -622,6 +622,93 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _numberOfColumns++;
 }
 
+- (void) insertColumn: (NSInteger) column {
+    NSInteger i;
+
+    if (column < 0)
+        column = 0;
+    if (column > _numberOfColumns)
+        column = _numberOfColumns;
+
+    for (i = _numberOfRows - 1; i >= 0; i--) {
+        NSCell *cell = [self makeCellAtRow: i column: column];
+
+        [_cells insertObject: cell atIndex: i * _numberOfColumns + column];
+    }
+
+    _numberOfColumns++;
+}
+
+- (BOOL) autorecalculatesCellSize {
+    return _autorecalculatesCellSize;
+}
+
+- (void) setAutorecalculatesCellSize: (BOOL) flag {
+    _autorecalculatesCellSize = flag;
+}
+
+- (BOOL) isSelectionByRect {
+    return _selectionByRect;
+}
+
+- (void) setSelectionByRect: (BOOL) flag {
+    _selectionByRect = flag;
+}
+
+- (void) selectText: (id) sender {
+    NSCell *cell = [self keyCell];
+
+    if (cell == nil || ![cell isEditable]) {
+        NSInteger i, count = [_cells count];
+
+        cell = nil;
+        for (i = 0; i < count; i++) {
+            NSCell *check = [_cells objectAtIndex: i];
+
+            if ([check isEditable]) {
+                cell = check;
+                break;
+            }
+        }
+    }
+
+    if (cell != nil) {
+        _keyCellIndex = [_cells indexOfObjectIdenticalTo: cell];
+        [self _selectTextCell: cell];
+    }
+}
+
+- (void) sortUsingSelector: (SEL) comparator {
+    NSCell *selected = _selectedIndex >= 0 && _selectedIndex < [_cells count]
+                               ? [_cells objectAtIndex: _selectedIndex]
+                               : nil;
+    NSCell *key = _keyCellIndex >= 0 && _keyCellIndex < [_cells count]
+                          ? [_cells objectAtIndex: _keyCellIndex]
+                          : nil;
+    NSArray *sorted = [_cells sortedArrayUsingSelector: comparator];
+
+    [_cells setArray: sorted];
+    if (selected != nil)
+        _selectedIndex = [_cells indexOfObjectIdenticalTo: selected];
+    if (key != nil)
+        _keyCellIndex = [_cells indexOfObjectIdenticalTo: key];
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) textShouldBeginEditing: (NSText *) textObject {
+    if ([_delegate respondsToSelector: @selector(control:
+                                                 textShouldBeginEditing:)])
+        return [_delegate control: self textShouldBeginEditing: textObject];
+    return YES;
+}
+
+- (BOOL) textShouldEndEditing: (NSText *) textObject {
+    if ([_delegate respondsToSelector: @selector(control:
+                                                 textShouldEndEditing:)])
+        return [_delegate control: self textShouldEndEditing: textObject];
+    return YES;
+}
+
 - (void) removeColumn: (NSInteger) col {
     NSInteger i;
 

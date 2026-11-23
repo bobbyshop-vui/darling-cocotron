@@ -19,7 +19,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSResponder.h>
 
-@class NSWindow, NSDocument;
+@class NSWindow, NSDocument, NSViewController, NSStoryboard;
 
 @interface NSWindowController : NSResponder {
     NSWindow *_window;
@@ -31,6 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     BOOL _shouldCascadeWindows;
     NSString *_windowFrameAutosaveName;
     NSArray *_topLevelObjects;
+    NSViewController *_darlingContentViewController;
 }
 
 - initWithWindow: (NSWindow *) window;
@@ -68,5 +69,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) synchronizeWindowTitleWithDocumentName;
 - (NSString *) windowTitleForDocumentDisplayName: (NSString *) displayName;
+
+- (NSViewController *) contentViewController;
+- (void) setContentViewController: (NSViewController *) viewController;
+- (NSStoryboard *) storyboard;
 
 @end

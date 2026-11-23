@@ -21,6 +21,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSColor.h>
 #import <AppKit/NSColor_CGColor.h>
 #import <AppKit/NSColor_catalog.h>
+#import <AppKit/NSColorList.h>
+#import <AppKit/NSColorSpace.h>
 #import <AppKit/NSImage.h>
 #import <AppKit/NSRaise.h>
 
@@ -35,6 +37,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 static int NSColor_ignoresAlpha = -1;
 
 NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsDidChangeNotification";
+
+@protocol NSColorCIColorComponents
+- (CGFloat) red;
+- (CGFloat) green;
+- (CGFloat) blue;
+- (CGFloat) alpha;
+@end
+
+// Builds a catalog color in the "System" list with an explicit sRGB value.
+static NSColor *NSColorSystemCatalogColor(NSString *name, CGFloat r, CGFloat g,
+                                          CGFloat b, CGFloat a)
+{
+    NSColor *value = [NSColor colorWithSRGBRed: r green: g blue: b alpha: a];
+
+    return [NSColor_catalog colorWithCatalogName: @"System"
+                                       colorName: name
+                                           color: value];
+}
+
+static NSColorSpaceName NSColorSpaceNameForComponentCount(NSInteger count) {
+    switch (count) {
+    case 2:
+        return NSCalibratedWhiteColorSpace;
+    case 5:
+        return NSDeviceCMYKColorSpace;
+    default:
+        return NSCalibratedRGBColorSpace;
+    }
+}
 
 @interface NSColor (private)
 - (NSColorListName) catalogName;
@@ -494,6 +525,362 @@ NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsD
                                       [self alternatingContentBackgroundColor],
                                       nil];
 }
+
+#pragma mark - Catalog and semantic colors
+
++ (NSColor *) colorNamed: (NSColorName) name bundle: (NSBundle *) bundle {
+    if (name == nil)
+        return nil;
+
+    // There is no asset catalog support: fall back to the system color list,
+    // which is where macOS resolves un-prefixed system color names.
+    NSColor *result = [[NSColorList colorListNamed: @"System"] colorWithKey: name];
+
+    if (result == nil)
+        return nil;
+
+    return [NSColor colorWithCatalogName: @"System" colorName: name];
+}
+
++ (NSColor *) colorNamed: (NSColorName) name {
+    return [self colorNamed: name bundle: nil];
+}
+
++ (NSColor *) controlAccentColor {
+    return NSColorSystemCatalogColor(@"controlAccentColor", 0.0, 0.478431,
+                                     1.0, 1.0);
+}
+
+// 1 == NSBlueControlTint, the default accent
++ (NSUInteger) currentControlTint {
+    return 1;
+}
+
++ (NSColor *) findHighlightColor {
+    return NSColorSystemCatalogColor(@"findHighlightColor", 1.0, 1.0, 0.0,
+                                     1.0);
+}
+
++ (NSColor *) placeholderTextColor {
+    return NSColorSystemCatalogColor(@"placeholderTextColor", 0.0, 0.0, 0.0,
+                                     0.25);
+}
+
++ (NSColor *) secondaryLabelColor {
+    return NSColorSystemCatalogColor(@"secondaryLabelColor", 0.0, 0.0, 0.0,
+                                     0.498039);
+}
+
++ (NSColor *) tertiaryLabelColor {
+    return NSColorSystemCatalogColor(@"tertiaryLabelColor", 0.0, 0.0, 0.0,
+                                     0.259804);
+}
+
++ (NSColor *) quaternaryLabelColor {
+    return NSColorSystemCatalogColor(@"quaternaryLabelColor", 0.0, 0.0, 0.0,
+                                     0.098039);
+}
+
++ (NSColor *) separatorColor {
+    return NSColorSystemCatalogColor(@"separatorColor", 0.0, 0.0, 0.0,
+                                     0.098039);
+}
+
+// No Touch Bar textures are available, so use the flat Touch Bar black.
++ (NSColor *) scrubberTexturedBackgroundColor {
+    return NSColorSystemCatalogColor(@"scrubberTexturedBackgroundColor", 0.1,
+                                     0.1, 0.1, 1.0);
+}
+
++ (NSColor *) underPageBackgroundColor {
+    return NSColorSystemCatalogColor(@"underPageBackgroundColor", 0.588235,
+                                     0.588235, 0.588235, 1.0);
+}
+
++ (NSColor *) windowFrameTextColor {
+    return NSColorSystemCatalogColor(@"windowFrameTextColor", 0.0, 0.0, 0.0,
+                                     0.847059);
+}
+
++ (NSColor *) systemRedColor {
+    return NSColorSystemCatalogColor(@"systemRedColor", 1.0, 0.231373,
+                                     0.188235, 1.0);
+}
+
++ (NSColor *) systemOrangeColor {
+    return NSColorSystemCatalogColor(@"systemOrangeColor", 1.0, 0.584314, 0.0,
+                                     1.0);
+}
+
++ (NSColor *) systemYellowColor {
+    return NSColorSystemCatalogColor(@"systemYellowColor", 1.0, 0.8, 0.0, 1.0);
+}
+
++ (NSColor *) systemGreenColor {
+    return NSColorSystemCatalogColor(@"systemGreenColor", 0.203922, 0.780392,
+                                     0.349020, 1.0);
+}
+
++ (NSColor *) systemBlueColor {
+    return NSColorSystemCatalogColor(@"systemBlueColor", 0.0, 0.478431, 1.0,
+                                     1.0);
+}
+
++ (NSColor *) systemPurpleColor {
+    return NSColorSystemCatalogColor(@"systemPurpleColor", 0.686275, 0.321569,
+                                     0.870588, 1.0);
+}
+
++ (NSColor *) systemPinkColor {
+    return NSColorSystemCatalogColor(@"systemPinkColor", 1.0, 0.176471,
+                                     0.333333, 1.0);
+}
+
++ (NSColor *) systemBrownColor {
+    return NSColorSystemCatalogColor(@"systemBrownColor", 0.635294, 0.517647,
+                                     0.368627, 1.0);
+}
+
++ (NSColor *) systemGrayColor {
+    return NSColorSystemCatalogColor(@"systemGrayColor", 0.556863, 0.556863,
+                                     0.576471, 1.0);
+}
+
+#pragma mark - Construction from other representations
+
++ (NSColor *) colorWithCGColor: (CGColorRef) cgColor {
+    if (cgColor == NULL)
+        return nil;
+
+    if (CGColorGetPattern(cgColor) != NULL)
+        return [NSColor_CGColor colorWithColorRef: cgColor
+                                        spaceName: NSPatternColorSpace];
+
+    return [NSColor_CGColor
+            colorWithColorRef: cgColor
+                    spaceName: NSColorSpaceNameForComponentCount(
+                                       CGColorGetNumberOfComponents(cgColor))];
+}
+
++ (NSColor *) colorWithCIColor: (CIColor *) color {
+    if (color == nil)
+        return nil;
+
+    id<NSColorCIColorComponents> ci = (id<NSColorCIColorComponents>) color;
+
+    return [NSColor colorWithSRGBRed: [ci red]
+                               green: [ci green]
+                                blue: [ci blue]
+                               alpha: [ci alpha]];
+}
+
++ (NSColor *) colorWithColorSpace: (NSColorSpace *) space
+                       components: (const CGFloat *) components
+                            count: (NSInteger) numberOfComponents
+{
+    if (space == nil || components == NULL || numberOfComponents < 1)
+        return nil;
+
+    CGColorSpaceRef cgSpace = [space CGColorSpace];
+
+    if (cgSpace == NULL)
+        return nil;
+
+    CGColorRef cgColor = CGColorCreate(cgSpace, components);
+
+    if (cgColor == NULL)
+        return nil;
+
+    NSColor *result = [NSColor_CGColor
+            colorWithColorRef: cgColor
+                    spaceName: NSColorSpaceNameForComponentCount(
+                                       numberOfComponents)];
+
+    CGColorRelease(cgColor);
+    return result;
+}
+
++ (NSColor *) colorWithHue: (CGFloat) hue
+                saturation: (CGFloat) saturation
+                brightness: (CGFloat) brightness
+                     alpha: (CGFloat) alpha
+{
+    return [self colorWithCalibratedHue: hue
+                             saturation: saturation
+                             brightness: brightness
+                                  alpha: alpha];
+}
+
+#pragma mark - Type, color space and derived colors
+
+- (NSColorType) type {
+    NSColorSpaceName name = [self colorSpaceName];
+
+    if ([name isEqualToString: NSNamedColorSpace])
+        return NSColorTypeCatalog;
+    if ([name isEqualToString: NSPatternColorSpace])
+        return NSColorTypePattern;
+    return NSColorTypeComponentBased;
+}
+
+- (NSColorSpace *) colorSpace {
+    CGColorRef cgColor = [self CGColor];
+
+    if (cgColor == NULL)
+        return nil;
+
+    return [[[NSColorSpace alloc]
+            initWithCGColorSpace: CGColorGetColorSpace(cgColor)] autorelease];
+}
+
+- (NSColor *) colorUsingType: (NSColorType) type {
+    if ([self type] == type)
+        return self;
+
+    // Only catalog colors can be resolved to component based colors; patterns
+    // and component based colors have no representation as another type.
+    if (type == NSColorTypeComponentBased &&
+        [self type] == NSColorTypeCatalog) {
+        CGColorRef cgColor = [self CGColor];
+
+        if (cgColor == NULL || CGColorGetPattern(cgColor) != NULL)
+            return nil;
+
+        return [NSColor_CGColor
+                colorWithColorRef: cgColor
+                        spaceName: NSColorSpaceNameForComponentCount(
+                                           CGColorGetNumberOfComponents(
+                                                   cgColor))];
+    }
+
+    return nil;
+}
+
+- (NSColor *) colorUsingColorSpace: (NSColorSpace *) space {
+    NSColor *base = [self colorUsingType: NSColorTypeComponentBased];
+
+    if (base == nil || space == nil)
+        return nil;
+
+    CGColorSpaceRef target = [space CGColorSpace];
+    CGColorRef cgColor = [base CGColor];
+
+    if (target == NULL || cgColor == NULL)
+        return nil;
+
+    if (CGColorGetColorSpace(cgColor) == target)
+        return base;
+
+    size_t targetCount = CGColorSpaceGetNumberOfComponents(target);
+    NSColor *rgb = [base colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
+
+    if (rgb == nil)
+        return nil;
+
+    CGFloat r, g, b, a;
+    [rgb getRed: &r green: &g blue: &b alpha: &a];
+
+    CGFloat components[5];
+
+    if (targetCount == 3) {
+        components[0] = r;
+        components[1] = g;
+        components[2] = b;
+        components[3] = a;
+    } else if (targetCount == 1) {
+        components[0] = 0.299 * r + 0.587 * g + 0.114 * b;
+        components[1] = a;
+    } else {
+        return nil;
+    }
+
+    CGColorRef converted = CGColorCreate(target, components);
+
+    if (converted == NULL)
+        return nil;
+
+    NSColor *result = [NSColor_CGColor
+            colorWithColorRef: converted
+                    spaceName: NSColorSpaceNameForComponentCount(
+                                       targetCount + 1)];
+
+    CGColorRelease(converted);
+    return result;
+}
+
+- (NSColor *) blendedWithColor: (NSColor *) other level: (CGFloat) level {
+    level = MIN(1.0, MAX(0.0, level));
+
+    if (level == 0.0)
+        return self;
+
+    NSColor *base = [self colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
+
+    if (base == nil)
+        return nil;
+
+    NSColor *blended = [base blendedColorWithFraction: level ofColor: other];
+
+    if (blended == nil)
+        return nil;
+
+    // The blend only changes color, the receiver's opacity is kept.
+    return [blended colorWithAlphaComponent: [base alphaComponent]];
+}
+
+- (NSColor *) highlightWithLevel: (CGFloat) level {
+    return [self blendedWithColor: [NSColor highlightColor] level: level];
+}
+
+- (NSColor *) shadowWithLevel: (CGFloat) level {
+    return [self blendedWithColor: [NSColor shadowColor] level: level];
+}
+
+- (NSColor *) colorWithSystemEffect: (NSColorSystemEffect) systemEffect {
+    NSColor *result = nil;
+
+    switch (systemEffect) {
+    case NSColorSystemEffectNone:
+        return self;
+    case NSColorSystemEffectPressed:
+        result = [self shadowWithLevel: 0.2];
+        break;
+    case NSColorSystemEffectDeepPressed:
+        result = [self shadowWithLevel: 0.4];
+        break;
+    case NSColorSystemEffectDisabled: {
+        NSColor *rgb = [self colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
+
+        if (rgb != nil)
+            result = [rgb colorWithAlphaComponent: [rgb alphaComponent] * 0.5];
+        break;
+    }
+    case NSColorSystemEffectRollover:
+        result = [self highlightWithLevel: 0.2];
+        break;
+    }
+
+    return result != nil ? result : self;
+}
+
+- (NSString *) localizedCatalogNameComponent {
+    NSString *name = [self catalogNameComponent];
+
+    return [[NSBundle bundleForClass: [NSColor class]]
+            localizedStringForKey: name
+                            value: name
+                            table: @"Colors"];
+}
+
+- (NSString *) localizedColorNameComponent {
+    NSString *name = [self colorNameComponent];
+
+    return [[NSBundle bundleForClass: [NSColor class]]
+            localizedStringForKey: name
+                            value: name
+                            table: @"Colors"];
+}
+
 
 + (NSColor *) clearColor {
     return [NSColor colorWithCalibratedRed: 0 green: 0 blue: 0 alpha: 0];

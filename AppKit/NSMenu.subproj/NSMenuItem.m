@@ -148,6 +148,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_offStateImage release];
     [_representedObject release];
     [_identifier release];
+    [_toolTip release];
+    [_view release];
     [super dealloc];
 }
 
@@ -164,6 +166,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     copy->_mixedStateImage = [_mixedStateImage retain];
     copy->_offStateImage = [_offStateImage retain];
     copy->_representedObject = [_representedObject retain];
+    copy->_toolTip = [_toolTip copyWithZone: zone];
+    copy->_view = [_view retain];
     return copy;
 }
 
@@ -174,6 +178,56 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) _setMenu: (NSMenu *) menu {
     _menu = menu;
     _submenu.supermenu = menu;
+}
+
+- (void) setMenu: (NSMenu *) menu {
+    [self _setMenu: menu];
+}
+
+- (NSMenuItem *) parentItem {
+    NSMenu *supermenu = [_menu supermenu];
+    NSInteger index = [supermenu indexOfItemWithSubmenu: _menu];
+
+    if (supermenu == nil || index < 0)
+        return nil;
+
+    return [supermenu itemAtIndex: index];
+}
+
+- (BOOL) isHighlighted {
+    return [_menu highlightedItem] == self;
+}
+
+- (BOOL) isHiddenOrHasHiddenAncestor {
+    NSMenuItem *item = self;
+
+    while (item != nil) {
+        if ([item isHidden])
+            return YES;
+        item = [item parentItem];
+    }
+
+    return NO;
+}
+
+- (NSString *) toolTip {
+    return _toolTip;
+}
+
+- (void) setToolTip: (NSString *) toolTip {
+    toolTip = [toolTip copy];
+    [_toolTip release];
+    _toolTip = toolTip;
+}
+
+- (NSView *) view {
+    return _view;
+}
+
+- (void) setView: (NSView *) view {
+    view = [view retain];
+    [_view release];
+    _view = view;
 }
 
 - (NSString *) title {

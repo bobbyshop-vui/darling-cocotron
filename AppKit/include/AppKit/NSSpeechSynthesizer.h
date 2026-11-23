@@ -38,11 +38,37 @@ APPKIT_EXPORT NSSpeechPropertyKey const NSSpeechRateProperty;
 APPKIT_EXPORT NSSpeechPropertyKey const NSSpeechPitchBaseProperty;
 APPKIT_EXPORT NSSpeechPropertyKey const NSSpeechVolumeProperty;
 
-@interface NSSpeechSynthesizer : NSObject
+typedef NSString *NSSpeechSynthesizerVoiceName;
+
+@protocol NSSpeechSynthesizerDelegate;
+
+@interface NSSpeechSynthesizer : NSObject {
+    id<NSSpeechSynthesizerDelegate> _delegate;
+    NSSpeechSynthesizerVoiceName _voice;
+    float _rate;
+    float _volume;
+}
+
++ (NSArray *) availableVoices;
++ (NSSpeechSynthesizerVoiceName) defaultVoice;
++ (NSDictionary *) attributesForVoice: (NSSpeechSynthesizerVoiceName) voice;
+
+- (instancetype) initWithVoice: (NSSpeechSynthesizerVoiceName) voice;
+- (id<NSSpeechSynthesizerDelegate>) delegate;
+- (void) setDelegate: (id<NSSpeechSynthesizerDelegate>) delegate;
+- (float) rate;
+- (void) setRate: (float) rate;
+- (float) volume;
+- (void) setVolume: (float) volume;
+- (NSSpeechSynthesizerVoiceName) voice;
+- (BOOL) setVoice: (NSSpeechSynthesizerVoiceName) voice;
+- (BOOL) startSpeakingString: (NSString *) text;
+- (void) stopSpeaking;
+
 @end
 
 @protocol NSSpeechSynthesizerDelegate <NSObject>
-
-// TODO
-
+@optional
+- (void) speechSynthesizer: (NSSpeechSynthesizer *) sender
+         didFinishSpeaking: (BOOL) finishedSpeaking;
 @end

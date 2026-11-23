@@ -19,8 +19,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSControl.h>
 #import <AppKit/NSSliderCell.h>
+#import <AppKit/NSLevelIndicatorCell.h>
 
-@interface NSLevelIndicator : NSControl
+@class NSImage, NSColor;
+
+@interface NSLevelIndicator : NSControl {
+    NSImage *_ratingImage;
+    NSImage *_ratingPlaceholderImage;
+    NSColor *_warningFillColor;
+}
+
+- (NSLevelIndicatorStyle) levelIndicatorStyle;
+- (void) setLevelIndicatorStyle: (NSLevelIndicatorStyle) style;
+- (NSImage *) ratingImage;
+- (void) setRatingImage: (NSImage *) image;
+- (NSImage *) ratingPlaceholderImage;
+- (void) setRatingPlaceholderImage: (NSImage *) image;
+- (NSColor *) warningFillColor;
+- (void) setWarningFillColor: (NSColor *) color;
 
 - (double) minValue;
 - (double) maxValue;

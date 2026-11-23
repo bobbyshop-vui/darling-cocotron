@@ -17,8 +17,9 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSObject.h>
+#import <CoreData/NSPersistentStoreRequest.h>
 
-@class NSEntityDescription, NSPredicate, NSArray;
+@class NSEntityDescription, NSPredicate, NSArray, NSManagedObjectContext;
 
 enum {
     NSManagedObjectResultType = 0x00,
@@ -27,12 +28,11 @@ enum {
 };
 typedef NSUInteger NSFetchRequestResultType;
 
-@interface NSFetchRequest : NSObject <NSCoding, NSCopying> {
+@interface NSFetchRequest : NSPersistentStoreRequest <NSCoding, NSCopying> {
     NSFetchRequestResultType _resultType;
     NSEntityDescription *_entity;
     NSPredicate *_predicate;
     NSArray *_sortDescriptors;
-    NSArray *_affectedStores;
     NSUInteger _fetchLimit;
     NSUInteger _fetchBatchSize;
     NSUInteger _fetchOffset;
@@ -43,14 +43,21 @@ typedef NSUInteger NSFetchRequestResultType;
     BOOL _returnsObjectsAsFaults;
     NSArray *_propertiesToFetch;
     NSArray *_relationshipKeyPathsForPrefetching;
+    NSString *_fetchEntityName;
 }
+
++ (instancetype) fetchRequestWithEntityName: (NSString *) entityName;
+- (instancetype) initWithEntityName: (NSString *) entityName;
+- (NSString *) entityName;
+- (void) setEntityName: (NSString *) value;
+- (NSArray *) execute: (NSError **) error;
+
 
 - (NSFetchRequestResultType) resultType;
 
 - (NSEntityDescription *) entity;
 - (NSPredicate *) predicate;
 - (NSArray *) sortDescriptors;
-- (NSArray *) affectedStores;
 
 - (NSUInteger) fetchLimit;
 - (NSUInteger) fetchBatchSize;
@@ -71,7 +78,6 @@ typedef NSUInteger NSFetchRequestResultType;
 - (void) setEntity: (NSEntityDescription *) value;
 - (void) setPredicate: (NSPredicate *) value;
 - (void) setSortDescriptors: (NSArray *) value;
-- (void) setAffectedStores: (NSArray *) value;
 
 - (void) setFetchLimit: (NSUInteger) value;
 - (void) setFetchBatchSize: (NSUInteger) value;

@@ -18,6 +18,54 @@
 */
 
 #import <Foundation/NSObject.h>
+#import <Foundation/NSArray.h>
+#import <Foundation/NSSet.h>
+#import <AppKit/NSTouchBarItem.h>
 
-@interface NSTouchBar : NSObject
+typedef NSString *NSTouchBarCustomizationIdentifier;
+
+@class NSTouchBar;
+@protocol NSTouchBarDelegate;
+
+@interface NSTouchBar : NSObject <NSCoding> {
+    NSTouchBarCustomizationIdentifier _tbCustomizationIdentifier;
+    NSArray *_tbCustomizationAllowedItemIdentifiers;
+    NSArray *_tbCustomizationRequiredItemIdentifiers;
+    NSArray *_tbDefaultItemIdentifiers;
+    NSTouchBarItemIdentifier _tbPrincipalItemIdentifier;
+    NSTouchBarItemIdentifier _tbEscapeKeyReplacementItemIdentifier;
+    NSSet *_tbTemplateItems;
+    id _tbDelegate;
+    NSMutableDictionary *_tbItemCache;
+}
+
+- (instancetype) init;
+- (instancetype) initWithCoder: (NSCoder *) coder;
+
+- (NSTouchBarCustomizationIdentifier) customizationIdentifier;
+- (void) setCustomizationIdentifier: (NSTouchBarCustomizationIdentifier) value;
+- (NSArray *) customizationAllowedItemIdentifiers;
+- (void) setCustomizationAllowedItemIdentifiers: (NSArray *) value;
+- (NSArray *) customizationRequiredItemIdentifiers;
+- (void) setCustomizationRequiredItemIdentifiers: (NSArray *) value;
+- (NSArray *) defaultItemIdentifiers;
+- (void) setDefaultItemIdentifiers: (NSArray *) value;
+- (NSArray *) itemIdentifiers;
+- (NSTouchBarItemIdentifier) principalItemIdentifier;
+- (void) setPrincipalItemIdentifier: (NSTouchBarItemIdentifier) value;
+- (NSTouchBarItemIdentifier) escapeKeyReplacementItemIdentifier;
+- (void) setEscapeKeyReplacementItemIdentifier: (NSTouchBarItemIdentifier) value;
+- (NSSet *) templateItems;
+- (void) setTemplateItems: (NSSet *) value;
+- (id<NSTouchBarDelegate>) delegate;
+- (void) setDelegate: (id<NSTouchBarDelegate>) value;
+- (NSTouchBarItem *) itemForIdentifier: (NSTouchBarItemIdentifier) identifier;
+- (BOOL) isVisible;
+
+@end
+
+@protocol NSTouchBarDelegate <NSObject>
+@optional
+- (NSTouchBarItem *) touchBar: (NSTouchBar *) touchBar
+        makeItemForIdentifier: (NSTouchBarItemIdentifier) identifier;
 @end

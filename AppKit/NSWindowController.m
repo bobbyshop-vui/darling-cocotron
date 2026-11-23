@@ -22,6 +22,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSNibLoading.h>
 #import <AppKit/NSWindow.h>
 #import <AppKit/NSWindowController.h>
+#import <AppKit/NSViewController.h>
+#import <AppKit/NSView.h>
 
 @implementation NSWindowController
 
@@ -80,6 +82,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_nibName release];
     [_nibPath release];
     [_windowFrameAutosaveName release];
+    [_darlingContentViewController release];
     [_topLevelObjects makeObjectsPerformSelector: @selector(release)];
     [_topLevelObjects release];
     [super dealloc];
@@ -264,6 +267,33 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         return [NSString stringWithFormat: @"%@ - %@", displayName, appName];
     else
         return displayName;
+}
+
+- (NSViewController *) contentViewController {
+    return _darlingContentViewController;
+}
+
+- (void) setContentViewController: (NSViewController *) viewController {
+    if (viewController == _darlingContentViewController)
+        return;
+
+    [viewController retain];
+    [_darlingContentViewController release];
+    _darlingContentViewController = viewController;
+
+    if (_darlingContentViewController != nil) {
+        NSView *view = [_darlingContentViewController view];
+        if (view != nil)
+            [[self window] setContentView: view];
+    }
+}
+
+- (NSStoryboard *) storyboard {
+    // Storyboards are not tracked by the window controller itself; one that was
+    // loaded from a storyboard would expose it through its view controller.
+    if ([_darlingContentViewController respondsToSelector: @selector(storyboard)])
+        return [(id) _darlingContentViewController storyboard];
+    return nil;
 }
 
 @end

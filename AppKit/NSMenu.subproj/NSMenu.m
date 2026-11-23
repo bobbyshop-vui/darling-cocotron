@@ -23,6 +23,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSMenuItem.h>
 #import <AppKit/NSMenuView.h>
 #import <AppKit/NSMenuWindow.h>
+#import <AppKit/NSFont.h>
+#import <AppKit/NSScreen.h>
+#import <AppKit/NSMainMenuView.h>
+#import <AppKit/NSSubmenuView.h>
 #import <AppKit/NSWindow.h>
 #import <Foundation/NSKeyedArchiver.h>
 
@@ -37,6 +41,18 @@ NSString *const _NSRecentDocumentsMenuName = @"Recents";
 NSString *const _NSServicesMenuName = @"Services";
 NSString *const _NSWindowsMenuName = @"Window";
 
+@interface NSMenu (NSMenu_private)
+- (BOOL) _popUpWithEvent: (NSEvent *) event
+           atScreenPoint: (NSPoint) screenPoint
+           alignedToItem: (NSMenuItem *) alignItem;
+- (void) _setHighlightedItem: (NSMenuItem *) item;
+@end
+
+#define NSMenuAllProperties                                                    \
+    (NSMenuPropertyItemTitle | NSMenuPropertyItemAttributedTitle |             \
+     NSMenuPropertyItemKeyEquivalent | NSMenuPropertyItemImage |               \
+     NSMenuPropertyItemEnabled | NSMenuPropertyItemAccessibilityDescription)
+
 @implementation NSMenu
 
 @synthesize showsStateColumn = _showsStateColumn;
@@ -46,25 +62,100 @@ NSString *const _NSWindowsMenuName = @"Window";
                 withEvent: (NSEvent *) event
                   forView: (NSView *) view
 {
-    [menu update];
-    if ([[menu itemArray] count] > 0) {
-        NSPoint point = [event locationInWindow];
-        NSWindow *window = [event window];
-        NSMenuWindow *menuWindow = [[NSMenuWindow alloc] initWithMenu: menu];
-        NSMenuView *menuView = [menuWindow menuView];
-        NSMenuItem *item;
+    [self popUpContextMenu: menu withEvent: event forView: view withFont: nil];
+}
 
-        [menuWindow setReleasedWhenClosed: YES];
-        [menuWindow setFrameTopLeftPoint: [window convertBaseToScreen: point]];
-        [menuWindow orderFront: nil];
++ (void) popUpContextMenu: (NSMenu *) menu
+                withEvent: (NSEvent *) event
+                  forView: (NSView *) view
+                 withFont: (NSFont *) font
+{
+    NSFont *savedFont = [[menu->_font retain] autorelease];
 
-        item = [menuView trackForEvent: event];
+    if (font != nil)
+        [menu setFont: font];
 
-        [menuWindow close];
+    NSPoint point = [event locationInWindow];
+    NSWindow *window = [event window];
 
-        if (item != nil)
-            [NSApp sendAction: [item action] to: [item target] from: item];
+    [menu _popUpWithEvent: event
+                 atScreenPoint: [window convertBaseToScreen: point]
+                  alignedToItem: nil];
+
+    if (font != nil)
+        [menu setFont: savedFont];
+}
+
+- (BOOL) _popUpWithEvent: (NSEvent *) event
+           atScreenPoint: (NSPoint) screenPoint
+           alignedToItem: (NSMenuItem *) alignItem
+{
+    BOOL result = NO;
+
+    [self update];
+    if ([[self itemArray] count] == 0 || event == nil)
+        return NO;
+
+    NSMenuWindow *menuWindow = [[NSMenuWindow alloc] initWithMenu: self];
+    NSMenuView *menuView = [menuWindow menuView];
+    NSMenuItem *item;
+
+    if (alignItem != nil) {
+        NSInteger index = [[menuView visibleItemArray] indexOfObjectIdenticalTo: alignItem];
+
+        if (index != NSNotFound) {
+            NSRect itemRect = [menuView rectOfItemAtIndex: index];
+            screenPoint.y -= NSMinY(itemRect);
+        }
     }
+
+    [menuWindow setReleasedWhenClosed: YES];
+    [menuWindow setFrameTopLeftPoint: screenPoint];
+    [menuWindow orderFront: nil];
+
+    _cancelTrackingRequested = NO;
+    _trackingView = menuView;
+    [[NSNotificationCenter defaultCenter]
+            postNotificationName: NSMenuDidBeginTrackingNotification
+                          object: self];
+
+    item = [menuView trackForEvent: event];
+
+    _trackingView = nil;
+    _cancelTrackingRequested = NO;
+    [self _setHighlightedItem: nil];
+    [[NSNotificationCenter defaultCenter]
+            postNotificationName: NSMenuDidEndTrackingNotification
+                          object: self];
+
+    [menuWindow close];
+
+    if (item != nil) {
+        [NSApp sendAction: [item action] to: [item target] from: item];
+        result = YES;
+    }
+
+    return result;
+}
+
+- (BOOL) popUpMenuPositioningItem: (NSMenuItem *) item
+                       atLocation: (NSPoint) location
+                           inView: (NSView *) view
+{
+    NSEvent *event = [NSApp currentEvent];
+    NSPoint screenPoint = location;
+
+    if (view != nil) {
+        NSPoint windowPoint = [view convertPoint: location toView: nil];
+        screenPoint = [[view window] convertBaseToScreen: windowPoint];
+    }
+
+    if (event == nil)
+        return NO;
+
+    return [self _popUpWithEvent: event
+                   atScreenPoint: screenPoint
+                   alignedToItem: item];
 }
 
 + (NSZone *) menuZone {
@@ -84,6 +175,7 @@ NSString *const _NSWindowsMenuName = @"Window";
 
 - initWithCoder: (NSCoder *) coder {
     _showsStateColumn = YES; // TODO: figure out the right coding for this
+    _propertiesToUpdate = NSMenuAllProperties;
 
     if ([coder allowsKeyedCoding]) {
         NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
@@ -164,6 +256,7 @@ NSString *const _NSWindowsMenuName = @"Window";
     _itemArray = [NSMutableArray new];
     _autoenablesItems = YES;
     _showsStateColumn = YES;
+    _propertiesToUpdate = NSMenuAllProperties;
     return self;
 }
 
@@ -178,6 +271,7 @@ NSString *const _NSWindowsMenuName = @"Window";
                                 withObject: nil];
     [_itemArray release];
     [_identifier release];
+    [_font release];
     [super dealloc];
 }
 
@@ -186,6 +280,11 @@ NSString *const _NSWindowsMenuName = @"Window";
 
     copy->_title = [_title copyWithZone: zone];
     copy->_name = [_name copyWithZone: zone];
+    copy->_font = [_font retain];
+    copy->_highlightedItem = nil;
+    copy->_trackingView = nil;
+    copy->_cancelTrackingRequested = NO;
+    copy->_identifier = [_identifier copyWithZone: zone];
     copy->_itemArray = [[NSMutableArray alloc] init];
     for (NSMenuItem *item in _itemArray) {
         [copy addItem: [[item copyWithZone: zone] autorelease]];
@@ -444,8 +543,13 @@ BOOL itemIsEnabled(NSMenuItem *item) {
     NSString *characters = [event charactersIgnoringModifiers];
     unsigned modifiers = [event modifierFlags];
 
-    if (_autoenablesItems)
+    if (_autoenablesItems) {
+        // Only key equivalents and enabled state matter while matching keys
+        _propertiesToUpdate =
+                NSMenuPropertyItemKeyEquivalent | NSMenuPropertyItemEnabled;
         [self update];
+        _propertiesToUpdate = NSMenuAllProperties;
+    }
 
     for (i = 0; i < count; i++) {
         NSMenuItem *item = [_itemArray objectAtIndex: i];
@@ -473,6 +577,143 @@ BOOL itemIsEnabled(NSMenuItem *item) {
     }
 
     return NO;
+}
+
+- (void) performActionForItemAtIndex: (NSInteger) index {
+    NSMenuItem *item = [_itemArray objectAtIndex: index];
+
+    if (![item isEnabled] || [item action] == NULL)
+        return;
+
+    NSDictionary *userInfo =
+            [NSDictionary dictionaryWithObject: item forKey: @"MenuItem"];
+
+    [[NSNotificationCenter defaultCenter]
+            postNotificationName: NSMenuWillSendActionNotification
+                          object: self
+                        userInfo: userInfo];
+    [NSApp sendAction: [item action] to: [item target] from: item];
+    [[NSNotificationCenter defaultCenter]
+            postNotificationName: NSMenuDidSendActionNotification
+                          object: self
+                        userInfo: userInfo];
+}
+
+- (CGFloat) menuBarHeight {
+    // Only the application's main menu is presented as a menu bar
+    if (_supermenu == nil && self == [NSApp mainMenu])
+        return [NSMainMenuView menuHeight];
+
+    return 0;
+}
+
+- (void) cancelTracking {
+    if (_trackingView == nil)
+        return;
+
+    _cancelTrackingRequested = YES;
+
+    // Wake the tracking loop so that it notices the request
+    NSWindow *window = [(NSView *) _trackingView window];
+    NSEvent *wake = [NSEvent otherEventWithType: NSAppKitDefined
+                                       location: NSZeroPoint
+                                  modifierFlags: 0
+                                      timestamp: 0
+                                   windowNumber: [window windowNumber]
+                                        context: nil
+                                        subtype: 0x4D43
+                                          data1: 0
+                                          data2: 0];
+    [NSApp postEvent: wake atStart: YES];
+}
+
+- (BOOL) _cancelTrackingRequested {
+    return _cancelTrackingRequested;
+}
+
+- (void) _setTrackingView: (id) view {
+    _trackingView = view;
+    if (view == nil)
+        _cancelTrackingRequested = NO;
+}
+
+- (void) _setHighlightedItem: (NSMenuItem *) item {
+    if (_highlightedItem == item)
+        return;
+
+    _highlightedItem = item;
+
+    if ([_delegate respondsToSelector: @selector(menu:willHighlightItem:)])
+        [_delegate menu: self willHighlightItem: item];
+}
+
+- (NSMenuItem *) highlightedItem {
+    return _highlightedItem;
+}
+
+- (CGFloat) minimumWidth {
+    return _minimumWidth;
+}
+
+- (void) setMinimumWidth: (CGFloat) width {
+    _minimumWidth = width;
+}
+
+- (NSFont *) font {
+    if (_font == nil)
+        return [NSFont menuFontOfSize: 0];
+
+    return _font;
+}
+
+- (void) setFont: (NSFont *) font {
+    font = [font retain];
+    [_font release];
+    _font = font;
+}
+
+- (BOOL) allowsContextMenuPlugIns {
+    return _allowsContextMenuPlugIns;
+}
+
+- (void) setAllowsContextMenuPlugIns: (BOOL) flag {
+    _allowsContextMenuPlugIns = flag;
+}
+
+- (NSInteger) userInterfaceLayoutDirection {
+    if (_hasLayoutDirection)
+        return _userInterfaceLayoutDirection;
+
+    // Defaults to the application's layout direction
+    if ([NSApp respondsToSelector: @selector(userInterfaceLayoutDirection)])
+        return [(NSView *) NSApp userInterfaceLayoutDirection];
+
+    return 0; // NSUserInterfaceLayoutDirectionLeftToRight
+}
+
+- (void) setUserInterfaceLayoutDirection: (NSInteger) direction {
+    _userInterfaceLayoutDirection = direction;
+    _hasLayoutDirection = YES;
+}
+
+- (NSMenuProperties) propertiesToUpdate {
+    return _propertiesToUpdate;
+}
+
+- (NSSize) size {
+    NSSubmenuView *view = [[NSSubmenuView alloc] initWithMenu: self];
+    NSSize size = [view frame].size;
+
+    [view release];
+    if (size.width < _minimumWidth)
+        size.width = _minimumWidth;
+
+    return size;
+}
+
+- (void) sizeToFit {
+    // The size of a menu is always computed from its current items when it is
+    // presented (see -size), so there is no cached layout to refresh.
 }
 
 - (void) setDelegate: (id<NSMenuDelegate>) object {

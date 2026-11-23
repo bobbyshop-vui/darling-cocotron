@@ -68,7 +68,11 @@ APPKIT_EXPORT NSString *const NSTextDidBeginEditingNotification;
 APPKIT_EXPORT NSString *const NSTextDidEndEditingNotification;
 APPKIT_EXPORT NSString *const NSTextDidChangeNotification;
 
-@interface NSText : NSView <NSChangeSpelling, NSIgnoreMisspelledWords>
+@interface NSText : NSView <NSChangeSpelling, NSIgnoreMisspelledWords> {
+    // Stored as direction + 1 so that a zeroed ivar means
+    // NSWritingDirectionNatural, the documented default.
+    NSInteger _darlingBaseWritingDirection;
+}
 
 - (instancetype) initWithCoder: (NSCoder *) coder;
 - (instancetype) initWithFrame: (NSRect) frameRect;
@@ -151,6 +155,13 @@ APPKIT_EXPORT NSString *const NSTextDidChangeNotification;
 
 - (void) showGuessPanel: sender;
 - (void) checkSpelling: sender;
+
+- (NSWritingDirection) baseWritingDirection;
+- (void) setBaseWritingDirection: (NSWritingDirection) direction;
+- (BOOL) isRulerVisible;
+- (void) copy: (id) sender;
+- (void) cut: (id) sender;
+- (void) paste: (id) sender;
 
 @end
 

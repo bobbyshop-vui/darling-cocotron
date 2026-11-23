@@ -32,7 +32,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @class NSWindow, NSMenu, NSMenuItem, NSCursor, NSClipView, NSPasteboard,
         NSTextInputContext, NSImage, NSBitmapImageRep, NSScrollView,
-        NSTrackingArea, NSShadow, NSScreen, CALayer, CIFilter, CALayerContext;
+        NSTrackingArea, NSShadow, NSScreen, CALayer, CIFilter, CALayerContext,
+        NSLayoutAnchor, NSLayoutDimension, NSLayoutGuide, NSLayoutConstraint,
+        NSGestureRecognizer, NSDraggingSession, NSDraggingItem;
 
 // See Cocoa Event Handling Guide : Using Tracking-Area Objects : Compatibility
 // Issues
@@ -140,6 +142,22 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     NSLayoutPriority _verticalContentCompressionResistancePriority;
 
     NSAppearance *_appearance;
+
+    NSMutableArray *_constraints;
+    NSMutableArray *_layoutGuides;
+    NSArray *_gestureRecognizers;
+    NSUInteger _allowedTouchTypes;
+    BOOL _canDrawSubviewsIntoLayer;
+    BOOL _needsLayout;
+    BOOL _needsUpdateConstraints;
+    BOOL _wantsBestResolutionOpenGLSurface;
+    BOOL _layerUsesCoreImageFilters;
+    NSRect _preparedContentRect;
+    NSInteger _userInterfaceLayoutDirection;
+    NSLayoutAnchor *_leadingAnchor, *_trailingAnchor, *_leftAnchor,
+            *_rightAnchor, *_topAnchor, *_bottomAnchor, *_centerXAnchor,
+            *_centerYAnchor, *_firstBaselineAnchor;
+    NSLayoutDimension *_widthAnchor, *_heightAnchor;
 }
 
 @property(class, readonly) BOOL requiresConstraintBasedLayout;
@@ -455,6 +473,93 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 //-(void)showDefinitionForAttributedString:(NSAttributedString *)string
 // range:(NSRange)range options:(NSDictionary *)options
 // baselineOriginProvider:(NSPoint (^)(NSRange adjustedRange))originProvider;
+
++ (BOOL) isCompatibleWithResponsiveScrolling;
+
+- (void) addConstraint: (NSLayoutConstraint *) constraint;
+- (void) addConstraints: (NSArray *) constraints;
+- (void) removeConstraint: (NSLayoutConstraint *) constraint;
+- (void) removeConstraints: (NSArray *) constraints;
+- (NSArray *) constraints;
+- (NSArray *) constraintsAffectingLayoutForOrientation:
+        (NSLayoutConstraintOrientation) orientation;
+- (BOOL) hasAmbiguousLayout;
+- (void) exerciseAmbiguityInLayout;
+- (void) updateConstraints;
+- (BOOL) needsUpdateConstraints;
+- (void) setNeedsUpdateConstraints: (BOOL) flag;
+- (void) layout;
+- (void) layoutSubtreeIfNeeded;
+- (BOOL) needsLayout;
+- (void) setNeedsLayout: (BOOL) flag;
+- (NSSize) fittingSize;
+- (NSSize) intrinsicContentSize;
+- (void) invalidateIntrinsicContentSize;
+- (NSEdgeInsets) alignmentRectInsets;
+- (NSRect) alignmentRectForFrame: (NSRect) frame;
+- (NSRect) frameForAlignmentRect: (NSRect) alignmentRect;
+- (CGFloat) baselineOffsetFromBottom;
+- (CGFloat) firstBaselineOffsetFromTop;
+- (CGFloat) lastBaselineOffsetFromBottom;
+
+- (NSLayoutAnchor *) leadingAnchor;
+- (NSLayoutAnchor *) trailingAnchor;
+- (NSLayoutAnchor *) leftAnchor;
+- (NSLayoutAnchor *) rightAnchor;
+- (NSLayoutAnchor *) topAnchor;
+- (NSLayoutAnchor *) bottomAnchor;
+- (NSLayoutDimension *) widthAnchor;
+- (NSLayoutDimension *) heightAnchor;
+- (NSLayoutAnchor *) centerXAnchor;
+- (NSLayoutAnchor *) centerYAnchor;
+- (NSLayoutAnchor *) firstBaselineAnchor;
+- (NSLayoutAnchor *) lastBaselineAnchor;
+- (NSArray *) layoutGuides;
+- (void) addLayoutGuide: (NSLayoutGuide *) guide;
+
+- (NSArray *) gestureRecognizers;
+- (void) setGestureRecognizers: (NSArray *) recognizers;
+- (void) addGestureRecognizer: (NSGestureRecognizer *) recognizer;
+- (void) removeGestureRecognizer: (NSGestureRecognizer *) recognizer;
+- (NSUInteger) allowedTouchTypes;
+- (void) setAllowedTouchTypes: (NSUInteger) types;
+
+- (BOOL) allowsVibrancy;
+- (BOOL) wantsUpdateLayer;
+- (void) updateLayer;
+- (BOOL) canDrawSubviewsIntoLayer;
+- (void) setCanDrawSubviewsIntoLayer: (BOOL) flag;
+- (BOOL) layerUsesCoreImageFilters;
+- (void) setLayerUsesCoreImageFilters: (BOOL) flag;
+- (BOOL) wantsBestResolutionOpenGLSurface;
+- (void) setWantsBestResolutionOpenGLSurface: (BOOL) flag;
+- (NSInteger) userInterfaceLayoutDirection;
+- (void) setUserInterfaceLayoutDirection: (NSInteger) direction;
+- (void) viewDidChangeBackingProperties;
+- (void) viewDidChangeEffectiveAppearance;
+- (void) prepareForReuse;
+- (void) prepareContentInRect: (NSRect) rect;
+- (NSRect) preparedContentRect;
+- (void) setPreparedContentRect: (NSRect) rect;
+- (void) willOpenMenu: (NSMenu *) menu withEvent: (NSEvent *) event;
+
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options;
+- (NSPoint) convertPointToBacking: (NSPoint) point;
+- (NSPoint) convertPointFromBacking: (NSPoint) point;
+- (NSSize) convertSizeToBacking: (NSSize) size;
+- (NSSize) convertSizeFromBacking: (NSSize) size;
+- (NSRect) convertRectToBacking: (NSRect) rect;
+- (NSRect) convertRectFromBacking: (NSRect) rect;
+- (NSPoint) convertPointToLayer: (NSPoint) point;
+- (NSPoint) convertPointFromLayer: (NSPoint) point;
+- (NSSize) convertSizeToLayer: (NSSize) size;
+- (NSSize) convertSizeFromLayer: (NSSize) size;
+- (NSRect) convertRectToLayer: (NSRect) rect;
+- (NSRect) convertRectFromLayer: (NSRect) rect;
+
+- (NSDraggingSession *) beginDraggingSessionWithItems: (NSArray *) items
+                                                event: (NSEvent *) event
+                                               source: (id) source;
 
 // private,move
 - (NSArray *) _draggedTypes;

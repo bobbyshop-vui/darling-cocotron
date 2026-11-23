@@ -18,11 +18,97 @@
 */
 
 #import <AppKit/NSStoryboard.h>
+#import <AppKit/NSNib.h>
+#import <AppKit/NSViewController.h>
+#import <AppKit/NSWindowController.h>
 
 @interface NSStoryboardControllerPlaceholder : NSObject
 @end
 
 @implementation NSStoryboard
+
++ (instancetype) storyboardWithName: (NSStoryboardName) name
+                             bundle: (NSBundle *) bundle
+{
+    if (bundle == nil) {
+        bundle = [NSBundle mainBundle];
+    }
+    NSString *path = [bundle pathForResource: name ofType: @"storyboardc"];
+    if (path == nil) {
+        return nil;
+    }
+    NSStoryboard *storyboard = [[[self alloc] init] autorelease];
+    storyboard->_path = [path copy];
+    storyboard->_info = [[NSDictionary alloc]
+            initWithContentsOfFile: [path stringByAppendingPathComponent:
+                                                  @"Info.plist"]];
+    return storyboard;
+}
+
+- (void) dealloc {
+    [_path release];
+    [_info release];
+    [super dealloc];
+}
+
+/* Compiled storyboards are directories holding Info.plist and one nib per
+   scene. Info.plist maps scene identifiers to nib names and records the
+   initial scene. */
+- (NSString *) _nibPathForIdentifier: (NSString *) identifier {
+    NSDictionary *map = [_info objectForKey: @"NSViewControllerIdentifiersToNibNames"];
+    if (map == nil) {
+        map = [_info objectForKey: @"NSStoryboardIdentifiersToNibNames"];
+    }
+    NSString *nibName = [map objectForKey: identifier];
+    if (nibName == nil) {
+        nibName = identifier;
+    }
+    NSFileManager *fm = [NSFileManager defaultManager];
+    for (NSString *ext in [NSArray arrayWithObjects: @"nib", @"", nil]) {
+        NSString *file = [ext length] ? [nibName stringByAppendingPathExtension: ext]
+                                      : nibName;
+        NSString *full = [_path stringByAppendingPathComponent: file];
+        if ([fm fileExistsAtPath: full]) {
+            return full;
+        }
+    }
+    return nil;
+}
+
+- (id) instantiateControllerWithIdentifier:
+        (NSStoryboardSceneIdentifier) identifier
+{
+    NSString *nibPath = [self _nibPathForIdentifier: identifier];
+    if (nibPath == nil) {
+        [NSException raise: NSInvalidArgumentException
+                    format: @"Could not find a view controller with identifier '%@' in storyboard", identifier];
+    }
+    NSNib *nib = [[[NSNib alloc]
+            initWithContentsOfURL: [NSURL fileURLWithPath: nibPath]]
+            autorelease];
+    NSArray *objects = nil;
+    if (![nib instantiateNibWithOwner: nil topLevelObjects: &objects]) {
+        return nil;
+    }
+    for (id object in objects) {
+        if ([object isKindOfClass: [NSViewController class]] ||
+            [object isKindOfClass: [NSWindowController class]]) {
+            return object;
+        }
+    }
+    return nil;
+}
+
+- (id) instantiateInitialController {
+    NSString *identifier = [_info objectForKey: @"NSStoryboardDesignatedEntryPointIdentifier"];
+    if (identifier == nil) {
+        identifier = [_info objectForKey: @"NSStoryboardInitialViewControllerIdentifier"];
+    }
+    if (identifier == nil) {
+        return nil;
+    }
+    return [self instantiateControllerWithIdentifier: identifier];
+}
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {

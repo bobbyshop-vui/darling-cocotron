@@ -23,6 +23,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSScroller.h>
 #import <Foundation/NSString.h>
 
+typedef NS_ENUM(NSInteger, NSScrollElasticity) {
+    NSScrollElasticityAutomatic = 0,
+    NSScrollElasticityNone = 1,
+    NSScrollElasticityAllowed = 2
+};
+
+typedef NS_ENUM(NSInteger, NSScrollViewFindBarPosition) {
+    NSScrollViewFindBarPositionAboveHorizontalRuler = 0,
+    NSScrollViewFindBarPositionAboveContent = 1,
+    NSScrollViewFindBarPositionBelowContent = 2
+};
+
 @class NSClipView, NSScroller, NSColor, NSRulerView;
 
 APPKIT_EXPORT NSString *const NSScrollViewDidEndLiveScrollNotification;
@@ -56,6 +68,15 @@ APPKIT_EXPORT NSString *const NSScrollViewDidLiveScrollNotification;
     CGFloat _magnification;
     CGFloat _minMagnification;
     CGFloat _maxMagnification;
+    NSEdgeInsets _contentInsets;
+    NSEdgeInsets _scrollerInsets;
+    BOOL _automaticallyAdjustsContentInsets;
+    NSScrollerStyle _scrollerStyle;
+    NSScrollerKnobStyle _scrollerKnobStyle;
+    NSScrollElasticity _horizontalScrollElasticity;
+    NSScrollElasticity _verticalScrollElasticity;
+    BOOL _usesPredominantAxisScrolling;
+    NSScrollViewFindBarPosition _findBarPosition;
 }
 
 + (NSSize) frameSizeForContentSize: (NSSize) contentSize
@@ -142,6 +163,31 @@ APPKIT_EXPORT NSString *const NSScrollViewDidLiveScrollNotification;
 - (void) setMinMagnification: (CGFloat) value;
 - (void) setMaxMagnification: (CGFloat) value;
 - (void) setAllowsMagnification: (BOOL) value;
+
+- (NSEdgeInsets) contentInsets;
+- (void) setContentInsets: (NSEdgeInsets) insets;
+- (BOOL) automaticallyAdjustsContentInsets;
+- (void) setAutomaticallyAdjustsContentInsets: (BOOL) flag;
+- (NSEdgeInsets) scrollerInsets;
+- (void) setScrollerInsets: (NSEdgeInsets) insets;
+- (NSScrollerStyle) scrollerStyle;
+- (void) setScrollerStyle: (NSScrollerStyle) style;
+- (NSScrollerKnobStyle) scrollerKnobStyle;
+- (void) setScrollerKnobStyle: (NSScrollerKnobStyle) style;
+- (void) flashScrollers;
+- (NSScrollElasticity) horizontalScrollElasticity;
+- (void) setHorizontalScrollElasticity: (NSScrollElasticity) value;
+- (NSScrollElasticity) verticalScrollElasticity;
+- (void) setVerticalScrollElasticity: (NSScrollElasticity) value;
+- (BOOL) usesPredominantAxisScrolling;
+- (void) setUsesPredominantAxisScrolling: (BOOL) flag;
+- (NSScrollViewFindBarPosition) findBarPosition;
+- (void) setFindBarPosition: (NSScrollViewFindBarPosition) position;
+- (void) magnifyToFitRect: (NSRect) rect;
+- (void) setMagnification: (CGFloat) magnification
+          centeredAtPoint: (NSPoint) point;
+// axis is an NSEventGestureAxis
+- (void) addFloatingSubview: (NSView *) view forAxis: (NSInteger) axis;
 
 - (void) tile;
 - (void) reflectScrolledClipView: (NSClipView *) clipView;

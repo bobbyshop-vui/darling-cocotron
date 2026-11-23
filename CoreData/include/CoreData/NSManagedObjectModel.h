@@ -46,6 +46,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) setEntities: (NSArray *) entities
         forConfiguration: (NSString *) configuration;
 
+- (NSDictionary *) fetchRequestTemplatesByName;
 - (NSFetchRequest *) fetchRequestTemplateForName: (NSString *) name;
 - (NSFetchRequest *) fetchRequestFromTemplateWithName: (NSString *) name
                                 substitutionVariables:

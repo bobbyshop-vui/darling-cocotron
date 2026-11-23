@@ -17,6 +17,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSController.h>
+#import <AppKit/NSUserInterfaceValidation.h>
 @class NSString, NSPredicate, NSFetchRequest, NSManagedObjectContext,
         NSMenuItem, NSError, NSArray, NSCountedSet;
 
@@ -27,6 +28,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     BOOL _editable;
     BOOL _automaticallyPreparesContent;
     NSCountedSet *_observedKeys;
+    NSManagedObjectContext *_managedObjectContext;
+    NSString *_entityName;
+    NSPredicate *_fetchPredicate;
+    BOOL _usesLazyFetching;
 }
 - (void) setContent: (id) content;
 - (id) content;
@@ -36,36 +41,40 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - initWithContent: (id) content;
 
-//-(Class)objectClass;
-//-(NSString *)entityName;
-//-(NSPredicate *)fetchPredicate;
-//-(NSManagedObjectContext *)managedObjectContext;
+- (Class) objectClass;
+- (NSString *) entityName;
+- (NSPredicate *) fetchPredicate;
+- (NSManagedObjectContext *) managedObjectContext;
 - (BOOL) isEditable;
 - (BOOL) automaticallyPreparesContent;
 
-//-(void)setObjectClass:(Class)class;
-//-(void)setEntityName:(NSString *)name;
-//-(void)setFetchPredicate:(NSPredicate *)predicate;
-//-(void)setManagedObjectContext:(NSManagedObjectContext *)context;
+- (void) setObjectClass: (Class) aClass;
+- (void) setEntityName: (NSString *) name;
+- (void) setFetchPredicate: (NSPredicate *) predicate;
+- (void) setManagedObjectContext: (NSManagedObjectContext *) context;
+- (BOOL) usesLazyFetching;
+- (void) setUsesLazyFetching: (BOOL) flag;
 - (void) setEditable: (BOOL) flag;
 - (void) setAutomaticallyPreparesContent: (BOOL) flag;
 
-//-(void)addObject:object;
+- (void) addObject: (id) object;
 
 - newObject;
 
 - (BOOL) canAdd;
 - (BOOL) canRemove;
-//-(void)add:sender;
-//-(void)fetch:sender;
-//-(void)remove:sender;
-//-(void)removeObject:object;
+- (void) add: (id) sender;
+- (void) fetch: (id) sender;
+- (void) remove: (id) sender;
+- (void) removeObject: (id) object;
 
 - (void) prepareContent;
 
-//-(BOOL)fetchWithRequest:(NSFetchRequest *)fetchRequest merge:(BOOL)merge
-// error:(NSError **)error;
+- (BOOL) fetchWithRequest: (NSFetchRequest *) fetchRequest
+                    merge: (BOOL) merge
+                    error: (NSError **) error;
+- (NSFetchRequest *) defaultFetchRequest;
 
-//-(BOOL)validateMenuItem:(NSMenuItem *)menuItem;
+- (BOOL) validateUserInterfaceItem: (id<NSValidatedUserInterfaceItem>) item;
 
 @end

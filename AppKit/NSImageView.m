@@ -18,6 +18,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import <AppKit/NSColor.h>
 #import <AppKit/NSImage.h>
 #import <AppKit/NSImageCell.h>
 #import <AppKit/NSImageView.h>
@@ -27,6 +28,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 + (Class) cellClass {
     return [NSImageCell class];
+}
+
++ (instancetype) imageViewWithImage: (NSImage *) image {
+    NSImageView *view = [[[self alloc] initWithFrame: NSZeroRect] autorelease];
+
+    [view setImage: image];
+    return view;
+}
+
+- (void) dealloc {
+    [_contentTintColor release];
+    [super dealloc];
+}
+
+- (NSColor *) contentTintColor {
+    return _contentTintColor;
+}
+
+- (void) setContentTintColor: (NSColor *) color {
+    color = [color copy];
+    [_contentTintColor release];
+    _contentTintColor = color;
+    [self setNeedsDisplay: YES];
 }
 
 - target {

@@ -360,6 +360,7 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
     [_selectedTextAttributes release];
     [_fieldEditorUndoManager release];
     [_undoTyping release];
+    [_allowedInputSourceLocales release];
     [super dealloc];
 }
 
@@ -3095,10 +3096,7 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
             [layoutManager glyphRangeForBoundingRect: glyphRect
                                      inTextContainer: [self textContainer]];
 
-    if ([self drawsBackground]) {
-        [_backgroundColor setFill];
-        NSRectFill(rect);
-    }
+    [self drawViewBackgroundInRect: rect];
     [layoutManager drawBackgroundForGlyphRange: gRange atPoint: origin];
     [layoutManager drawGlyphsForGlyphRange: gRange atPoint: origin];
     if ([self shouldDrawInsertionPoint]) {
@@ -4084,6 +4082,526 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 // Is defined in NSText but throws an NSInvalidAbstractInvocation Exception
 - (void) setImportsGraphics: (BOOL) value {
     NSUnimplementedMethod();
+}
+
+#pragma mark - Additional NSTextView API
+
++ (instancetype) fieldEditor {
+    NSTextView *view = [[[self alloc] initWithFrame: NSZeroRect] autorelease];
+
+    [view setFieldEditor: YES];
+    [view setRichText: NO];
+    [view setHorizontallyResizable: NO];
+    [view setVerticallyResizable: NO];
+    return view;
+}
+
+- (NSArray *) readablePasteboardTypes {
+    if (_isRichText)
+        return [NSArray arrayWithObjects: NSRTFPboardType,
+                                          NSStringPboardType,
+                                          nil];
+    return [NSArray arrayWithObject: NSStringPboardType];
+}
+
+- (NSArray *) acceptableDragTypes {
+    return [self readablePasteboardTypes];
+}
+
+- (NSString *) preferredPasteboardTypeFromArray: (NSArray *) availableTypes
+                     restrictedToTypesFromArray: (NSArray *) allowedTypes
+{
+    // Preference order is the receiver's own readable type order
+    for (NSString *type in [self readablePasteboardTypes]) {
+        if (![availableTypes containsObject: type])
+            continue;
+        if (allowedTypes != nil && ![allowedTypes containsObject: type])
+            continue;
+        return type;
+    }
+    return nil;
+}
+
+- (BOOL) readSelectionFromPasteboard: (NSPasteboard *) pboard
+                                type: (NSString *) type
+{
+    id string = nil;
+
+    if (type == nil || !_isEditable)
+        return NO;
+
+    if (_isRichText && [type isEqualToString: NSRTFPboardType]) {
+        NSData *data = [pboard dataForType: NSRTFPboardType];
+        if ([data length] > 0)
+            string = [[[NSAttributedString alloc] initWithRTF: data
+                                           documentAttributes: nil]
+                    autorelease];
+    } else if ([type isEqualToString: NSStringPboardType]) {
+        string = [pboard stringForType: NSStringPboardType];
+    }
+
+    if (string == nil)
+        return NO;
+
+    NSRange range = [self rangeForUserTextChange];
+    if (range.location == NSNotFound)
+        return NO;
+
+    if (![self shouldChangeTextInRange: range replacementString: string])
+        return NO;
+
+    [self _replaceCharactersInRange: range
+                         withString: string
+                useTypingAttributes: NO];
+    [self didChangeText];
+    return YES;
+}
+
+- (BOOL) readSelectionFromPasteboard: (NSPasteboard *) pboard {
+    NSString *type = [self preferredPasteboardTypeFromArray: [pboard types]
+                                 restrictedToTypesFromArray: nil];
+    if (type == nil)
+        return NO;
+    return [self readSelectionFromPasteboard: pboard type: type];
+}
+
+- (void) pasteAsPlainText: (id) sender {
+    NSString *string =
+            [[NSPasteboard generalPasteboard] stringForType: NSStringPboardType];
+
+    if ([string length] == 0 || !_isEditable)
+        return;
+
+    NSRange range = [self rangeForUserTextChange];
+    if (range.location == NSNotFound)
+        return;
+
+    if (![self shouldChangeTextInRange: range replacementString: string])
+        return;
+
+    [self _replaceCharactersInRange: range
+                         withString: string
+                useTypingAttributes: YES];
+    [self didChangeText];
+}
+
+- (BOOL) dragSelectionWithEvent: (NSEvent *) event
+                         offset: (NSSize) mouseOffset
+                      slideBack: (BOOL) slideBack
+{
+    NSRange selection = [self selectedRange];
+
+    if (selection.length == 0 || [self window] == nil)
+        return NO;
+
+    NSPasteboard *pboard = [NSPasteboard pasteboardWithName: NSDragPboard];
+    if (![self writeSelectionToPasteboard: pboard
+                                    types: [self writablePasteboardTypes]])
+        return NO;
+
+    NSAttributedString *text = [_textStorage attributedSubstringFromRange: selection];
+    NSSize size = [text size];
+    size.width = MIN(MAX(size.width, 1), 400);
+    size.height = MIN(MAX(size.height, 1), 200);
+
+    NSImage *image = [[[NSImage alloc] initWithSize: size] autorelease];
+    [image lockFocus];
+    [text drawInRect: NSMakeRect(0, 0, size.width, size.height)];
+    [image unlockFocus];
+
+    NSRect rect = [self _viewRectForCharacterRange: selection];
+    // lower-left corner of the image in view coordinates
+    NSPoint location = NSMakePoint(NSMinX(rect),
+                                   [self isFlipped] ? NSMaxY(rect)
+                                                    : NSMinY(rect));
+
+    [self dragImage: image
+                 at: location
+             offset: mouseOffset
+              event: event
+         pasteboard: pboard
+             source: self
+          slideBack: slideBack];
+    return YES;
+}
+
+- (NSSelectionAffinity) selectionAffinity {
+    return _selectionAffinity;
+}
+
+- (NSSelectionGranularity) selectionGranularity {
+    return _selectionGranularity;
+}
+
+- (void) setSelectionGranularity: (NSSelectionGranularity) granularity {
+    _selectionGranularity = granularity;
+}
+
+// Runs the block for every paragraph style run intersecting the paragraphs
+// covered by range, handing it a mutable copy to modify.
+- (void) _modifyParagraphStylesInRange: (NSRange) range
+                             withBlock: (void (^)(NSMutableParagraphStyle *))block
+{
+    NSUInteger length = [_textStorage length];
+
+    if (range.location == NSNotFound || range.location > length)
+        return;
+    if (NSMaxRange(range) > length)
+        range.length = length - range.location;
+
+    if (length == 0) {
+        NSMutableParagraphStyle *style = [[[NSParagraphStyle defaultParagraphStyle]
+                mutableCopy] autorelease];
+        block(style);
+        [self setDefaultParagraphStyle: style];
+        NSMutableDictionary *attributes =
+                [[[self typingAttributes] mutableCopy] autorelease];
+        [attributes setObject: style forKey: NSParagraphStyleAttributeName];
+        [self setTypingAttributes: attributes];
+        return;
+    }
+
+    NSRange paragraphs = [[_textStorage string] paragraphRangeForRange: range];
+    NSUInteger index = paragraphs.location;
+
+    [_textStorage beginEditing];
+    while (index < NSMaxRange(paragraphs)) {
+        NSRange effective = NSMakeRange(index, 1);
+        NSParagraphStyle *current =
+                [_textStorage attribute: NSParagraphStyleAttributeName
+                                atIndex: index
+                         effectiveRange: &effective];
+        NSMutableParagraphStyle *style = [[(current ? current : [NSParagraphStyle
+                defaultParagraphStyle]) mutableCopy] autorelease];
+        NSRange target = NSIntersectionRange(effective, paragraphs);
+
+        block(style);
+        [self _addAttribute: NSParagraphStyleAttributeName
+                      value: style
+                      range: target];
+
+        if (effective.length == 0)
+            break;
+        index = NSMaxRange(effective);
+    }
+    [_textStorage endEditing];
+}
+
+- (void) setAlignment: (NSTextAlignment) alignment range: (NSRange) range {
+    [self _modifyParagraphStylesInRange: range
+                              withBlock: ^(NSMutableParagraphStyle *style) {
+                                  [style setAlignment: alignment];
+                              }];
+}
+
+- (void) setBaseWritingDirection: (NSWritingDirection) writingDirection
+                           range: (NSRange) range
+{
+    [self _modifyParagraphStylesInRange: range
+                              withBlock: ^(NSMutableParagraphStyle *style) {
+                                  [style setBaseWritingDirection:
+                                                 writingDirection];
+                              }];
+}
+
+- (void) turnOffLigatures: (id) sender {
+    NSRange range = [self rangeForUserCharacterAttributeChange];
+
+    if (range.location == NSNotFound)
+        return;
+
+    if (range.length == 0) {
+        NSMutableDictionary *attributes =
+                [[[self typingAttributes] mutableCopy] autorelease];
+        [attributes setObject: [NSNumber numberWithInt: 0]
+                       forKey: NSLigatureAttributeName];
+        [self setTypingAttributes: attributes];
+        return;
+    }
+
+    if (![self shouldChangeTextInRange: range replacementString: nil])
+        return;
+
+    [self _addAttribute: NSLigatureAttributeName
+                  value: [NSNumber numberWithInt: 0]
+                  range: range];
+    [self didChangeText];
+}
+
+- (void) changeColor: (id) sender {
+    NSColor *color = [sender color];
+    NSRange range = [self rangeForUserCharacterAttributeChange];
+
+    if (color == nil || range.location == NSNotFound)
+        return;
+
+    if (!_isRichText) {
+        [self setTextColor: color];
+        return;
+    }
+
+    if (range.length > 0) {
+        if (![self shouldChangeTextInRange: range replacementString: nil])
+            return;
+        [self _addAttribute: NSForegroundColorAttributeName
+                      value: color
+                      range: range];
+        [self didChangeText];
+    }
+
+    NSMutableDictionary *attributes =
+            [[[self typingAttributes] mutableCopy] autorelease];
+    [attributes setObject: color forKey: NSForegroundColorAttributeName];
+    [self setTypingAttributes: attributes];
+}
+
+- (void) changeAttributes: (id) sender {
+    NSRange range = [self rangeForUserCharacterAttributeChange];
+
+    if (range.location == NSNotFound)
+        return;
+
+    if (range.length > 0) {
+        if (![self shouldChangeTextInRange: range replacementString: nil])
+            return;
+
+        NSUInteger index = range.location;
+        [_textStorage beginEditing];
+        while (index < NSMaxRange(range)) {
+            NSRange effective = NSMakeRange(index, 1);
+            NSDictionary *attributes = [_textStorage attributesAtIndex: index
+                                                        effectiveRange: &effective];
+            NSDictionary *converted = [sender convertAttributes: attributes];
+            NSRange target = NSIntersectionRange(effective, range);
+
+            if (converted != nil && target.length > 0)
+                [self _addAttributes: converted range: target];
+
+            if (effective.length == 0)
+                break;
+            index = NSMaxRange(effective);
+        }
+        [_textStorage endEditing];
+        [self didChangeText];
+    }
+
+    NSDictionary *typing = [self typingAttributes];
+    NSDictionary *convertedTyping = [sender convertAttributes: typing];
+    if (convertedTyping != nil) {
+        NSMutableDictionary *attributes = [[typing mutableCopy] autorelease];
+        [attributes addEntriesFromDictionary: convertedTyping];
+        [self setTypingAttributes: attributes];
+    }
+}
+
+- (void) orderFrontLinkPanel: (id) sender {
+    // Darling has no link panel; nothing to show.
+}
+
+- (NSRange) _findString: (NSString *) string
+              fromRange: (NSRange) from
+               backward: (BOOL) backward
+{
+    NSString *text = [self string];
+    NSUInteger length = [text length];
+    NSRange result;
+
+    if ([string length] == 0 || length == 0)
+        return NSMakeRange(NSNotFound, 0);
+
+    NSStringCompareOptions options = NSCaseInsensitiveSearch;
+    if (backward)
+        options |= NSBackwardsSearch;
+
+    NSRange search = backward ? NSMakeRange(0, from.location)
+                              : NSMakeRange(NSMaxRange(from),
+                                            length - MIN(NSMaxRange(from), length));
+    result = [text rangeOfString: string options: options range: search];
+    if (result.location == NSNotFound) {
+        // wrap around
+        result = [text rangeOfString: string
+                             options: options
+                               range: NSMakeRange(0, length)];
+    }
+    return result;
+}
+
+- (void) performFindPanelAction: (id) sender {
+    NSInteger action = [sender respondsToSelector: @selector(tag)]
+                               ? [sender tag]
+                               : NSFindPanelActionShowFindPanel;
+    NSPasteboard *findBoard = [NSPasteboard pasteboardWithName: NSFindPboard];
+    NSString *findString = [findBoard stringForType: NSStringPboardType];
+
+    switch (action) {
+    case NSFindPanelActionSetFindString: {
+        NSRange selection = [self selectedRange];
+        if (selection.length > 0) {
+            [findBoard declareTypes: [NSArray arrayWithObject: NSStringPboardType]
+                              owner: nil];
+            [findBoard setString: [[self string] substringWithRange: selection]
+                         forType: NSStringPboardType];
+        }
+        break;
+    }
+
+    case NSFindPanelActionNext:
+    case NSFindPanelActionPrevious: {
+        NSRange found = [self _findString: findString
+                                fromRange: [self selectedRange]
+                                 backward: action == NSFindPanelActionPrevious];
+        if (found.location != NSNotFound) {
+            [self setSelectedRange: found];
+            [self scrollRangeToVisible: found];
+            [self showFindIndicatorForRange: found];
+        }
+        break;
+    }
+
+    case NSFindPanelActionSelectAll:
+    case NSFindPanelActionSelectAllInSelection: {
+        NSRange scope = NSMakeRange(0, [[self string] length]);
+        if (action == NSFindPanelActionSelectAllInSelection &&
+            [self selectedRange].length > 0)
+            scope = [self selectedRange];
+
+        NSMutableArray *ranges = [NSMutableArray array];
+        if ([findString length] > 0) {
+            NSRange search = scope;
+            while (search.length > 0) {
+                NSRange found = [[self string]
+                        rangeOfString: findString
+                              options: NSCaseInsensitiveSearch
+                                range: search];
+                if (found.location == NSNotFound)
+                    break;
+                [ranges addObject: [NSValue valueWithRange: found]];
+                search.length = NSMaxRange(search) - NSMaxRange(found);
+                search.location = NSMaxRange(found);
+            }
+        }
+        if ([ranges count] > 0)
+            [self setSelectedRanges: ranges];
+        break;
+    }
+
+    default:
+        // There is no find panel in Darling, and replace actions have no
+        // replacement string source.
+        break;
+    }
+}
+
+- (void) setNeedsDisplayInRect: (NSRect) rect
+          avoidAdditionalLayout: (BOOL) flag
+{
+    [self setNeedsDisplayInRect: rect];
+}
+
+- (void) drawViewBackgroundInRect: (NSRect) rect {
+    if ([self drawsBackground]) {
+        [_backgroundColor setFill];
+        NSRectFill(rect);
+    }
+}
+
+- (NSUInteger) characterIndexForInsertionAtPoint: (NSPoint) point {
+    NSUInteger length = [_textStorage length];
+    CGFloat fraction = 0;
+    NSUInteger glyphIndex = [self glyphIndexForPoint: point
+                      fractionOfDistanceThroughGlyph: &fraction];
+
+    if (glyphIndex == NSNotFound)
+        return length;
+
+    NSUInteger index =
+            [[self layoutManager] characterIndexForGlyphAtIndex: glyphIndex];
+    if (fraction >= 0.5)
+        index++;
+
+    return MIN(index, length);
+}
+
+- (BOOL) shouldChangeTextInRanges: (NSArray *) affectedRanges
+               replacementStrings: (NSArray *) replacementStrings
+{
+    if (![self isEditable])
+        return NO;
+
+    if ([_delegate respondsToSelector: @selector
+                   (textView:shouldChangeTextInRanges:replacementStrings:)])
+        return [_delegate textView: self
+                shouldChangeTextInRanges: affectedRanges
+                      replacementStrings: replacementStrings];
+
+    NSUInteger i, count = [affectedRanges count];
+    for (i = 0; i < count; i++) {
+        NSRange range = [[affectedRanges objectAtIndex: i] rangeValue];
+        NSString *string = i < [replacementStrings count]
+                                   ? [replacementStrings objectAtIndex: i]
+                                   : nil;
+        if (![self _delegateChangeTextInRange: range
+                            replacementString: string])
+            return NO;
+    }
+    return YES;
+}
+
+- (void) showFindIndicatorForRange: (NSRange) charRange {
+    // No find indicator animation; make sure the range is visible and redrawn.
+    if (charRange.location == NSNotFound ||
+        NSMaxRange(charRange) > [_textStorage length])
+        return;
+
+    [self scrollRangeToVisible: charRange];
+    [self setNeedsDisplayInRect: [self _viewRectForCharacterRange: charRange]];
+}
+
+- (BOOL) allowsImageEditing {
+    return _allowsImageEditing;
+}
+
+- (void) setAllowsImageEditing: (BOOL) value {
+    _allowsImageEditing = value;
+}
+
+- (BOOL) usesRolloverButtonForSelection {
+    return _usesRolloverButtonForSelection;
+}
+
+- (void) setUsesRolloverButtonForSelection: (BOOL) value {
+    _usesRolloverButtonForSelection = value;
+}
+
+- (NSArray *) allowedInputSourceLocales {
+    return _allowedInputSourceLocales;
+}
+
+- (void) setAllowedInputSourceLocales: (NSArray *) locales {
+    locales = [locales copy];
+    [_allowedInputSourceLocales release];
+    _allowedInputSourceLocales = locales;
+}
+
+- (BOOL) usesFindPanel {
+    return _usesFindPanel;
+}
+
+- (void) setUsesFindPanel: (BOOL) value {
+    _usesFindPanel = value;
+}
+
+- (BOOL) allowsCharacterPickerTouchBarItem {
+    return !_characterPickerTouchBarItemDisabled;
+}
+
+- (void) setAllowsCharacterPickerTouchBarItem: (BOOL) value {
+    _characterPickerTouchBarItemDisabled = !value;
+    [self updateTouchBarItemIdentifiers];
+}
+
+- (void) updateTouchBarItemIdentifiers {
+    // Darling has no Touch Bar, so there are no item identifiers to refresh.
 }
 
 @end

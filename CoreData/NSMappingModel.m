@@ -18,17 +18,87 @@
 */
 
 #import <CoreData/NSMappingModel.h>
+#import <CoreData/NSEntityMapping.h>
+#import <Foundation/Foundation.h>
 
 @implementation NSMappingModel
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (instancetype) init {
+    if ((self = [super init]) != nil)
+        _entityMappings = [[NSArray alloc] init];
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (instancetype) initWithContentsOfURL: (NSURL *) url {
+    if (url == nil) {
+        [self release];
+        return nil;
+    }
+
+    NSData *data = [[NSData alloc] initWithContentsOfURL: url];
+
+    if (data == nil) {
+        [self release];
+        return nil;
+    }
+
+    NSKeyedUnarchiver *unarchiver =
+            [[NSKeyedUnarchiver alloc] initForReadingWithData: data];
+    id root = [unarchiver decodeObjectForKey: @"root"];
+    NSArray *mappings = nil;
+
+    if ([root isKindOfClass: [NSMappingModel class]])
+        mappings = [(NSMappingModel *) root entityMappings];
+    else
+        mappings = [unarchiver decodeObjectForKey: @"NSEntityMappings"];
+
+    [unarchiver release];
+    [data release];
+
+    if (root == nil && mappings == nil) {
+        [self release];
+        return nil;
+    }
+
+    if ((self = [self init]) != nil)
+        [self setEntityMappings: mappings];
+    return self;
+}
+
+- (instancetype) initWithCoder: (NSCoder *) coder {
+    if ((self = [self init]) != nil) {
+        if ([coder allowsKeyedCoding])
+            [self setEntityMappings:
+                          [coder decodeObjectForKey: @"NSEntityMappings"]];
+    }
+    return self;
+}
+
+- (void) dealloc {
+    [_entityMappings release];
+    [super dealloc];
+}
+
+- (NSArray *) entityMappings {
+    return _entityMappings;
+}
+
+- (void) setEntityMappings: (NSArray *) value {
+    value = value != nil ? [value copy] : [[NSArray alloc] init];
+    [_entityMappings release];
+    _entityMappings = value;
+}
+
+- (NSDictionary *) entityMappingsByName {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+
+    for (NSEntityMapping *mapping in _entityMappings) {
+        NSString *name = [mapping name];
+
+        if (name != nil)
+            [result setObject: mapping forKey: name];
+    }
+    return result;
 }
 
 @end

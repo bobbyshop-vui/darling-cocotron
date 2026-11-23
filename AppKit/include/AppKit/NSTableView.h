@@ -48,7 +48,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSControl.h>
 #import <AppKit/NSDragging.h>
 
-@class NSTableHeaderView, NSTableColumn;
+@class NSTableHeaderView, NSTableColumn, NSTableRowView, NSNib, NSImage;
 
 APPKIT_EXPORT NSString *const NSTableViewSelectionIsChangingNotification;
 APPKIT_EXPORT NSString *const NSTableViewSelectionDidChangeNotification;
@@ -74,6 +74,40 @@ typedef enum {
     NSTableViewDropOn,
     NSTableViewDropAbove
 } NSTableViewDropOperation;
+
+typedef NS_ENUM(NSUInteger, NSTableViewColumnAutoresizingStyle) {
+    NSTableViewNoColumnAutoresizing = 0,
+    NSTableViewUniformColumnAutoresizingStyle,
+    NSTableViewSequentialColumnAutoresizingStyle,
+    NSTableViewReverseSequentialColumnAutoresizingStyle,
+    NSTableViewLastColumnOnlyAutoresizingStyle,
+    NSTableViewFirstColumnOnlyAutoresizingStyle,
+};
+
+typedef NS_ENUM(NSInteger, NSTableViewRowSizeStyle) {
+    NSTableViewRowSizeStyleDefault = -1,
+    NSTableViewRowSizeStyleCustom = 0,
+    NSTableViewRowSizeStyleSmall = 1,
+    NSTableViewRowSizeStyleMedium = 2,
+    NSTableViewRowSizeStyleLarge = 3,
+};
+
+typedef NS_ENUM(NSInteger, NSTableViewDraggingDestinationFeedbackStyle) {
+    NSTableViewDraggingDestinationFeedbackStyleNone = -1,
+    NSTableViewDraggingDestinationFeedbackStyleRegular = 0,
+    NSTableViewDraggingDestinationFeedbackStyleSourceList = 1,
+    NSTableViewDraggingDestinationFeedbackStyleGap = 2,
+};
+
+typedef NS_OPTIONS(NSUInteger, NSTableViewAnimationOptions) {
+    NSTableViewAnimationEffectNone = 0x0,
+    NSTableViewAnimationEffectFade = 0x1,
+    NSTableViewAnimationEffectGap = 0x2,
+    NSTableViewAnimationSlideUp = 0x10,
+    NSTableViewAnimationSlideDown = 0x20,
+    NSTableViewAnimationSlideLeft = 0x30,
+    NSTableViewAnimationSlideRight = 0x40,
+};
 
 @interface NSTableView : NSControl {
     id _target;
@@ -115,6 +149,19 @@ typedef enum {
     NSArray *_sortDescriptors;
 
     NSInteger _draggingRow;
+
+    NSInteger _updateCount;
+    BOOL _updatesNeedReload;
+    NSTableViewColumnAutoresizingStyle _columnAutoresizingStyle;
+    NSTableViewRowSizeStyle _rowSizeStyle;
+    NSTableViewDraggingDestinationFeedbackStyle _draggingDestinationFeedbackStyle;
+    BOOL _floatsGroupRows;
+    BOOL _usesAutomaticRowHeights;
+    NSMutableDictionary *_registeredNibs;
+    NSDragOperation _draggingSourceMaskLocal;
+    NSDragOperation _draggingSourceMaskRemote;
+    NSInteger _retargetedDropRow;
+    NSTableViewDropOperation _retargetedDropOperation;
 }
 
 - (SEL) doubleAction;
@@ -240,6 +287,54 @@ typedef enum {
 
 - (NSArray *) sortDescriptors;
 - (void) setSortDescriptors: (NSArray *) value;
+
+- (void) beginUpdates;
+- (void) endUpdates;
+- (void) insertRowsAtIndexes: (NSIndexSet *) indexes
+               withAnimation: (NSTableViewAnimationOptions) animationOptions;
+- (void) removeRowsAtIndexes: (NSIndexSet *) indexes
+               withAnimation: (NSTableViewAnimationOptions) animationOptions;
+- (void) moveRowAtIndex: (NSInteger) oldIndex toIndex: (NSInteger) newIndex;
+- (void) reloadDataForRowIndexes: (NSIndexSet *) rowIndexes
+                    columnIndexes: (NSIndexSet *) columnIndexes;
+- (NSIndexSet *) columnIndexesInRect: (NSRect) rect;
+
+- (NSTableViewColumnAutoresizingStyle) columnAutoresizingStyle;
+- (void) setColumnAutoresizingStyle: (NSTableViewColumnAutoresizingStyle) style;
+- (NSTableViewRowSizeStyle) rowSizeStyle;
+- (void) setRowSizeStyle: (NSTableViewRowSizeStyle) style;
+- (BOOL) floatsGroupRows;
+- (void) setFloatsGroupRows: (BOOL) flag;
+- (BOOL) usesAutomaticRowHeights;
+- (void) setUsesAutomaticRowHeights: (BOOL) flag;
+- (void) setDraggingDestinationFeedbackStyle:
+        (NSTableViewDraggingDestinationFeedbackStyle) style;
+- (void) setDraggingSourceOperationMask: (NSDragOperation) mask
+                               forLocal: (BOOL) isLocal;
+- (void) setDropRow: (NSInteger) row
+      dropOperation: (NSTableViewDropOperation) dropOperation;
+- (BOOL) canDragRowsWithIndexes: (NSIndexSet *) rowIndexes
+                        atPoint: (NSPoint) mouseDownPoint;
+- (NSImage *) dragImageForRowsWithIndexes: (NSIndexSet *) dragRows
+                             tableColumns: (NSArray *) tableColumns
+                                    event: (NSEvent *) dragEvent
+                                   offset: (NSPointPointer) dragImageOffset;
+
+- (NSInteger) rowForView: (NSView *) view;
+- (NSInteger) columnForView: (NSView *) view;
+- (id) makeViewWithIdentifier: (NSUserInterfaceItemIdentifier) identifier
+                        owner: (id) owner;
+- (NSTableRowView *) rowViewAtRow: (NSInteger) row
+                   makeIfNecessary: (BOOL) makeIfNecessary;
+- (void) enumerateAvailableRowViewsUsingBlock:
+        (void (^)(NSTableRowView *rowView, NSInteger row)) handler;
+- (void) registerNib: (NSNib *) nib
+       forIdentifier: (NSUserInterfaceItemIdentifier) identifier;
+- (NSDictionary *) registeredNibsByIdentifier;
+- (void) didAddRowView: (NSTableRowView *) rowView forRow: (NSInteger) row;
+- (void) didRemoveRowView: (NSTableRowView *) rowView forRow: (NSInteger) row;
+- (BOOL) textShouldBeginEditing: (NSText *) textObject;
+- (BOOL) textShouldEndEditing: (NSText *) textObject;
 @end
 
 @protocol NSTableViewDataSource <NSObject>

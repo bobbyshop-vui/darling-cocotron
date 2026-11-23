@@ -21,14 +21,43 @@
 
 @implementation NSPressGestureRecognizer
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (instancetype) initWithTarget: (id) target action: (SEL) action {
+    if ((self = [super initWithTarget: target action: action]) != nil) {
+        _minimumPressDuration = 0.5;
+        _allowableMovement = 10.0;
+        _numberOfTouchesRequired = 0;
+    }
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (instancetype) initWithCoder: (NSCoder *) coder {
+    if ((self = [super initWithCoder: coder]) != nil) {
+        if ([coder allowsKeyedCoding]) {
+            if ([coder containsValueForKey: @"NSPressGestureRecognizerMinimumPressDuration"])
+                _minimumPressDuration = [coder decodeDoubleForKey: @"NSPressGestureRecognizerMinimumPressDuration"];
+            if ([coder containsValueForKey: @"NSPressGestureRecognizerAllowableMovement"])
+                _allowableMovement = [coder decodeDoubleForKey: @"NSPressGestureRecognizerAllowableMovement"];
+            if ([coder containsValueForKey: @"NSPressGestureRecognizerNumberOfTouchesRequired"])
+                _numberOfTouchesRequired = [coder decodeIntegerForKey: @"NSPressGestureRecognizerNumberOfTouchesRequired"];
+        }
+    }
+    return self;
 }
+
+- (void) encodeWithCoder: (NSCoder *) coder {
+    [super encodeWithCoder: coder];
+    if ([coder allowsKeyedCoding]) {
+        [coder encodeDouble: _minimumPressDuration forKey: @"NSPressGestureRecognizerMinimumPressDuration"];
+        [coder encodeDouble: _allowableMovement forKey: @"NSPressGestureRecognizerAllowableMovement"];
+        [coder encodeInteger: _numberOfTouchesRequired forKey: @"NSPressGestureRecognizerNumberOfTouchesRequired"];
+    }
+}
+
+- (NSTimeInterval) minimumPressDuration { return _minimumPressDuration; }
+- (void) setMinimumPressDuration: (NSTimeInterval) value { _minimumPressDuration = value; }
+- (CGFloat) allowableMovement { return _allowableMovement; }
+- (void) setAllowableMovement: (CGFloat) value { _allowableMovement = value; }
+- (NSInteger) numberOfTouchesRequired { return _numberOfTouchesRequired; }
+- (void) setNumberOfTouchesRequired: (NSInteger) value { _numberOfTouchesRequired = value; }
 
 @end

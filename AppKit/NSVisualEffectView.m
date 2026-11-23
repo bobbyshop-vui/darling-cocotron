@@ -18,17 +18,81 @@
 */
 
 #import <AppKit/NSVisualEffectView.h>
+#import <AppKit/NSImage.h>
 
 @implementation NSVisualEffectView
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (void) dealloc {
+    [_vevMaskImage release];
+    [super dealloc];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (NSVisualEffectMaterial) material {
+    return _vevMaterial;
+}
+
+- (void) setMaterial: (NSVisualEffectMaterial) value {
+    if (_vevMaterial != value) {
+        _vevMaterial = value;
+        [self setNeedsDisplay: YES];
+    }
+}
+
+- (NSBackgroundStyle) interiorBackgroundStyle {
+    switch (_vevMaterial) {
+    case NSVisualEffectMaterialDark:
+    case NSVisualEffectMaterialUltraDark:
+    case NSVisualEffectMaterialHUDWindow:
+    case NSVisualEffectMaterialFullScreenUI:
+    case NSVisualEffectMaterialToolTip:
+        return NSBackgroundStyleDark;
+    default:
+        return NSBackgroundStyleLight;
+    }
+}
+
+- (NSVisualEffectBlendingMode) blendingMode {
+    return _vevBlendingMode;
+}
+
+- (void) setBlendingMode: (NSVisualEffectBlendingMode) value {
+    if (_vevBlendingMode != value) {
+        _vevBlendingMode = value;
+        [self setNeedsDisplay: YES];
+    }
+}
+
+- (NSVisualEffectState) state {
+    return _vevState;
+}
+
+- (void) setState: (NSVisualEffectState) value {
+    if (_vevState != value) {
+        _vevState = value;
+        [self setNeedsDisplay: YES];
+    }
+}
+
+- (NSImage *) maskImage {
+    return _vevMaskImage;
+}
+
+- (void) setMaskImage: (NSImage *) value {
+    value = [value retain];
+    [_vevMaskImage release];
+    _vevMaskImage = value;
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) isEmphasized {
+    return _vevEmphasized;
+}
+
+- (void) setEmphasized: (BOOL) value {
+    if (_vevEmphasized != value) {
+        _vevEmphasized = value;
+        [self setNeedsDisplay: YES];
+    }
 }
 
 @end

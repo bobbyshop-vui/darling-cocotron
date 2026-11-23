@@ -20,6 +20,12 @@
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@interface NSPressureConfiguration : NSObject
+@interface NSPressureConfiguration : NSObject {
+    NSInteger _pressureBehavior;
+}
+
+- (NSInteger) pressureBehavior;
+- (instancetype) initWithPressureBehavior: (NSInteger) pressureBehavior;
+- (void) set;
 
 @end

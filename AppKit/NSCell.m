@@ -412,6 +412,7 @@ NSNotificationName NSControlTintDidChangeNotification = @"NSControlTintDidChange
     [_formatter release];
     [_representedObject release];
     [_identifier release];
+    [_cellMenu release];
     [super dealloc];
 }
 
@@ -423,6 +424,7 @@ NSNotificationName NSControlTintDidChangeNotification = @"NSControlTintDidChange
     copy->_image = [_image retain];
     copy->_formatter = [_formatter retain];
     copy->_representedObject = [_representedObject retain];
+    copy->_cellMenu = [_cellMenu retain];
 
     return copy;
 }
@@ -897,7 +899,7 @@ NSNotificationName NSControlTintDidChangeNotification = @"NSControlTintDidChange
         while (right--)
             [format appendString: @"0"];
     }
-    [(NSNumberFormatter *) _formatter setFormat: format];
+    [_formatter performSelector: @selector(setFormat:) withObject: format];
 }
 
 - (void) setObjectValue: (id<NSCopying>) value {
@@ -1308,6 +1310,171 @@ static NSString *NSStringFromCellType(NSCellType type) {
                               [super description],
                               NSStringFromCellType(_cellType), _font,
                               _objectValue];
+}
+
+- (BOOL) acceptsFirstResponder {
+    return _isEnabled && !_refusesFirstResponder;
+}
+
+- (NSInteger) cellAttribute: (NSCellAttribute) parameter {
+    switch (parameter) {
+    case NSCellDisabled:
+        return _isEnabled ? 0 : 1;
+    case 1: // NSCellState
+        return [self state];
+    case NSCellEditable:
+        return _isEditable ? 1 : 0;
+    case NSCellHighlighted:
+        return _isHighlighted ? 1 : 0;
+    case NSCellIsBordered:
+        return _isBordered ? 1 : 0;
+    case NSCellAllowsMixedState:
+        return _allowsMixedState ? 1 : 0;
+    default:
+        return 0;
+    }
+}
+
+- (void) setCellAttribute: (NSCellAttribute) parameter to: (NSInteger) value {
+    switch (parameter) {
+    case NSCellDisabled:
+        [self setEnabled: value == 0];
+        break;
+    case 1: // NSCellState
+        [self setState: (NSControlStateValue) value];
+        break;
+    case NSCellEditable:
+        [self setEditable: value != 0];
+        break;
+    case NSCellHighlighted:
+        [self setHighlighted: value != 0];
+        break;
+    case NSCellIsBordered:
+        [self setBordered: value != 0];
+        break;
+    case NSCellAllowsMixedState:
+        [self setAllowsMixedState: value != 0];
+        break;
+    default:
+        break;
+    }
+}
+
+- (NSComparisonResult) compare: (id) otherCell {
+    if (![otherCell isKindOfClass: [NSCell class]]) {
+        [NSException raise: NSInvalidArgumentException
+                    format: @"-[%@ %s] other object is not an NSCell",
+                            [self class], sel_getName(_cmd)];
+    }
+    if (_cellType == NSTextCellType &&
+        [(NSCell *) otherCell type] == NSTextCellType) {
+        return [[self stringValue] compare: [otherCell stringValue]];
+    }
+    id left = [self objectValue];
+    id right = [otherCell objectValue];
+    if ([left respondsToSelector: @selector(compare:)] && right != nil)
+        return [left compare: right];
+    return [[self stringValue] compare: [otherCell stringValue]];
+}
+
+- (NSControlTint) controlTint {
+    return _controlTint;
+}
+
+- (void) setControlTint: (NSControlTint) tint {
+    _controlTint = tint;
+}
+
+- (void) drawFocusRingMaskWithFrame: (NSRect) cellFrame
+                             inView: (NSView *) controlView {
+    NSRectFill(cellFrame);
+}
+
+- (void) drawWithExpansionFrame: (NSRect) cellFrame inView: (NSView *) view {
+    [self drawInteriorWithFrame: cellFrame inView: view];
+}
+
+- (NSRect) expansionFrameWithFrame: (NSRect) cellFrame inView: (NSView *) view {
+    // Empty rect means the cell content is not truncated and needs no
+    // expansion tool tip.
+    return NSZeroRect;
+}
+
+- (NSTextView *) fieldEditorForView: (NSView *) controlView {
+    // nil selects the window's default field editor.
+    return nil;
+}
+
+- (NSCellHitResult) hitTestForEvent: (NSEvent *) event
+                             inRect: (NSRect) cellFrame
+                             ofView: (NSView *) controlView {
+    NSPoint point = [controlView convertPoint: [event locationInWindow]
+                                     fromView: nil];
+    if (!NSMouseInRect(point, cellFrame, [controlView isFlipped]))
+        return NSCellHitNone;
+
+    NSCellHitResult result = NSCellHitContentArea;
+    if (_cellType == NSTextCellType && (_isEditable || _isSelectable))
+        result |= NSCellHitEditableTextArea;
+    else if (_isEnabled && [self action] != NULL)
+        result |= NSCellHitTrackableArea;
+    return result;
+}
+
+- (BOOL) importsGraphics {
+    return _importsGraphics;
+}
+
+- (void) setImportsGraphics: (BOOL) flag {
+    _importsGraphics = flag;
+    if (flag)
+        _allowsEditingTextAttributes = YES;
+}
+
+- (NSBackgroundStyle) interiorBackgroundStyle {
+    return _backgroundStyle;
+}
+
+- (BOOL) isOpaque {
+    return NO;
+}
+
+- (NSString *) keyEquivalent {
+    return @"";
+}
+
+- (NSMenu *) menu {
+    return _cellMenu != nil ? _cellMenu : [[self class] defaultMenu];
+}
+
+- (void) setMenu: (NSMenu *) menu {
+    menu = [menu retain];
+    [_cellMenu release];
+    _cellMenu = menu;
+}
+
+- (NSString *) mnemonic {
+    return @"";
+}
+
+- (void) performClick: (id) sender {
+    NSView *view = [self controlView];
+
+    if (![self isEnabled] || view == nil)
+        return;
+
+    [view lockFocus];
+    [self highlight: YES withFrame: [view bounds] inView: view];
+    [view unlockFocus];
+    [[view window] flushWindow];
+
+    if ([view isKindOfClass: [NSControl class]])
+        [(NSControl *) view sendAction: [self action] to: [self target]];
+
+    [view lockFocus];
+    [self highlight: NO withFrame: [view bounds] inView: view];
+    [view unlockFocus];
+    [[view window] flushWindow];
 }
 
 - (void) _validateEditing: (id)unknown

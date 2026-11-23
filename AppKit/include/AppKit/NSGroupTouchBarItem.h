@@ -18,6 +18,21 @@
 */
 
 #import <AppKit/NSTouchBarItem.h>
+#import <AppKit/NSApplication.h>
 
-@interface NSGroupTouchBarItem : NSTouchBarItem
+@class NSTouchBar;
+
+@interface NSGroupTouchBarItem : NSTouchBarItem {
+    NSArray *_groupItems;
+    NSTouchBar *_groupTouchBar;
+    NSString *_customizationLabel;
+    NSUserInterfaceLayoutDirection _groupUserInterfaceLayoutDirection;
+}
++ (instancetype)groupItemWithIdentifier:(NSTouchBarItemIdentifier)identifier items:(NSArray *)items;
+- (NSTouchBar *)groupTouchBar;
+- (void)setGroupTouchBar:(NSTouchBar *)groupTouchBar;
+- (NSString *)customizationLabel;
+- (void)setCustomizationLabel:(NSString *)label;
+- (NSUserInterfaceLayoutDirection)groupUserInterfaceLayoutDirection;
+- (void)setGroupUserInterfaceLayoutDirection:(NSUserInterfaceLayoutDirection)direction;
 @end

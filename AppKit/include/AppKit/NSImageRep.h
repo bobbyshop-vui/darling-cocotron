@@ -20,7 +20,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSGeometry.h>
 #import <Foundation/NSObject.h>
 
-@class NSArray, NSData, NSPasteboard, NSURL;
+#import <AppKit/NSGraphics.h>
+#import <CoreGraphics/CoreGraphics.h>
+#import <Foundation/NSDictionary.h>
+
+@class NSArray, NSData, NSPasteboard, NSURL, NSGraphicsContext;
+
+typedef NS_ENUM(NSInteger, NSImageLayoutDirection) {
+    NSImageLayoutDirectionUnspecified = -1,
+    NSImageLayoutDirectionLeftToRight = 2,
+    NSImageLayoutDirectionRightToLeft = 3,
+};
 
 @interface NSImageRep : NSObject <NSCopying> {
     NSSize _size;
@@ -31,7 +41,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
     BOOL _hasAlpha;
     BOOL _isOpaque;
+    NSImageLayoutDirection _layoutDirection;
+    CGImageRef _proposedCGImage;
 }
+
++ (NSArray *) imageTypes;
++ (Class) imageRepClassForType: (NSString *) type;
 
 + (NSArray *) registeredImageRepClasses;
 + (void) registerImageRepClass: (Class) aClass;
@@ -77,5 +92,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (BOOL) draw;
 - (BOOL) drawAtPoint: (NSPoint) point;
 - (BOOL) drawInRect: (NSRect) rect;
+- (BOOL) drawInRect: (NSRect) dstRect
+              fromRect: (NSRect) srcRect
+             operation: (NSCompositingOperation) op
+              fraction: (CGFloat) alpha
+        respectFlipped: (BOOL) respectFlipped
+                 hints: (NSDictionary *) hints;
+- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
+                              context: (NSGraphicsContext *) context
+                                hints: (NSDictionary *) hints;
+- (NSImageLayoutDirection) layoutDirection;
+- (void) setLayoutDirection: (NSImageLayoutDirection) direction;
 
 @end

@@ -510,6 +510,37 @@ static NSDocumentController *shared = nil;
     }
 }
 
+- (void) openDocumentWithContentsOfURL: (NSURL *) url
+                               display: (BOOL) displayDocument
+                     completionHandler: (void (^)(NSDocument *document,
+                                                  BOOL documentWasAlreadyOpen,
+                                                  NSError *error)) completionHandler
+{
+    BOOL alreadyOpen = [self documentForURL: url] != nil;
+    NSError *error = nil;
+    NSDocument *document = [self openDocumentWithContentsOfURL: url
+                                                       display: displayDocument
+                                                         error: &error];
+
+    if (completionHandler != nil)
+        completionHandler(document, alreadyOpen, document == nil ? error : nil);
+}
+
+- openDocumentWithContentsOfURL: (NSURL *) url display: (BOOL) display {
+    NSError *error = nil;
+
+    return [self openDocumentWithContentsOfURL: url
+                                       display: display
+                                         error: &error];
+}
+
+- (void) beginOpenPanelWithCompletionHandler: (void (^)(NSArray *urls)) handler {
+    NSArray *urls = [self URLsFromRunningOpenPanel];
+
+    if (handler != nil)
+        handler([urls count] > 0 ? urls : nil);
+}
+
 - (BOOL) reopenDocumentForURL: (NSURL *) url
             withContentsOfURL: (NSURL *) contentsUL
                         error: (NSError **) error
@@ -568,13 +599,86 @@ static NSDocumentController *shared = nil;
                       closeAllContext: closeAllContext];
 }
 
+- (void) _reviewNextUnsavedDocument: (NSDocument *) document
+                       shouldClose: (BOOL) shouldClose
+                           context: (NSMutableDictionary *) context
+{
+    // Recursive callback: start it with a nil document.
+    NSMutableArray *pending = [context objectForKey: @"pending"];
+    BOOL finished = NO;
+    BOOL reviewedAll = YES;
+
+    if (document != nil && !shouldClose) {
+        finished = YES;
+        reviewedAll = NO;
+    }
+
+    while (!finished) {
+        NSDocument *next = nil;
+
+        while ([pending count] > 0) {
+            NSDocument *candidate = [[pending objectAtIndex: 0] retain];
+            [pending removeObjectAtIndex: 0];
+            if ([_documents containsObject: candidate] &&
+                [candidate isDocumentEdited])
+                next = [candidate autorelease];
+            else
+                [candidate release];
+            if (next != nil)
+                break;
+        }
+        if (next == nil) {
+            finished = YES;
+            break;
+        }
+        [next canCloseDocumentWithDelegate: self
+                       shouldCloseSelector: @selector
+                       (_reviewNextUnsavedDocument:shouldClose:context:)
+                               contextInfo: context];
+        return;
+    }
+
+    id delegate = [context objectForKey: @"delegate"];
+    SEL selector = NSSelectorFromString([context objectForKey: @"selector"]);
+    void *info = [[context objectForKey: @"contextInfo"] pointerValue];
+    [context retain];
+    [context release];
+    if (delegate != nil && [delegate respondsToSelector: selector]) {
+        void (*delegateMethod)(id, SEL, id, BOOL, void *);
+        delegateMethod =
+                (void (*)(id, SEL, id, BOOL,
+                          void *)) [delegate methodForSelector: selector];
+        delegateMethod(delegate, selector, self, reviewedAll, info);
+    }
+}
+
 - (void) reviewUnsavedDocumentsWithAlertTitle: (NSString *) title
                                   cancellable: (BOOL) cancellable
                                      delegate: delegate
                          didReviewAllSelector: (SEL) selector
-                                         info: (void *) info
+                                  contextInfo: (void *) info
 {
-    NSUnimplementedMethod();
+    NSMutableArray *pending = [NSMutableArray array];
+    NSDocument *document;
+
+    for (document in _documents) {
+        if ([document isDocumentEdited])
+            [pending addObject: document];
+    }
+
+    NSMutableDictionary *context = [NSMutableDictionary dictionary];
+    [context setObject: pending forKey: @"pending"];
+    if (delegate != nil)
+        [context setObject: delegate forKey: @"delegate"];
+    if (selector != NULL)
+        [context setObject: NSStringFromSelector(selector) forKey: @"selector"];
+    [context setObject: [NSValue valueWithPointer: info] forKey: @"contextInfo"];
+    [context setObject: [NSNumber numberWithBool: cancellable]
+                forKey: @"cancellable"];
+    if (title != nil)
+        [context setObject: title forKey: @"title"];
+
+    [self _reviewNextUnsavedDocument: nil shouldClose: YES context: context];
 }
 
 - (NSError *) willPresentError: (NSError *) error {

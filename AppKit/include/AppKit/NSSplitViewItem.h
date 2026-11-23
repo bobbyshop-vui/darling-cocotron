@@ -20,6 +20,41 @@
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@interface NSSplitViewItem : NSObject <NSCoding>
+#import <AppKit/NSLayoutConstraint.h>
+
+@class NSViewController;
+
+typedef NS_ENUM(NSInteger, NSSplitViewItemBehavior) {
+    NSSplitViewItemBehaviorDefault,
+    NSSplitViewItemBehaviorSidebar,
+    NSSplitViewItemBehaviorContentList,
+};
+
+@interface NSSplitViewItem : NSObject <NSCoding> {
+    NSViewController *_viewController;
+    NSSplitViewItemBehavior _behavior;
+    BOOL _canCollapse;
+    BOOL _collapsed;
+    BOOL _springLoaded;
+    NSLayoutPriority _holdingPriority;
+}
+
++ (instancetype) splitViewItemWithViewController:
+        (NSViewController *) viewController;
++ (instancetype) sidebarWithViewController: (NSViewController *) viewController;
++ (instancetype) contentListWithViewController:
+        (NSViewController *) viewController;
+
+- (NSSplitViewItemBehavior) behavior;
+- (NSViewController *) viewController;
+- (void) setViewController: (NSViewController *) viewController;
+- (BOOL) canCollapse;
+- (void) setCanCollapse: (BOOL) canCollapse;
+- (BOOL) isCollapsed;
+- (void) setCollapsed: (BOOL) collapsed;
+- (NSLayoutPriority) holdingPriority;
+- (void) setHoldingPriority: (NSLayoutPriority) holdingPriority;
+- (BOOL) isSpringLoaded;
+- (void) setSpringLoaded: (BOOL) springLoaded;
 
 @end

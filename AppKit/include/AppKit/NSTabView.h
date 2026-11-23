@@ -50,6 +50,7 @@ typedef enum {
     id _delegate;
     BOOL _drawsBackground;
     NSControlSize _controlSize;
+    NSControlTint _tabViewControlTint;
 }
 
 - delegate;
@@ -89,6 +90,10 @@ typedef enum {
 - (void) selectLastTabViewItem: sender;
 - (void) takeSelectedTabViewItemFromSender: sender;
 
+- (NSControlSize) controlSize;
+- (void) setControlSize: (NSControlSize) size;
+- (NSControlTint) controlTint;
+- (void) setControlTint: (NSControlTint) tint;
 - (void) _itemViewDidChange: (NSTabViewItem *) item;
 
 @end

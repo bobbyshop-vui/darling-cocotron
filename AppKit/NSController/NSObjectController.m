@@ -24,6 +24,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSSet.h>
 #import <Foundation/NSString.h>
 
+@interface NSObject (NSObjectControllerCoreDataForward)
++ (id) insertNewObjectForEntityForName: (NSString *) name
+                inManagedObjectContext: (id) context;
+- (NSArray *) executeFetchRequest: (id) request error: (NSError **) error;
+@end
+
 @interface NSObjectController (forward)
 - (void) _selectionWillChange;
 - (void) _selectionDidChange;
@@ -116,8 +122,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSArray *) selectedObjects {
-    NSArray *result = [NSArray arrayWithObject: _content];
-    return result;
+    if (_content == nil)
+        return [NSArray array];
+    return [NSArray arrayWithObject: _content];
 }
 
 - (id) selection {
@@ -125,7 +132,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (id) _defaultNewObject {
-    return [[NSClassFromString(_objectClassName) alloc] init];
+    if (_entityName != nil && _managedObjectContext != nil) {
+        id description = NSClassFromString(@"NSEntityDescription");
+        if (description != nil) {
+            id object = [description
+                    insertNewObjectForEntityForName: _entityName
+                             inManagedObjectContext: _managedObjectContext];
+            return [object retain];
+        }
+    }
+    return [[[self objectClass] alloc] init];
 }
 
 - (id) newObject {
@@ -147,6 +163,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_objectClassName release];
     [_content release];
     [_observedKeys release];
+    [_managedObjectContext release];
+    [_entityName release];
+    [_fetchPredicate release];
     [super dealloc];
 }
 
@@ -172,6 +191,158 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) setAutomaticallyPreparesContent: (BOOL) value {
     _automaticallyPreparesContent = value;
+}
+
+- (Class) objectClass {
+    Class result = _objectClassName ? NSClassFromString(_objectClassName) : Nil;
+    return result ? result : [NSMutableDictionary class];
+}
+
+- (void) setObjectClass: (Class) aClass {
+    NSString *name = aClass ? NSStringFromClass(aClass) : nil;
+    if (name == nil)
+        name = @"NSMutableDictionary";
+    [_objectClassName release];
+    _objectClassName = [name copy];
+}
+
+- (NSString *) entityName {
+    return _entityName;
+}
+
+- (void) setEntityName: (NSString *) name {
+    if (name != _entityName) {
+        [_entityName release];
+        _entityName = [name copy];
+    }
+}
+
+- (NSPredicate *) fetchPredicate {
+    return _fetchPredicate;
+}
+
+- (void) setFetchPredicate: (NSPredicate *) predicate {
+    if (predicate != _fetchPredicate) {
+        [_fetchPredicate release];
+        _fetchPredicate = [predicate retain];
+    }
+}
+
+- (NSManagedObjectContext *) managedObjectContext {
+    return _managedObjectContext;
+}
+
+- (void) setManagedObjectContext: (NSManagedObjectContext *) context {
+    if (context != _managedObjectContext) {
+        [_managedObjectContext release];
+        _managedObjectContext = [context retain];
+    }
+}
+
+- (BOOL) usesLazyFetching {
+    return _usesLazyFetching;
+}
+
+- (void) setUsesLazyFetching: (BOOL) flag {
+    _usesLazyFetching = flag;
+}
+
+- (void) addObject: (id) object {
+    [self setContent: object];
+}
+
+- (void) removeObject: (id) object {
+    if (object != nil && object == _content)
+        [self setContent: nil];
+}
+
+- (void) add: (id) sender {
+    if (![self canAdd])
+        return;
+    if (![self commitEditing])
+        return;
+
+    id object = [self newObject];
+    [self addObject: object];
+    [object release];
+}
+
+- (void) remove: (id) sender {
+    if (![self canRemove])
+        return;
+    if (![self commitEditing])
+        return;
+
+    NSArray *objects = [[[self selectedObjects] copy] autorelease];
+    for (id object in objects)
+        [self removeObject: object];
+}
+
+- (NSFetchRequest *) defaultFetchRequest {
+    if (_entityName == nil)
+        return nil;
+
+    id requestClass = NSClassFromString(@"NSFetchRequest");
+    if (requestClass == nil)
+        return nil;
+
+    id request = [[[requestClass alloc] init] autorelease];
+    [request setEntityName: _entityName];
+    if (_fetchPredicate != nil)
+        [request setPredicate: _fetchPredicate];
+    return request;
+}
+
+- (BOOL) fetchWithRequest: (NSFetchRequest *) fetchRequest
+                    merge: (BOOL) merge
+                    error: (NSError **) error
+{
+    if (fetchRequest == nil)
+        fetchRequest = [self defaultFetchRequest];
+
+    if (fetchRequest == nil || _managedObjectContext == nil) {
+        if (error != NULL)
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                         code: 134060
+                                     userInfo: nil];
+        return NO;
+    }
+
+    id context = _managedObjectContext;
+    NSArray *results = [context executeFetchRequest: fetchRequest error: error];
+    if (results == nil)
+        return NO;
+
+    if ([self respondsToSelector: @selector(arrangedObjects)]) {
+        NSMutableArray *newContent = [NSMutableArray array];
+        if (merge && [_content isKindOfClass: [NSArray class]])
+            [newContent addObjectsFromArray: _content];
+        for (id object in results) {
+            if (![newContent containsObject: object])
+                [newContent addObject: object];
+        }
+        [self setContent: newContent];
+    } else if (!(merge && _content != nil) && [results count] > 0) {
+        [self setContent: [results objectAtIndex: 0]];
+    }
+    return YES;
+}
+
+- (void) fetch: (id) sender {
+    NSError *error = nil;
+    [self fetchWithRequest: nil merge: NO error: &error];
+}
+
+- (BOOL) validateUserInterfaceItem: (id<NSValidatedUserInterfaceItem>) item {
+    SEL action = [item action];
+
+    if (action == @selector(add:))
+        return [self canAdd];
+    if (action == @selector(remove:))
+        return [self canRemove];
+    if (action == @selector(fetch:))
+        return _managedObjectContext != nil;
+    return [self respondsToSelector: action];
 }
 
 - (void) addObserver: (NSObject *) observer

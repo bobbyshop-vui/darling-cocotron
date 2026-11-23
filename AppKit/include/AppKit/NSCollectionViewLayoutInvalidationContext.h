@@ -20,6 +20,10 @@
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@interface NSCollectionViewLayoutInvalidationContext : NSObject
+@interface NSCollectionViewLayoutInvalidationContext : NSObject {
+    NSPoint _contentOffsetAdjustment;
+}
+
+@property NSPoint contentOffsetAdjustment;
 
 @end

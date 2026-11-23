@@ -18,7 +18,9 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSColorList.h>
+#import <AppKit/NSColor.h>
 #import <AppKit/NSRaise.h>
+#import <Foundation/NSKeyedArchiver.h>
 
 NSString *const NSColorListDidChangeNotification =
         @"NSColorListDidChangeNotification";
@@ -394,12 +396,59 @@ static NSMutableDictionary *_namedColorLists = nil;
                           object: self];
 }
 
+- (BOOL) writeToURL: (NSURL *) url error: (NSError **) errPtr {
+    NSURL *destination = url;
+    if (destination == nil) {
+        // Default to the user's color list directory, like writeToFile:nil
+        NSArray *libraries = NSSearchPathForDirectoriesInDomains(
+                NSLibraryDirectory, NSUserDomainMask, YES);
+        NSString *library = [libraries count] > 0
+                                    ? [libraries objectAtIndex: 0]
+                                    : NSHomeDirectory();
+        NSString *directory = [library stringByAppendingPathComponent: @"Colors"];
+        [[NSFileManager defaultManager] createDirectoryAtPath: directory
+                                   withIntermediateDirectories: YES
+                                                    attributes: nil
+                                                         error: NULL];
+        NSString *fileName =
+                [[_name ? _name : @"" stringByDeletingPathExtension]
+                        stringByAppendingPathExtension: @"clr"];
+        destination = [NSURL
+                fileURLWithPath: [directory stringByAppendingPathComponent: fileName]];
+    }
+
+    NSDictionary *plist = [NSDictionary
+            dictionaryWithObjectsAndKeys: _name ? _name : @"", @"name",
+                                          _keys, @"keys", _colors, @"colors",
+                                          nil];
+    NSData *data = [NSKeyedArchiver archivedDataWithRootObject: plist];
+    if (data == nil) {
+        if (errPtr != NULL)
+            *errPtr = [NSError errorWithDomain: NSCocoaErrorDomain
+                                          code: NSFileWriteUnknownError
+                                      userInfo: nil];
+        return NO;
+    }
+
+    if (![data writeToURL: destination
+                  options: NSDataWritingAtomic
+                    error: errPtr])
+        return NO;
+
+    if ([destination isFileURL]) {
+        [_path release];
+        _path = [[destination path] copy];
+    }
+    return YES;
+}
+
 - (void) writeToFile: (NSString *) path {
-    NSUnimplementedMethod();
+    NSURL *url = path != nil ? [NSURL fileURLWithPath: path] : nil;
+    [self writeToURL: url error: NULL];
 }
 
 - (void) removeFile {
-    [[NSFileManager defaultManager] removeFileAtPath: _path handler: nil];
+    [[NSFileManager defaultManager] removeItemAtPath: _path error: NULL];
 }
 
 @end

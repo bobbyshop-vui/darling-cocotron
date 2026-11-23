@@ -20,6 +20,29 @@
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@interface NSTableViewRowAction : NSObject
+@class NSColor, NSImage;
+
+typedef NS_ENUM(NSInteger, NSTableViewRowActionStyle) {
+    NSTableViewRowActionStyleRegular,
+    NSTableViewRowActionStyleDestructive,
+};
+
+@interface NSTableViewRowAction : NSObject <NSCopying> {
+    NSTableViewRowActionStyle _darlingStyle;
+    NSString *_darlingTitle;
+    void (^_darlingHandler)(NSTableViewRowAction *action, NSInteger row);
+    NSColor *_darlingBackgroundColor;
+    NSImage *_darlingImage;
+}
+
++ (instancetype) rowActionWithStyle: (NSTableViewRowActionStyle) style
+                              title: (NSString *) title
+                            handler: (void (^)(NSTableViewRowAction *action,
+                                      NSInteger row)) handler;
+
+@property (readonly) NSTableViewRowActionStyle style;
+@property (copy) NSString *title;
+@property (copy) NSColor *backgroundColor;
+@property (strong) NSImage *image;
 
 @end

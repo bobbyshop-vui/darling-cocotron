@@ -18,18 +18,62 @@
 */
 
 #import <CoreData/NSMergeConflict.h>
-#import <Foundation/NSInvocation.h>
-#import <Foundation/NSMethodSignature.h>
+#import <CoreData/NSManagedObject.h>
 
 @implementation NSMergeConflict
 
-- (NSMethodSignature *) methodSignatureForSelector: (SEL) aSelector {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (instancetype) initWithSource: (NSManagedObject *) srcObject
+                     newVersion: (NSUInteger) newvers
+                     oldVersion: (NSUInteger) oldvers
+                 cachedSnapshot: (NSDictionary *) cachesnap
+              persistedSnapshot: (NSDictionary *) persnap {
+    if ((self = [super init])) {
+        _source = [srcObject retain];
+        _newVersion = newvers;
+        _oldVersion = oldvers;
+        _cachedSnapshot = [cachesnap copy];
+        _persistedSnapshot = [persnap copy];
+    }
+    return self;
 }
 
-- (void) forwardInvocation: (NSInvocation *) anInvocation {
-    NSLog(@"Stub called: %@ in %@",
-          NSStringFromSelector([anInvocation selector]), [self class]);
+- (instancetype) init {
+    [self release];
+    [NSException raise: NSInvalidArgumentException
+                format: @"-[NSMergeConflict init] is not available; use initWithSource:newVersion:oldVersion:cachedSnapshot:persistedSnapshot:"];
+    return nil;
+}
+
+- (void) dealloc {
+    [_source release];
+    [_objectSnapshot release];
+    [_cachedSnapshot release];
+    [_persistedSnapshot release];
+    [super dealloc];
+}
+
+- (NSManagedObject *) sourceObject {
+    return _source;
+}
+
+- (NSDictionary *) objectSnapshot {
+    return _objectSnapshot;
+}
+
+- (NSDictionary *) cachedSnapshot {
+    return _cachedSnapshot;
+}
+
+- (NSDictionary *) persistedSnapshot {
+    return _persistedSnapshot;
+}
+
+- (NSUInteger) newVersionNumber {
+    return _newVersion;
+}
+
+- (NSUInteger) oldVersionNumber {
+    return _oldVersion;
 }
 
 @end

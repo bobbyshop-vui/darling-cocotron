@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@class NSLayoutManager, NSFont;
+@class NSLayoutManager, NSFont, NSColor;
 
 enum {
     NSTextStorageEditedCharacters = 0x01,
@@ -57,6 +57,15 @@ APPKIT_EXPORT NSString *const NSTextStorageDidProcessEditingNotification;
         changeInLength: (int) delta;
 
 - (void) setFont: (NSFont *) font;
+- (NSFont *) font;
+- (NSColor *) foregroundColor;
+- (void) setForegroundColor: (NSColor *) color;
+- (NSArray *) attributeRuns;
+- (void) setAttributeRuns: (NSArray *) attributeRuns;
+- (NSArray *) characters;
+- (BOOL) fixesAttributesLazily;
+- (void) invalidateAttributesInRange: (NSRange) range;
+- (void) ensureAttributesAreFixedInRange: (NSRange) range;
 
 @end
 

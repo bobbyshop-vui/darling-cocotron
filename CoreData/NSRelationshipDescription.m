@@ -22,6 +22,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @implementation NSRelationshipDescription
 
+- (BOOL) isOrdered {
+    return _relationshipOrdered;
+}
+
+- (void) setOrdered: (BOOL) ordered {
+    if ([_entity _hasBeenInstantiated]) {
+        NSLog(@"Attempt to modify entity after instantiating it.");
+        return;
+    }
+
+    _relationshipOrdered = ordered;
+}
+
 - initWithCoder: (NSCoder *) coder {
     if (![coder allowsKeyedCoding])
         [NSException raise: NSInvalidArgumentException
@@ -41,6 +54,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
             [coder decodeObjectForKey: @"_NSDestinationEntityName"];
     _inverseRelationshipName =
             [coder decodeObjectForKey: @"_NSInverseRelationshipName"];
+    _relationshipOrdered = [coder containsValueForKey: @"NSIsOrdered"] &&
+                           [coder decodeBoolForKey: @"NSIsOrdered"];
 
     return self;
 }

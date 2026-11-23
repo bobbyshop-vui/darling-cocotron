@@ -40,6 +40,12 @@ NSString *const NSControlTextDidChangeNotification =
 NSString *const NSControlTextDidEndEditingNotification =
         @"NSControlTextDidEndEditingNotification";
 
+@interface NSObject (NSControlPrivateDeclarations)
+- (void) _unbindAllBindings;
+- (void) objectDidBeginEditing: (id) editor;
+- (void) objectDidEndEditing: (id) editor;
+@end
+
 @implementation NSControl
 
 @synthesize allowsExpansionToolTips = _allowsExpansionToolTips;
@@ -555,6 +561,55 @@ static NSMutableDictionary *cellClassDictionary = nil;
         _currentEditor = nil;
     }
     return NO;
+}
+
+- (NSWritingDirection) baseWritingDirection {
+    return [_cell baseWritingDirection];
+}
+
+- (void) setBaseWritingDirection: (NSWritingDirection) direction {
+    [_cell setBaseWritingDirection: direction];
+    [self setNeedsDisplay: YES];
+}
+
+- (NSControlSize) controlSize {
+    return [_cell controlSize];
+}
+
+- (void) setControlSize: (NSControlSize) size {
+    [_cell setControlSize: size];
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) isHighlighted {
+    return [_cell isHighlighted];
+}
+
+- (void) setHighlighted: (BOOL) flag {
+    [_cell setHighlighted: flag];
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) ignoresMultiClick {
+    return _ignoresMultiClick;
+}
+
+- (void) setIgnoresMultiClick: (BOOL) flag {
+    _ignoresMultiClick = flag;
+}
+
+- (NSSize) sizeThatFits: (NSSize) size {
+    return [_cell cellSizeForBounds: NSMakeRect(0, 0, size.width, size.height)];
+}
+
+- (void) drawWithExpansionFrame: (NSRect) contentFrame inView: (NSView *) view {
+    [_cell drawInteriorWithFrame: contentFrame inView: view];
+}
+
+- (void) endEditing: (NSText *) editor {
+    [_cell endEditing: editor];
+    if (editor != nil && editor == _currentEditor)
+        [self abortEditing];
 }
 
 - (void) calcSize {

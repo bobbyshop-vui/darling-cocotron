@@ -1,6 +1,8 @@
 #import <CoreGraphics/CoreGraphics.h>
 #import <Foundation/NSObject.h>
 
+@class NSColor;
+
 @interface CIColor : NSObject {
     CGColorRef _cgColor;
 }
@@ -16,6 +18,7 @@
                      alpha: (CGFloat) alpha;
 
 - initWithCGColor: (CGColorRef) cgColor;
+- (instancetype) initWithColor: (NSColor *) color;
 
 - (size_t) numberOfComponents;
 - (CGColorSpaceRef) colorSpace;

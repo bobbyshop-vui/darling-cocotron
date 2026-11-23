@@ -19,6 +19,11 @@
 
 #import <AppKit/AppKitExport.h>
 #import <Foundation/NSObject.h>
+#import <Foundation/NSGeometry.h>
+#import <Foundation/NSArray.h>
+
+@class NSImage, NSView;
+@protocol NSSharingServiceDelegate, NSSharingServicePickerDelegate;
 
 typedef NSString *NSSharingServiceName;
 
@@ -34,18 +39,58 @@ APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNamePostOnSinaWeibo;
 APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNamePostOnTencentWeibo;
 APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNamePostOnTwitter;
 
-@interface NSSharingService : NSObject
+@interface NSSharingService : NSObject {
+    id<NSSharingServiceDelegate> _delegate;
+    NSString *_title;
+    NSString *_subject;
+    NSString *_accountName;
+    NSImage *_image;
+    NSImage *_alternateImage;
+}
+
++ (NSArray *) sharingServicesForItems: (NSArray *) items;
+
+- (id<NSSharingServiceDelegate>) delegate;
+- (void) setDelegate: (id<NSSharingServiceDelegate>) delegate;
+- (NSString *) title;
+- (NSImage *) image;
+- (NSImage *) alternateImage;
+- (NSString *) subject;
+- (void) setSubject: (NSString *) subject;
+- (NSString *) accountName;
+- (void) performWithItems: (NSArray *) items;
+
 @end
 
-@interface NSSharingServicePicker : NSObject
+@interface NSSharingServicePicker : NSObject {
+    id<NSSharingServicePickerDelegate> _delegate;
+    NSArray *_items;
+}
+
+- (id<NSSharingServicePickerDelegate>) delegate;
+- (void) setDelegate: (id<NSSharingServicePickerDelegate>) delegate;
+- (instancetype) initWithItems: (NSArray *) items;
+- (void) showRelativeToRect: (NSRect) rect
+                     ofView: (NSView *) view
+              preferredEdge: (NSRectEdge) preferredEdge;
+
 @end
 
 @protocol NSSharingServiceDelegate <NSObject>
-
+@optional
+- (void) sharingService: (NSSharingService *) sharingService
+         willShareItems: (NSArray *) items;
+- (void) sharingService: (NSSharingService *) sharingService
+    didFailToShareItems: (NSArray *) items
+                  error: (NSError *) error;
+- (void) sharingService: (NSSharingService *) sharingService
+          didShareItems: (NSArray *) items;
 @end
 
 @protocol NSSharingServicePickerDelegate <NSObject>
-
+@optional
+- (void) sharingServicePicker: (NSSharingServicePicker *) sharingServicePicker
+      didChooseSharingService: (NSSharingService *) service;
 @end
 
 // @interface NSItemProvider (NSCloudKitSharing)

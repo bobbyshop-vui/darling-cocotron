@@ -190,4 +190,103 @@ NSString *const NSTextStorageDidProcessEditingNotification =
                  range: NSMakeRange(0, [self length])];
 }
 
+- (NSFont *) font {
+    if ([self length] == 0)
+        return nil;
+    return [self attribute: NSFontAttributeName
+                   atIndex: 0
+            effectiveRange: NULL];
+}
+
+- (NSColor *) foregroundColor {
+    if ([self length] == 0)
+        return nil;
+    return [self attribute: NSForegroundColorAttributeName
+                   atIndex: 0
+            effectiveRange: NULL];
+}
+
+- (void) setForegroundColor: (NSColor *) color {
+    NSRange all = NSMakeRange(0, [self length]);
+
+    if (color == nil)
+        [self removeAttribute: NSForegroundColorAttributeName range: all];
+    else
+        [self addAttribute: NSForegroundColorAttributeName
+                     value: color
+                     range: all];
+}
+
+- (NSArray *) attributeRuns {
+    NSMutableArray *runs = [NSMutableArray array];
+    NSUInteger length = [self length];
+    NSUInteger location = 0;
+
+    while (location < length) {
+        NSRange effective;
+
+        [self attributesAtIndex: location effectiveRange: &effective];
+        NSAttributedString *sub = [self attributedSubstringFromRange: effective];
+        NSTextStorage *run =
+                [[NSTextStorage alloc] initWithAttributedString: sub];
+        [runs addObject: run];
+        [run release];
+        location = NSMaxRange(effective);
+    }
+    return runs;
+}
+
+- (void) setAttributeRuns: (NSArray *) attributeRuns {
+    NSMutableAttributedString *joined =
+            [[NSMutableAttributedString alloc] init];
+
+    for (id run in attributeRuns) {
+        if ([run isKindOfClass: [NSAttributedString class]])
+            [joined appendAttributedString: run];
+        else if ([run isKindOfClass: [NSString class]])
+            [joined appendAttributedString:
+                            [[[NSAttributedString alloc]
+                                    initWithString: run] autorelease]];
+    }
+    [self setAttributedString: joined];
+    [joined release];
+}
+
+- (NSArray *) characters {
+    NSMutableArray *chars = [NSMutableArray array];
+    NSString *string = [self string];
+    NSUInteger length = [string length];
+    NSUInteger location = 0;
+
+    while (location < length) {
+        NSRange range = [string rangeOfComposedCharacterSequenceAtIndex: location];
+        NSAttributedString *sub = [self attributedSubstringFromRange: range];
+        NSTextStorage *character =
+                [[NSTextStorage alloc] initWithAttributedString: sub];
+        [chars addObject: character];
+        [character release];
+        location = NSMaxRange(range);
+    }
+    return chars;
+}
+
+- (BOOL) fixesAttributesLazily {
+    // Attributes are always fixed eagerly in -processEditing
+    return NO;
+}
+
+- (void) invalidateAttributesInRange: (NSRange) range {
+    [self ensureAttributesAreFixedInRange: range];
+}
+
+- (void) ensureAttributesAreFixedInRange: (NSRange) range {
+    NSUInteger length = [self length];
+
+    if (range.location >= length)
+        return;
+    if (NSMaxRange(range) > length)
+        range.length = length - range.location;
+    [self fixAttributesInRange: range];
+}
+
 @end

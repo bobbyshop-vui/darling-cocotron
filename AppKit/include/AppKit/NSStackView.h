@@ -18,6 +18,77 @@
 */
 
 #import <AppKit/NSView.h>
+#import <AppKit/NSLayoutConstraint.h>
+#import <Foundation/NSGeometry.h>
 
-@interface NSStackView : NSView
+typedef NS_ENUM(NSInteger, NSUserInterfaceLayoutOrientation) {
+    NSUserInterfaceLayoutOrientationHorizontal = 0,
+    NSUserInterfaceLayoutOrientationVertical = 1
+};
+
+typedef NS_ENUM(NSInteger, NSStackViewGravity) {
+    NSStackViewGravityTop = 1,
+    NSStackViewGravityLeading = 1,
+    NSStackViewGravityCenter = 2,
+    NSStackViewGravityBottom = 3,
+    NSStackViewGravityTrailing = 3
+};
+
+typedef NS_ENUM(NSInteger, NSStackViewDistribution) {
+    NSStackViewDistributionGravityAreas = -1,
+    NSStackViewDistributionFill = 0,
+    NSStackViewDistributionFillEqually,
+    NSStackViewDistributionFillProportionally,
+    NSStackViewDistributionEqualSpacing,
+    NSStackViewDistributionEqualCentering
+};
+
+#define NSStackViewSpacingUseDefault FLT_MAX
+
+@interface NSStackView : NSView {
+    NSInteger _orientation;
+    NSInteger _alignment;
+    NSEdgeInsets _edgeInsets;
+    NSInteger _distribution;
+    CGFloat _spacing;
+    NSLayoutPriority _clippingResistance[2];
+    NSLayoutPriority _hugging[2];
+    BOOL _detachesHiddenViews;
+    NSMutableArray *_gravityViews[3];
+    NSMutableDictionary *_customSpacing;
+}
+
++ (instancetype)stackViewWithViews:(NSArray *)views;
+
+- (NSUserInterfaceLayoutOrientation)orientation;
+- (void)setOrientation:(NSUserInterfaceLayoutOrientation)orientation;
+- (NSInteger)alignment;
+- (void)setAlignment:(NSInteger)alignment;
+- (NSEdgeInsets)edgeInsets;
+- (void)setEdgeInsets:(NSEdgeInsets)edgeInsets;
+- (NSStackViewDistribution)distribution;
+- (void)setDistribution:(NSStackViewDistribution)distribution;
+- (CGFloat)spacing;
+- (void)setSpacing:(CGFloat)spacing;
+- (void)setCustomSpacing:(CGFloat)spacing afterView:(NSView *)view;
+- (CGFloat)customSpacingAfterView:(NSView *)view;
+- (BOOL)detachesHiddenViews;
+- (void)setDetachesHiddenViews:(BOOL)flag;
+- (NSArray *)arrangedSubviews;
+- (void)addArrangedSubview:(NSView *)view;
+- (void)insertArrangedSubview:(NSView *)view atIndex:(NSInteger)index;
+- (void)removeArrangedSubview:(NSView *)view;
+- (NSArray *)detachedViews;
+- (NSLayoutPriority)clippingResistancePriorityForOrientation:(NSLayoutConstraintOrientation)orientation;
+- (void)setClippingResistancePriority:(NSLayoutPriority)priority forOrientation:(NSLayoutConstraintOrientation)orientation;
+- (NSLayoutPriority)huggingPriorityForOrientation:(NSLayoutConstraintOrientation)orientation;
+- (void)setHuggingPriority:(NSLayoutPriority)priority forOrientation:(NSLayoutConstraintOrientation)orientation;
+
+- (void)addView:(NSView *)view inGravity:(NSStackViewGravity)gravity;
+- (void)insertView:(NSView *)view atIndex:(NSUInteger)index inGravity:(NSStackViewGravity)gravity;
+- (void)removeView:(NSView *)view;
+- (NSArray *)viewsInGravity:(NSStackViewGravity)gravity;
+- (void)setViews:(NSArray *)views inGravity:(NSStackViewGravity)gravity;
+- (NSArray *)views;
+
 @end

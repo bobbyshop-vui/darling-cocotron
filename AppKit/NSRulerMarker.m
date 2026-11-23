@@ -46,6 +46,42 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return self;
 }
 
+- (instancetype) initWithCoder: (NSCoder *) coder {
+    _isMovable = YES;
+    _isRemovable = YES;
+    _isPinned = YES;
+
+    if ([coder allowsKeyedCoding]) {
+        _ruler = [coder decodeObjectForKey: @"NSRulerView"]; // not retained
+        if ([coder containsValueForKey: @"NSMarkerLocation"])
+            _markerLocation = [coder decodeDoubleForKey: @"NSMarkerLocation"];
+        _image = [[coder decodeObjectForKey: @"NSImage"] retain];
+        if ([coder containsValueForKey: @"NSImageOrigin"])
+            _imageOrigin = [coder decodePointForKey: @"NSImageOrigin"];
+        _representedObject = [[coder decodeObjectForKey: @"NSRepresentedObject"] retain];
+        if ([coder containsValueForKey: @"NSMovable"])
+            _isMovable = [coder decodeBoolForKey: @"NSMovable"];
+        if ([coder containsValueForKey: @"NSRemovable"])
+            _isRemovable = [coder decodeBoolForKey: @"NSRemovable"];
+    }
+    if (_image == nil)
+        _image = [[NSRulerMarker defaultMarkerImage] retain];
+
+    return self;
+}
+
+- (void) encodeWithCoder: (NSCoder *) coder {
+    if ([coder allowsKeyedCoding]) {
+        [coder encodeConditionalObject: _ruler forKey: @"NSRulerView"];
+        [coder encodeDouble: _markerLocation forKey: @"NSMarkerLocation"];
+        [coder encodeObject: _image forKey: @"NSImage"];
+        [coder encodePoint: _imageOrigin forKey: @"NSImageOrigin"];
+        [coder encodeObject: _representedObject forKey: @"NSRepresentedObject"];
+        [coder encodeBool: _isMovable forKey: @"NSMovable"];
+        [coder encodeBool: _isRemovable forKey: @"NSRemovable"];
+    }
+}
+
 - (void) dealloc {
     [_image release];
     [_representedObject release];

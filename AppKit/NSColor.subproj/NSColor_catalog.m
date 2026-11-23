@@ -128,9 +128,7 @@ NSColor *NSColorGetCatalogColor(NSColorListName catalogName,
     if ([colorSpace isEqualToString: [self colorSpaceName]])
         return self;
 
-    _color = [_color colorUsingColorSpaceName: colorSpace device: device];
-
-    return _color;
+    return [_color colorUsingColorSpaceName: colorSpace device: device];
 }
 
 - (CGColorRef) CGColorRef {
@@ -143,18 +141,6 @@ NSColor *NSColorGetCatalogColor(NSColorListName catalogName,
 
 - (void) setStroke {
     [_color setStroke];
-}
-
-- (NSColor *) highlightWithLevel: (CGFloat) level {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-
-    level = MIN(1.0, MAX(0.0, level));
-
-    // TODO: verify if it is a use of blendedColorWithFraction:ofColor:
-    // that use highlightColor
-    // NSLog(@"Level %f", level);
-
-    return self;
 }
 
 @end

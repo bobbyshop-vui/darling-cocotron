@@ -102,6 +102,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_ciContext release];
     [_focusStack release];
     [_deviceDescription release];
+    [_attributes release];
     [super dealloc];
 }
 
@@ -205,6 +206,14 @@ NSMutableArray *NSCurrentFocusStack() {
 
 - (CGContextRef) graphicsPort {
     return _graphicsPort;
+}
+
+- (CGContextRef) CGContext {
+    return _graphicsPort;
+}
+
+- (NSDictionary *) attributes {
+    return _attributes;
 }
 
 - (NSMutableArray *) focusStack {

@@ -24,6 +24,40 @@
 APPKIT_EXPORT NSString *const NSCollectionElementKindSectionHeader;
 APPKIT_EXPORT NSString *const NSCollectionElementKindSectionFooter;
 
-@interface NSCollectionViewFlowLayout : NSCollectionViewLayout
+typedef NS_ENUM(NSInteger, NSCollectionViewScrollDirection) {
+    NSCollectionViewScrollDirectionVertical,
+    NSCollectionViewScrollDirectionHorizontal
+};
+
+@interface NSCollectionViewFlowLayout : NSCollectionViewLayout {
+    CGFloat _minimumLineSpacing;
+    CGFloat _minimumInteritemSpacing;
+    NSSize _itemSize;
+    NSCollectionViewScrollDirection _scrollDirection;
+    NSSize _headerReferenceSize;
+    NSSize _footerReferenceSize;
+    NSEdgeInsets _sectionInset;
+    BOOL _sectionHeadersPinToVisibleBounds;
+    BOOL _sectionFootersPinToVisibleBounds;
+}
+
+- (CGFloat) minimumLineSpacing;
+- (void) setMinimumLineSpacing: (CGFloat) value;
+- (CGFloat) minimumInteritemSpacing;
+- (void) setMinimumInteritemSpacing: (CGFloat) value;
+- (NSSize) itemSize;
+- (void) setItemSize: (NSSize) value;
+- (NSCollectionViewScrollDirection) scrollDirection;
+- (void) setScrollDirection: (NSCollectionViewScrollDirection) value;
+- (NSSize) headerReferenceSize;
+- (void) setHeaderReferenceSize: (NSSize) value;
+- (NSSize) footerReferenceSize;
+- (void) setFooterReferenceSize: (NSSize) value;
+- (NSEdgeInsets) sectionInset;
+- (void) setSectionInset: (NSEdgeInsets) value;
+- (BOOL) sectionHeadersPinToVisibleBounds;
+- (void) setSectionHeadersPinToVisibleBounds: (BOOL) value;
+- (BOOL) sectionFootersPinToVisibleBounds;
+- (void) setSectionFootersPinToVisibleBounds: (BOOL) value;
 
 @end

@@ -19,7 +19,31 @@
 
 #import <AppKit/NSCandidateListTouchBarItem.h>
 
+#import <objc/runtime.h>
+
+static const char CustomizationLabelKey;
+static const char DelegateKey;
+
 @implementation NSCandidateListTouchBarItem
+
+- (NSString *) customizationLabel {
+    NSString *label = objc_getAssociatedObject(self, &CustomizationLabelKey);
+    return label != nil ? label : @"";
+}
+
+- (void) setCustomizationLabel: (NSString *) label {
+    objc_setAssociatedObject(self, &CustomizationLabelKey, [[label copy] autorelease],
+                             OBJC_ASSOCIATION_RETAIN);
+}
+
+- (id) delegate {
+    return objc_getAssociatedObject(self, &DelegateKey);
+}
+
+- (void) setDelegate: (id) delegate {
+    // Weak in the SDK: store unretained.
+    objc_setAssociatedObject(self, &DelegateKey, delegate, OBJC_ASSOCIATION_ASSIGN);
+}
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {

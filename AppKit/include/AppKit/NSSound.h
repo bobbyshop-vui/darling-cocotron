@@ -19,17 +19,44 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <Foundation/NSBundle.h>
 
+@class NSPasteboard;
+@protocol NSSoundDelegate;
+
 @interface NSSound : NSObject {
+    NSString *_name;
+    NSData *_data;
+    id<NSSoundDelegate> _delegate;
+    NSTimeInterval _currentTime;
+    float _volume;
+    BOOL _loops;
+    BOOL _playing;
 }
 
 + (NSArray *) soundUnfilteredFileTypes;
++ (NSArray *) soundUnfilteredTypes;
++ (BOOL) canInitWithPasteboard: (NSPasteboard *) pasteboard;
 
 + (NSSound *) soundNamed: (NSString *) name;
 
 - (id) initWithContentsOfFile: (NSString *) path
                   byReference: (BOOL) byReference;
 - (id) initWithContentsOfURL: (NSURL *) url byReference: (BOOL) byReference;
+- (id) initWithData: (NSData *) data;
+- (id) initWithPasteboard: (NSPasteboard *) pasteboard;
+- (void) writeToPasteboard: (NSPasteboard *) pasteboard;
+
 - (BOOL) setName: (NSString *) name;
+- (NSString *) name;
+- (id<NSSoundDelegate>) delegate;
+- (void) setDelegate: (id<NSSoundDelegate>) delegate;
+- (BOOL) isPlaying;
+- (BOOL) loops;
+- (void) setLoops: (BOOL) loops;
+- (float) volume;
+- (void) setVolume: (float) volume;
+- (NSTimeInterval) currentTime;
+- (void) setCurrentTime: (NSTimeInterval) currentTime;
+- (NSTimeInterval) duration;
 
 - (BOOL) play;
 - (BOOL) pause;
@@ -43,7 +70,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @end
 
 @protocol NSSoundDelegate <NSObject>
-
-// TODO
+@optional
+- (void) sound: (NSSound *) sound didFinishPlaying: (BOOL) flag;
 
 @end

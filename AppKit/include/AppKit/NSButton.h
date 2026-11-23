@@ -20,7 +20,42 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSButtonCell.h>
 #import <AppKit/NSControl.h>
 
-@interface NSButton : NSControl
+@class NSColor;
+
+@interface NSButton : NSControl {
+    NSColor *_bezelColor;
+    NSColor *_contentTintColor;
+    NSInteger _maxAcceleratorLevel;
+    BOOL _imageHugsTitle;
+    BOOL _springLoaded;
+}
+
++ (instancetype) buttonWithTitle: (NSString *) title
+                           image: (NSImage *) image
+                          target: (id) target
+                          action: (SEL) action;
++ (instancetype) buttonWithTitle: (NSString *) title
+                          target: (id) target
+                          action: (SEL) action;
++ (instancetype) buttonWithImage: (NSImage *) image
+                          target: (id) target
+                          action: (SEL) action;
++ (instancetype) checkboxWithTitle: (NSString *) title
+                            target: (id) target
+                            action: (SEL) action;
+
+- (NSColor *) bezelColor;
+- (void) setBezelColor: (NSColor *) value;
+- (NSColor *) contentTintColor;
+- (void) setContentTintColor: (NSColor *) value;
+- (BOOL) imageHugsTitle;
+- (void) setImageHugsTitle: (BOOL) value;
+- (NSImageScaling) imageScaling;
+- (void) setImageScaling: (NSImageScaling) value;
+- (BOOL) isSpringLoaded;
+- (void) setSpringLoaded: (BOOL) value;
+- (NSInteger) maxAcceleratorLevel;
+- (void) setMaxAcceleratorLevel: (NSInteger) value;
 
 - (BOOL) isTransparent;
 - (NSString *) keyEquivalent;

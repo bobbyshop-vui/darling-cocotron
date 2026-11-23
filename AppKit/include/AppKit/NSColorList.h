@@ -17,7 +17,8 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
-#import <AppKit/AppKit.h>
+#import <AppKit/AppKitExport.h>
+#import <Foundation/Foundation.h>
 
 @class NSColor;
 
@@ -48,6 +49,7 @@ APPKIT_EXPORT NSString *const NSColorListDidChangeNotification;
                  key: (NSString *) key
              atIndex: (unsigned) index;
 
+- (BOOL) writeToURL: (NSURL *) url error: (NSError **) errPtr;
 - (void) writeToFile: (NSString *) path;
 - (void) removeFile;
 

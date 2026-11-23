@@ -42,4 +42,55 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [[self _searchCell] setRecentsAutosaveName: name];
 }
 
+- (NSInteger) maximumRecents {
+    return [[self _searchCell] maximumRecents];
+}
+
+- (void) setMaximumRecents: (NSInteger) value {
+    [[self _searchCell] setMaximumRecents: (int) value];
+}
+
+- (BOOL) sendsWholeSearchString {
+    return [[self _searchCell] sendsWholeSearchString];
+}
+
+- (void) setSendsWholeSearchString: (BOOL) flag {
+    [[self _searchCell] setSendsWholeSearchString: flag];
+}
+
+- (BOOL) sendsSearchStringImmediately {
+    return [[self _searchCell] sendsSearchStringImmediately];
+}
+
+- (void) setSendsSearchStringImmediately: (BOOL) flag {
+    [[self _searchCell] setSendsSearchStringImmediately: flag];
+}
+
+- (NSMenu *) searchMenuTemplate {
+    return [[self _searchCell] searchMenuTemplate];
+}
+
+- (void) setSearchMenuTemplate: (NSMenu *) menu {
+    [[self _searchCell] setSearchMenuTemplate: menu];
+}
+
+- (BOOL) centersPlaceholder {
+    return _centersPlaceholder;
+}
+
+- (void) setCentersPlaceholder: (BOOL) flag {
+    if (_centersPlaceholder == flag)
+        return;
+    _centersPlaceholder = flag;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSRect) rectForSearchTextWhenCentered: (BOOL) isCentered {
+    return [[self _searchCell] searchTextRectForBounds: [self bounds]];
+}
+
+- (NSRect) rectForCancelButtonWhenCentered: (BOOL) isCentered {
+    return [[self _searchCell] cancelButtonRectForBounds: [self bounds]];
+}
+
 @end

@@ -20,6 +20,43 @@
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@interface NSCollectionViewLayoutAttributes : NSObject
+typedef NS_ENUM(NSInteger, NSCollectionElementCategory) {
+    NSCollectionElementCategoryItem,
+    NSCollectionElementCategorySupplementaryView,
+    NSCollectionElementCategoryDecorationView,
+    NSCollectionElementCategoryInterItemGap,
+};
+
+@interface NSCollectionViewLayoutAttributes : NSObject <NSCopying> {
+    NSRect _frame;
+    CGFloat _alpha;
+    NSInteger _zIndex;
+    BOOL _hidden;
+    NSIndexPath *_indexPath;
+    NSCollectionElementCategory _representedElementCategory;
+    NSString *_representedElementKind;
+}
+
++ (instancetype) layoutAttributesForItemWithIndexPath: (NSIndexPath *) indexPath;
++ (instancetype) layoutAttributesForInterItemGapBeforeIndexPath: (NSIndexPath *) indexPath;
++ (instancetype) layoutAttributesForSupplementaryViewOfKind: (NSString *) elementKind
+                                              withIndexPath: (NSIndexPath *) indexPath;
++ (instancetype) layoutAttributesForDecorationViewOfKind: (NSString *) decorationViewKind
+                                            withIndexPath: (NSIndexPath *) indexPath;
+
+- (NSRect) frame;
+- (void) setFrame: (NSRect) value;
+- (NSSize) size;
+- (void) setSize: (NSSize) value;
+- (CGFloat) alpha;
+- (void) setAlpha: (CGFloat) value;
+- (NSInteger) zIndex;
+- (void) setZIndex: (NSInteger) value;
+- (BOOL) isHidden;
+- (void) setHidden: (BOOL) value;
+- (NSIndexPath *) indexPath;
+- (void) setIndexPath: (NSIndexPath *) value;
+- (NSCollectionElementCategory) representedElementCategory;
+- (NSString *) representedElementKind;
 
 @end

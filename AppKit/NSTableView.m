@@ -132,6 +132,12 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
         _editedRow = -1;
         _numberOfRows = -1;
         _draggingRow = -1;
+        _retargetedDropRow = -1;
+        _columnAutoresizingStyle = _autoresizesAllColumnsToFit
+                                           ? NSTableViewUniformColumnAutoresizingStyle
+                                           : NSTableViewLastColumnOnlyAutoresizingStyle;
+        _draggingSourceMaskLocal = NSDragOperationCopy;
+        _draggingSourceMaskRemote = NSDragOperationCopy;
 
         // row background and grid attributes for OS X >= 10.3
         _alternatingRowBackground = (flags & 0x00800000) ? YES : NO;
@@ -159,6 +165,10 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
     _editedRow = -1;
     _numberOfRows = -1;
     _draggingRow = -1;
+    _retargetedDropRow = -1;
+    _columnAutoresizingStyle = NSTableViewLastColumnOnlyAutoresizingStyle;
+    _draggingSourceMaskLocal = NSDragOperationCopy;
+    _draggingSourceMaskRemote = NSDragOperationCopy;
 
     _allowsColumnReordering = YES;
     _allowsColumnResizing = YES;
@@ -200,6 +210,7 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
     [_selectedRowIndexes release];
     [_selectedColumns release];
     [_sortDescriptors release];
+    [_registeredNibs release];
     [super dealloc];
 }
 
@@ -651,6 +662,9 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 
 - (void) setAutoresizesAllColumnsToFit: (BOOL) flag {
     _autoresizesAllColumnsToFit = flag;
+    _columnAutoresizingStyle = flag
+                                       ? NSTableViewUniformColumnAutoresizingStyle
+                                       : NSTableViewLastColumnOnlyAutoresizingStyle;
 }
 
 - (void) setAllowsMultipleSelection: (BOOL) flag {
@@ -1959,7 +1973,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (NSDragOperation) draggingSourceOperationMaskForLocal: (BOOL) isLocal {
-    return NSDragOperationCopy;
+    return isLocal ? _draggingSourceMaskLocal : _draggingSourceMaskRemote;
 }
 
 - (NSInteger) _getDraggedRow: (id<NSDraggingInfo>) info {
@@ -1981,11 +1995,13 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     if ([_dataSource
                 respondsToSelector: @selector
                 (tableView:validateDrop:proposedRow:proposedDropOperation:)]) {
+        _retargetedDropRow = -1;
         if ((result = [_dataSource tableView: self
                                 validateDrop: info
                                  proposedRow: proposedRow
                        proposedDropOperation: NSTableViewDropAbove]))
-            _draggingRow = proposedRow;
+            _draggingRow = (_retargetedDropRow >= 0) ? _retargetedDropRow
+                                                     : proposedRow;
         else
             _draggingRow = -1;
     }
@@ -2084,6 +2100,346 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 
 - (void)_readPersistentTableColumns {
     NSUnimplementedMethod();
+}
+
+@end
+
+@implementation NSTableView (ViewBasedAndUpdates)
+
+- (void) beginUpdates {
+    _updateCount++;
+}
+
+- (void) endUpdates {
+    if (_updateCount > 0)
+        _updateCount--;
+    if (_updateCount == 0 && _updatesNeedReload) {
+        _updatesNeedReload = NO;
+        [self noteNumberOfRowsChanged];
+        [self setNeedsDisplay: YES];
+        [_headerView setNeedsDisplay: YES];
+    }
+}
+
+- (void) _rowsChangedWithSelection: (NSIndexSet *) selection {
+    if (![selection isEqualToIndexSet: _selectedRowIndexes])
+        [self _setSelectedRowIndexes: selection];
+    if (_updateCount > 0)
+        _updatesNeedReload = YES;
+    else {
+        [self noteNumberOfRowsChanged];
+        [self setNeedsDisplay: YES];
+        [_headerView setNeedsDisplay: YES];
+    }
+}
+
+- (void) insertRowsAtIndexes: (NSIndexSet *) indexes
+               withAnimation: (NSTableViewAnimationOptions) animationOptions {
+    NSMutableIndexSet *selection = [NSMutableIndexSet indexSet];
+    NSUInteger count = [indexes count];
+    if (count == 0)
+        return;
+    NSUInteger *inserted = NSZoneMalloc(NULL, sizeof(NSUInteger) * count);
+    [indexes getIndexes: inserted maxCount: count inIndexRange: NULL];
+
+    NSUInteger s = [_selectedRowIndexes firstIndex];
+    while (s != NSNotFound) {
+        NSUInteger n = s, i;
+        for (i = 0; i < count; i++) {
+            // indexes are positions in the final state
+            if (inserted[i] <= n)
+                n++;
+        }
+        [selection addIndex: n];
+        s = [_selectedRowIndexes indexGreaterThanIndex: s];
+    }
+    NSZoneFree(NULL, inserted);
+    [self _rowsChangedWithSelection: selection];
+}
+
+- (void) removeRowsAtIndexes: (NSIndexSet *) indexes
+               withAnimation: (NSTableViewAnimationOptions) animationOptions {
+    NSMutableIndexSet *selection = [NSMutableIndexSet indexSet];
+    if ([indexes count] == 0)
+        return;
+
+    NSUInteger s = [_selectedRowIndexes firstIndex];
+    while (s != NSNotFound) {
+        if (![indexes containsIndex: s]) {
+            NSUInteger removedBefore =
+                    s > 0 ? [indexes countOfIndexesInRange: NSMakeRange(0, s)]
+                          : 0;
+            [selection addIndex: s - removedBefore];
+        }
+        s = [_selectedRowIndexes indexGreaterThanIndex: s];
+    }
+    [self _rowsChangedWithSelection: selection];
+}
+
+- (void) moveRowAtIndex: (NSInteger) oldIndex toIndex: (NSInteger) newIndex {
+    if (oldIndex == newIndex)
+        return;
+    NSMutableIndexSet *selection = [NSMutableIndexSet indexSet];
+    NSUInteger s = [_selectedRowIndexes firstIndex];
+    while (s != NSNotFound) {
+        NSInteger n = (NSInteger) s;
+        if (n == oldIndex)
+            n = newIndex;
+        else {
+            if (n > oldIndex)
+                n--;
+            if (n >= newIndex)
+                n++;
+        }
+        [selection addIndex: n];
+        s = [_selectedRowIndexes indexGreaterThanIndex: s];
+    }
+    [self _rowsChangedWithSelection: selection];
+}
+
+- (void) reloadDataForRowIndexes: (NSIndexSet *) rowIndexes
+                    columnIndexes: (NSIndexSet *) columnIndexes {
+    NSInteger numberOfColumns = [_tableColumns count];
+    NSUInteger row = [rowIndexes firstIndex];
+    while (row != NSNotFound) {
+        NSUInteger column = [columnIndexes firstIndex];
+        while (column != NSNotFound) {
+            if (column < numberOfColumns)
+                [self setNeedsDisplayInRect: [self frameOfCellAtColumn: column
+                                                                   row: row]];
+            column = [columnIndexes indexGreaterThanIndex: column];
+        }
+        row = [rowIndexes indexGreaterThanIndex: row];
+    }
+}
+
+- (NSIndexSet *) columnIndexesInRect: (NSRect) rect {
+    NSMutableIndexSet *result = [NSMutableIndexSet indexSet];
+    NSInteger i, count = [_tableColumns count];
+    CGFloat x = 0;
+
+    if (NSIsEmptyRect(rect))
+        return result;
+    for (i = 0; i < count; i++) {
+        CGFloat width = [[_tableColumns objectAtIndex: i] width] +
+                        _intercellSpacing.width;
+        if (x < NSMaxX(rect) && x + width > NSMinX(rect))
+            [result addIndex: i];
+        x += width;
+    }
+    return result;
+}
+
+- (NSTableViewColumnAutoresizingStyle) columnAutoresizingStyle {
+    return _columnAutoresizingStyle;
+}
+
+- (void) setColumnAutoresizingStyle: (NSTableViewColumnAutoresizingStyle) style {
+    _columnAutoresizingStyle = style;
+    _autoresizesAllColumnsToFit =
+            (style == NSTableViewUniformColumnAutoresizingStyle);
+}
+
+- (NSTableViewRowSizeStyle) rowSizeStyle {
+    return _rowSizeStyle;
+}
+
+- (void) setRowSizeStyle: (NSTableViewRowSizeStyle) style {
+    _rowSizeStyle = style;
+    switch (style) {
+    case NSTableViewRowSizeStyleSmall:
+        [self setRowHeight: 20.0];
+        break;
+    case NSTableViewRowSizeStyleMedium:
+    case NSTableViewRowSizeStyleDefault:
+        [self setRowHeight: 25.0];
+        break;
+    case NSTableViewRowSizeStyleLarge:
+        [self setRowHeight: 30.0];
+        break;
+    default:
+        break;
+    }
+}
+
+- (BOOL) floatsGroupRows {
+    return _floatsGroupRows;
+}
+
+- (void) setFloatsGroupRows: (BOOL) flag {
+    _floatsGroupRows = flag;
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) usesAutomaticRowHeights {
+    return _usesAutomaticRowHeights;
+}
+
+- (void) setUsesAutomaticRowHeights: (BOOL) flag {
+    _usesAutomaticRowHeights = flag;
+}
+
+- (void) setDraggingDestinationFeedbackStyle:
+        (NSTableViewDraggingDestinationFeedbackStyle) style {
+    _draggingDestinationFeedbackStyle = style;
+}
+
+- (void) setDraggingSourceOperationMask: (NSDragOperation) mask
+                               forLocal: (BOOL) isLocal {
+    if (isLocal)
+        _draggingSourceMaskLocal = mask;
+    else
+        _draggingSourceMaskRemote = mask;
+}
+
+- (void) setDropRow: (NSInteger) row
+      dropOperation: (NSTableViewDropOperation) dropOperation {
+    _retargetedDropRow = row;
+    _retargetedDropOperation = dropOperation;
+    if (row >= 0)
+        _draggingRow = row;
+}
+
+- (BOOL) canDragRowsWithIndexes: (NSIndexSet *) rowIndexes
+                        atPoint: (NSPoint) mouseDownPoint {
+    return [rowIndexes count] > 0;
+}
+
+- (NSImage *) dragImageForRowsWithIndexes: (NSIndexSet *) dragRows
+                             tableColumns: (NSArray *) tableColumns
+                                    event: (NSEvent *) dragEvent
+                                   offset: (NSPointPointer) dragImageOffset {
+    NSRect unionRect = NSZeroRect;
+    NSUInteger row = [dragRows firstIndex];
+    NSInteger numberOfRows = [self numberOfRows];
+
+    while (row != NSNotFound) {
+        if ((NSInteger) row < numberOfRows) {
+            NSRect rect = [self rectOfRow: row];
+            unionRect = NSIsEmptyRect(unionRect)
+                                ? rect
+                                : NSUnionRect(unionRect, rect);
+        }
+        row = [dragRows indexGreaterThanIndex: row];
+    }
+
+    if (dragImageOffset != NULL)
+        *dragImageOffset = NSZeroPoint;
+    if (NSIsEmptyRect(unionRect))
+        return [[[NSImage alloc] initWithSize: NSMakeSize(1, 1)] autorelease];
+
+    NSImage *image = [[[NSImage alloc] initWithSize: unionRect.size] autorelease];
+    [image setFlipped: YES];
+    [image lockFocus];
+    row = [dragRows firstIndex];
+    while (row != NSNotFound) {
+        if ((NSInteger) row < numberOfRows) {
+            NSRect rect = [self rectOfRow: row];
+            [NSGraphicsContext saveGraphicsState];
+            NSAffineTransform *transform = [NSAffineTransform transform];
+            [transform translateXBy: -unionRect.origin.x
+                                yBy: -unionRect.origin.y];
+            [transform concat];
+            [self drawRow: row clipRect: rect];
+            [NSGraphicsContext restoreGraphicsState];
+        }
+        row = [dragRows indexGreaterThanIndex: row];
+    }
+    [image unlockFocus];
+    return image;
+}
+
+- (NSInteger) rowForView: (NSView *) view {
+    // Cell based table: only the field editor of the cell being edited is a
+    // subview that maps to a row.
+    NSView *v = view;
+    while (v != nil && v != self) {
+        if (v == (NSView *) _currentEditor)
+            return _editedRow;
+        v = [v superview];
+    }
+    return -1;
+}
+
+- (NSInteger) columnForView: (NSView *) view {
+    NSView *v = view;
+    while (v != nil && v != self) {
+        if (v == (NSView *) _currentEditor)
+            return _editedColumn;
+        v = [v superview];
+    }
+    return -1;
+}
+
+- (id) makeViewWithIdentifier: (NSUserInterfaceItemIdentifier) identifier
+                        owner: (id) owner {
+    NSNib *nib = [_registeredNibs objectForKey: identifier];
+    if (nib == nil)
+        return nil;
+
+    NSArray *objects = nil;
+    if (![nib instantiateNibWithOwner: owner topLevelObjects: &objects])
+        return nil;
+    for (id object in objects) {
+        if ([object isKindOfClass: [NSView class]]) {
+            if ([object identifier] == nil)
+                [object setIdentifier: identifier];
+            return object;
+        }
+    }
+    return nil;
+}
+
+- (NSTableRowView *) rowViewAtRow: (NSInteger) row
+                   makeIfNecessary: (BOOL) makeIfNecessary {
+    // Cell based tables have no row views.
+    return nil;
+}
+
+- (void) enumerateAvailableRowViewsUsingBlock:
+        (void (^)(NSTableRowView *rowView, NSInteger row)) handler {
+    // Cell based tables have no row views to enumerate.
+}
+
+- (void) registerNib: (NSNib *) nib
+       forIdentifier: (NSUserInterfaceItemIdentifier) identifier {
+    if (identifier == nil)
+        return;
+    if (nib == nil) {
+        [_registeredNibs removeObjectForKey: identifier];
+        return;
+    }
+    if (_registeredNibs == nil)
+        _registeredNibs = [[NSMutableDictionary alloc] init];
+    [_registeredNibs setObject: nib forKey: identifier];
+}
+
+- (NSDictionary *) registeredNibsByIdentifier {
+    if ([_registeredNibs count] == 0)
+        return nil;
+    return [[_registeredNibs copy] autorelease];
+}
+
+- (void) didAddRowView: (NSTableRowView *) rowView forRow: (NSInteger) row {
+    // Hook for subclasses; the base implementation does nothing.
+}
+
+- (void) didRemoveRowView: (NSTableRowView *) rowView forRow: (NSInteger) row {
+    // Hook for subclasses; the base implementation does nothing.
+}
+
+- (BOOL) textShouldBeginEditing: (NSText *) textObject {
+    if ([_delegate respondsToSelector: @selector(control:
+                                               textShouldBeginEditing:)])
+        return [_delegate control: self textShouldBeginEditing: textObject];
+    return YES;
+}
+
+- (BOOL) textShouldEndEditing: (NSText *) textObject {
+    if ([_delegate respondsToSelector: @selector(control:
+                                               textShouldEndEditing:)])
+        return [_delegate control: self textShouldEndEditing: textObject];
+    return YES;
 }
 
 @end

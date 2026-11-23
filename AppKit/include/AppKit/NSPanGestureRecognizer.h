@@ -21,6 +21,14 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/NSGestureRecognizer.h>
 
-@interface NSPanGestureRecognizer : NSGestureRecognizer <NSCoding>
+@interface NSPanGestureRecognizer : NSGestureRecognizer <NSCoding> {
+    NSInteger _numberOfTouchesRequired;
+    NSPoint _translation;
+}
+
+@property NSInteger numberOfTouchesRequired;
+
+- (NSPoint) translationInView: (NSView *) view;
+- (void) setTranslation: (NSPoint) translation inView: (NSView *) view;
 
 @end

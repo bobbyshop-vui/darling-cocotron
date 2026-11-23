@@ -47,6 +47,7 @@ COREDATA_EXPORT NSString *const NSSQLiteManualVacuumOption;
     NSLock *_lock;
     NSManagedObjectModel *_model;
     NSMutableArray *_stores;
+    NSString *_coordinatorName;
 }
 
 + (NSDictionary *) registeredStoreTypes;
@@ -92,5 +93,19 @@ COREDATA_EXPORT NSString *const NSSQLiteManualVacuumOption;
 + (NSDictionary *) metadataForPersistentStoreOfType: (NSString *) storeType
                                                 URL: (NSURL *) url
                                               error: (NSError **) error;
++ (NSDictionary *) metadataForPersistentStoreOfType: (NSString *) storeType
+                                                URL: (NSURL *) url
+                                            options: (NSDictionary *) options
+                                              error: (NSError **) error;
++ (BOOL) setMetadata: (NSDictionary *) metadata
+        forPersistentStoreOfType: (NSString *) storeType
+                             URL: (NSURL *) url
+                         options: (NSDictionary *) options
+                           error: (NSError **) error;
+
+- (NSString *) name;
+- (void) setName: (NSString *) name;
+- (void) performBlock: (void (^)(void)) block;
+- (void) performBlockAndWait: (void (^)(void)) block;
 
 @end

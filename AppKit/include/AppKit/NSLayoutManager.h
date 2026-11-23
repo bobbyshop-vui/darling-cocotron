@@ -60,6 +60,14 @@ typedef NS_ENUM(NSInteger, NSTextLayoutOrientation) {
 
     NSUInteger _rectCacheCapacity, _rectCacheCount;
     NSRect *_rectCache;
+
+    BOOL _lmShowsControlCharacters;
+    BOOL _lmShowsInvisibleCharacters;
+    BOOL _lmBackgroundLayoutDisabled;
+    BOOL _lmUsesFontLeadingDisabled;
+    BOOL _lmTypesetterBehaviorSet;
+    NSInteger _lmTypesetterBehavior;
+    CGFloat _lmHyphenationFactor;
 }
 
 - init;
@@ -278,6 +286,49 @@ typedef NS_ENUM(NSInteger, NSTextLayoutOrientation) {
                                    enabled: (BOOL) isEnabled;
 
 - (void) setAllowsNonContiguousLayout: (BOOL) value;
+
+- (NSSize) attachmentSizeForGlyphAtIndex: (NSUInteger) glyphIndex;
+- (NSUInteger) characterIndexForPoint: (NSPoint) point
+                      inTextContainer: (NSTextContainer *) container
+        fractionOfDistanceBetweenInsertionPoints: (CGFloat *) partialFraction;
+- (void) ensureLayoutForCharacterRange: (NSRange) charRange;
+- (void) ensureLayoutForGlyphRange: (NSRange) glyphRange;
+- (void) fillBackgroundRectArray: (const NSRect *) rectArray
+                           count: (NSUInteger) rectCount
+               forCharacterRange: (NSRange) charRange
+                           color: (NSColor *) color;
+- (NSUInteger) getGlyphsInRange: (NSRange) glyphRange
+                         glyphs: (unsigned short *) glyphBuffer
+                     properties: (NSInteger *) props
+               characterIndexes: (NSUInteger *) charIndexBuffer
+                     bidiLevels: (unsigned char *) bidiLevelBuffer;
+- (NSGlyph) glyphAtIndex: (NSUInteger) glyphIndex;
+- (NSGlyph) glyphAtIndex: (NSUInteger) glyphIndex
+            isValidIndex: (BOOL *) isValidIndex;
+- (NSUInteger) glyphIndexForCharacterAtIndex: (NSUInteger) charIndex;
+- (CGFloat) hyphenationFactor;
+- (void) setHyphenationFactor: (CGFloat) factor;
+- (void) insertGlyphs: (const NSGlyph *) glyphs
+                     length: (NSUInteger) length
+        forStartingGlyphAtIndex: (NSUInteger) glyphIndex
+                 characterIndex: (NSUInteger) charIndex;
+- (void) invalidateLayoutForCharacterRange: (NSRange) charRange
+                      actualCharacterRange: (NSRangePointer) actualCharRange;
+- (void) setBackgroundLayoutEnabled: (BOOL) flag;
+- (BOOL) backgroundLayoutEnabled;
+- (void) setShowsControlCharacters: (BOOL) flag;
+- (BOOL) showsControlCharacters;
+- (void) setShowsInvisibleCharacters: (BOOL) flag;
+- (BOOL) showsInvisibleCharacters;
+- (void) setTypesetterBehavior: (NSInteger) behavior;
+- (NSInteger) typesetterBehavior;
+- (void) setUsesFontLeading: (BOOL) flag;
+- (BOOL) usesFontLeading;
+- (void) showAttachmentCell: (NSCell *) cell
+                     inRect: (NSRect) rect
+             characterIndex: (NSUInteger) attachmentIndex;
+- (NSRange) truncatedGlyphRangeInLineFragmentForGlyphAtIndex:
+        (NSUInteger) glyphIndex;
 @end
 
 @protocol NSLayoutManagerDelegate <NSObject>

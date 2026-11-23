@@ -280,7 +280,57 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 }
 @end
 
+@interface _NSDrawingHandlerImageRep : NSImageRep {
+    BOOL (^_handler)(NSRect dstRect);
+}
+- (instancetype) initWithSize: (NSSize) size
+                      handler: (BOOL (^)(NSRect dstRect)) handler;
+@end
+
+@implementation _NSDrawingHandlerImageRep
+
+- (instancetype) initWithSize: (NSSize) size
+                      handler: (BOOL (^)(NSRect dstRect)) handler
+{
+    if ((self = [super init]) != nil) {
+        [self setSize: size];
+        _handler = [handler copy];
+    }
+    return self;
+}
+
+- (void) dealloc {
+    [_handler release];
+    [super dealloc];
+}
+
+- (BOOL) draw {
+    NSSize size = [self size];
+    return _handler != nil ? _handler(NSMakeRect(0, 0, size.width, size.height))
+                           : YES;
+}
+
+@end
+
 @implementation NSImage
+
++ (NSArray *) imageTypes {
+    return [NSImageRep imageTypes];
+}
+
++ (instancetype) imageWithSize: (NSSize) size
+                       flipped: (BOOL) flipped
+                drawingHandler: (BOOL (^)(NSRect dstRect)) drawingHandler
+{
+    NSImage *image = [[[self alloc] initWithSize: size] autorelease];
+    NSImageRep *rep = [[[_NSDrawingHandlerImageRep alloc]
+            initWithSize: size
+                 handler: drawingHandler] autorelease];
+
+    [image setFlipped: flipped];
+    [image addRepresentation: rep];
+    return image;
+}
 
 + (NSArray *) imageFileTypes {
     return [self imageUnfilteredFileTypes];
@@ -542,6 +592,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 }
 
 - (void) dealloc {
+    CGImageRelease(_proposedCGImage);
     [_name release];
     [_backgroundColor release];
     [_representations release];
@@ -551,6 +602,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 - copyWithZone: (NSZone *) zone {
     NSImage *result = NSCopyObject(self, 0, zone);
 
+    result->_proposedCGImage = NULL;
     result->_name = [_name copy];
     result->_backgroundColor = [_backgroundColor copy];
     result->_representations = [_representations mutableCopy];
@@ -643,6 +695,127 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 
     [[NSImage allImages] setObject: self forKey: _name];
     return YES;
+}
+
+- (NSRect) alignmentRect {
+    if (!_hasAlignmentRect) {
+        NSSize size = [self size];
+        return NSMakeRect(0, 0, size.width, size.height);
+    }
+    return _alignmentRect;
+}
+
+- (void) setAlignmentRect: (NSRect) rect {
+    _alignmentRect = rect;
+    _hasAlignmentRect = YES;
+}
+
+- (NSEdgeInsets) capInsets {
+    return _capInsets;
+}
+
+- (void) setCapInsets: (NSEdgeInsets) insets {
+    _capInsets = insets;
+}
+
+- (NSImageResizingMode) resizingMode {
+    return _resizingMode;
+}
+
+- (void) setResizingMode: (NSImageResizingMode) mode {
+    _resizingMode = mode;
+}
+
+- (NSImageRep *) bestRepresentationForRect: (NSRect) rect
+                                   context: (NSGraphicsContext *) context
+                                     hints: (NSDictionary *) hints
+{
+    NSImageRep *rep = [self _bestUncachedFallbackCachedRepresentationForDevice: nil
+                                                                          size: rect.size];
+
+    if (rep == nil)
+        rep = [self bestRepresentationForDevice: hints];
+    return rep;
+}
+
+- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
+                              context: (NSGraphicsContext *) context
+                                hints: (NSDictionary *) hints
+{
+    NSRect rect = proposedDestRect != NULL
+                          ? *proposedDestRect
+                          : NSMakeRect(0, 0, [self size].width, [self size].height);
+    NSImageRep *rep = [self bestRepresentationForRect: rect
+                                              context: context
+                                                hints: hints];
+
+    if (rep != nil && ![rep isKindOfClass: [NSCachedImageRep class]]) {
+        CGImageRef image = [rep CGImageForProposedRect: proposedDestRect
+                                               context: context
+                                                 hints: hints];
+        if (image != NULL)
+            return image;
+    }
+
+    // Render the image into a bitmap to produce a snapshot.
+    size_t width = (size_t) ceil(rect.size.width);
+    size_t height = (size_t) ceil(rect.size.height);
+    if (width == 0 || height == 0)
+        return NULL;
+
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    CGContextRef bitmap = CGBitmapContextCreate(NULL, width, height, 8, 0, space,
+                                                kCGImageAlphaPremultipliedLast);
+    CGColorSpaceRelease(space);
+    if (bitmap == NULL)
+        return NULL;
+
+    [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext:
+                               [NSGraphicsContext
+                                       graphicsContextWithGraphicsPort: bitmap
+                                                               flipped: NO]];
+    [self drawInRect: NSMakeRect(0, 0, width, height)
+            fromRect: NSZeroRect
+           operation: NSCompositeSourceOver
+            fraction: 1.0];
+    [NSGraphicsContext restoreGraphicsState];
+
+    CGImageRelease(_proposedCGImage);
+    _proposedCGImage = CGBitmapContextCreateImage(bitmap);
+    CGContextRelease(bitmap);
+    return _proposedCGImage;
+}
+
+- (CGFloat) recommendedLayerContentsScale: (CGFloat) preferredContentsScale {
+    return preferredContentsScale > 0 ? preferredContentsScale : 1.0;
+}
+
+- (id) layerContentsForContentsScale: (CGFloat) layerContentsScale {
+    NSSize size = [self size];
+    NSRect rect = NSMakeRect(0, 0, size.width * layerContentsScale,
+                             size.height * layerContentsScale);
+
+    return (id) [self CGImageForProposedRect: &rect context: nil hints: nil];
+}
+
+- (void) lockFocusFlipped: (BOOL) flipped {
+    BOOL previous = _isFlipped;
+
+    // The flag only decides how the drawing context is set up; the image
+    // itself keeps its own flippedness.
+    _isFlipped = flipped;
+    [self lockFocus];
+    _isFlipped = previous;
+}
+
+- (void) drawInRect: (NSRect) rect {
+    [self drawInRect: rect
+            fromRect: NSZeroRect
+           operation: NSCompositeSourceOver
+            fraction: 1.0
+      respectFlipped: YES
+               hints: nil];
 }
 
 - (void) setSize: (NSSize) size {

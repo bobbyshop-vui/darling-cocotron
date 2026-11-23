@@ -18,6 +18,34 @@
 */
 
 #import <AppKit/NSView.h>
+#import <AppKit/NSCell.h>
+#import <AppKit/NSTableView.h>
 
-@interface NSTableRowView : NSView
+@class NSColor;
+
+@interface NSTableRowView : NSView {
+    NSColor *_rowBackgroundColor;
+    BOOL _rowSelected;
+    BOOL _rowEmphasized;
+    BOOL _rowGroupRowStyle;
+    BOOL _rowFloating;
+    NSTableViewDraggingDestinationFeedbackStyle _rowDraggingFeedbackStyle;
+}
+- (NSColor *) backgroundColor;
+- (void) setBackgroundColor: (NSColor *) color;
+- (BOOL) isSelected;
+- (void) setSelected: (BOOL) flag;
+- (BOOL) isEmphasized;
+- (void) setEmphasized: (BOOL) flag;
+- (BOOL) isGroupRowStyle;
+- (void) setGroupRowStyle: (BOOL) flag;
+- (BOOL) isFloating;
+- (void) setFloating: (BOOL) flag;
+- (void) setDraggingDestinationFeedbackStyle:
+        (NSTableViewDraggingDestinationFeedbackStyle) style;
+- (NSTableViewDraggingDestinationFeedbackStyle) draggingDestinationFeedbackStyle;
+- (NSBackgroundStyle) interiorBackgroundStyle;
+- (NSInteger) numberOfColumns;
+- (void) drawSelectionInRect: (NSRect) dirtyRect;
+- (void) drawSeparatorInRect: (NSRect) dirtyRect;
 @end

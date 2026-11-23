@@ -19,5 +19,12 @@
 
 #import <Foundation/NSObject.h>
 
-@interface NSFilePromiseProvider : NSObject
+@interface NSFilePromiseProvider : NSObject {
+    id _delegate;
+    id _userInfo;
+}
+- (id)delegate;
+- (void)setDelegate:(id)delegate;
+- (id)userInfo;
+- (void)setUserInfo:(id)userInfo;
 @end

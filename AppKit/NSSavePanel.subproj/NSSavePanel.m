@@ -24,6 +24,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSSavePanel.h>
 #import <AppKit/NSView.h>
 
+@interface NSObject (_NSSavePanelOutlineAccess)
+- (NSInteger) selectedRow;
+- (id) itemAtRow: (NSInteger) row;
+@end
+
 @implementation NSSavePanel
 
 @synthesize showsHiddenFiles=_showsHiddenFiles;
@@ -37,6 +42,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _treatsFilePackagesAsDirectories = NO;
     _accessoryView = nil;
     _showsHiddenFiles = false;
+    [_nameFieldLabel release];
+    _nameFieldLabel = nil;
+    _canSelectHiddenExtension = NO;
+    _extensionHidden = NO;
+    _showsTagField = YES;
     return self;
 }
 
@@ -72,6 +82,7 @@ static NSSavePanel *_newPanel = nil;
     [_directory release];
     [_requiredFileType release];
     [_accessoryView release];
+    [_nameFieldLabel release];
     [super dealloc];
 }
 
@@ -114,10 +125,55 @@ static NSSavePanel *_newPanel = nil;
 }
 
 - (IBAction) _selectFile: (id) sender {
-    NSURL *url = [_outlineView itemAtRow: [_outlineView selectedRow]];
+    id outline = _outlineView;
+    NSURL *url = [outline itemAtRow: [outline selectedRow]];
     [self _setFilename: [url path]];
 
     [NSApp stopModalWithCode: NSOKButton];
+}
+
+- (IBAction) cancel: (id) sender {
+    [self _cancel: sender];
+}
+
+- (void) selectText: (id) sender {
+    id responder = [self firstResponder];
+    if (responder != self && [responder respondsToSelector: @selector(selectText:)])
+        [responder selectText: sender];
+}
+
+- (NSString *) nameFieldLabel {
+    return _nameFieldLabel != nil ? _nameFieldLabel : @"Save As:";
+}
+
+- (void) setNameFieldLabel: (NSString *) label {
+    label = [label copy];
+    [_nameFieldLabel release];
+    _nameFieldLabel = label;
+}
+
+- (BOOL) canSelectHiddenExtension {
+    return _canSelectHiddenExtension;
+}
+
+- (void) setCanSelectHiddenExtension: (BOOL) flag {
+    _canSelectHiddenExtension = flag;
+}
+
+- (BOOL) isExtensionHidden {
+    return _extensionHidden;
+}
+
+- (void) setExtensionHidden: (BOOL) flag {
+    _extensionHidden = flag;
+}
+
+- (BOOL) showsTagField {
+    return _showsTagField;
+}
+
+- (void) setShowsTagField: (BOOL) flag {
+    _showsTagField = flag;
 }
 
 - (IBAction) _cancel: (id) sender {

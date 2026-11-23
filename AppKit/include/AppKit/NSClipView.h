@@ -30,6 +30,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
     BOOL _drawsBackground;
     BOOL _copiesOnScroll;
+    NSEdgeInsets _contentInsets;
+    BOOL _automaticallyAdjustsContentInsets;
 }
 
 - (BOOL) drawsBackground;
@@ -48,6 +50,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (NSRect) documentVisibleRect;
 
 - (NSPoint) constrainScrollPoint: (NSPoint) point;
+- (NSRect) constrainBoundsRect: (NSRect) proposedBounds;
+
+- (NSEdgeInsets) contentInsets;
+- (void) setContentInsets: (NSEdgeInsets) insets;
+- (BOOL) automaticallyAdjustsContentInsets;
+- (void) setAutomaticallyAdjustsContentInsets: (BOOL) value;
 
 - (void) viewBoundsChanged: (NSNotification *) note;
 - (void) viewFrameChanged: (NSNotification *) note;

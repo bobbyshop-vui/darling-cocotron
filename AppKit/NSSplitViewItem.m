@@ -19,7 +19,107 @@
 
 #import <AppKit/NSSplitViewItem.h>
 
+#import <AppKit/NSView.h>
+#import <AppKit/NSViewController.h>
+
 @implementation NSSplitViewItem
+
+- (instancetype) init {
+    if ((self = [super init])) {
+        _holdingPriority = 250;
+    }
+    return self;
+}
+
++ (instancetype) _itemWithViewController: (NSViewController *) viewController
+                                behavior: (NSSplitViewItemBehavior) behavior
+{
+    NSSplitViewItem *item = [[[self alloc] init] autorelease];
+    item->_behavior = behavior;
+    item->_canCollapse = (behavior == NSSplitViewItemBehaviorSidebar);
+    if (behavior == NSSplitViewItemBehaviorSidebar) {
+        item->_holdingPriority = 260;
+    }
+    [item setViewController: viewController];
+    return item;
+}
+
++ (instancetype) splitViewItemWithViewController:
+        (NSViewController *) viewController
+{
+    return [self _itemWithViewController: viewController
+                                behavior: NSSplitViewItemBehaviorDefault];
+}
+
++ (instancetype) sidebarWithViewController: (NSViewController *) viewController
+{
+    return [self _itemWithViewController: viewController
+                                behavior: NSSplitViewItemBehaviorSidebar];
+}
+
++ (instancetype) contentListWithViewController:
+        (NSViewController *) viewController
+{
+    return [self _itemWithViewController: viewController
+                                behavior: NSSplitViewItemBehaviorContentList];
+}
+
+- (void) dealloc {
+    [_viewController release];
+    [super dealloc];
+}
+
+- (NSSplitViewItemBehavior) behavior {
+    return _behavior;
+}
+
+- (NSViewController *) viewController {
+    return _viewController;
+}
+
+- (void) setViewController: (NSViewController *) viewController {
+    if (viewController != _viewController) {
+        [viewController retain];
+        [_viewController release];
+        _viewController = viewController;
+    }
+}
+
+- (BOOL) canCollapse {
+    return _canCollapse;
+}
+
+- (void) setCanCollapse: (BOOL) canCollapse {
+    _canCollapse = canCollapse;
+}
+
+- (BOOL) isCollapsed {
+    return _collapsed;
+}
+
+- (void) setCollapsed: (BOOL) collapsed {
+    if (collapsed == _collapsed) {
+        return;
+    }
+    _collapsed = collapsed;
+    [[_viewController view] setHidden: collapsed];
+}
+
+- (NSLayoutPriority) holdingPriority {
+    return _holdingPriority;
+}
+
+- (void) setHoldingPriority: (NSLayoutPriority) holdingPriority {
+    _holdingPriority = holdingPriority;
+}
+
+- (BOOL) isSpringLoaded {
+    return _springLoaded;
+}
+
+- (void) setSpringLoaded: (BOOL) springLoaded {
+    _springLoaded = springLoaded;
+}
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {

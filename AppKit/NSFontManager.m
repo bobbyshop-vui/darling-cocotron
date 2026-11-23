@@ -53,6 +53,7 @@ static Class _fontPanelFactory;
 - init {
     _panel = nil;
     _action = @selector(changeFont:);
+    _isEnabled = YES;
     _selectedFont = [[NSFont userFontOfSize: 0] retain];
     _isMultiple = NO;
     return self;
@@ -284,13 +285,42 @@ static Class _fontPanelFactory;
 
 - (BOOL) sendAction {
     return [NSApp sendAction: _action
-                          to: nil
+                          to: _target
                         from: [NSFontManager sharedFontManager]];
 }
 
 - (BOOL) isEnabled {
-    NSUnimplementedMethod();
-    return 0;
+    return _isEnabled;
+}
+
+- (void) setEnabled: (BOOL) flag {
+    _isEnabled = flag;
+}
+
+- (id) target {
+    return _target;
+}
+
+- (void) setTarget: (id) target {
+    _target = target;
+}
+
+- (NSFontTraitMask) convertFontTraits: (NSFontTraitMask) traits {
+    switch (_currentFontAction) {
+    case NSAddTraitFontAction:
+        traits |= (NSFontTraitMask) _currentTrait;
+        if (_currentTrait & NSBoldFontMask)
+            traits &= ~NSUnboldFontMask;
+        if (_currentTrait & NSItalicFontMask)
+            traits &= ~NSUnitalicFontMask;
+        break;
+    case NSRemoveTraitFontAction:
+        traits &= ~(NSFontTraitMask) _currentTrait;
+        break;
+    default:
+        break;
+    }
+    return traits;
 }
 
 - (BOOL) isMultiple {

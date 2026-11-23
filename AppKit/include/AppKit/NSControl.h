@@ -34,6 +34,7 @@ APPKIT_EXPORT const NSNotificationName NSControlTextDidEndEditingNotification;
     BOOL _allowsExpansionToolTips;
     BOOL _setsMaxLayoutWidthAtFirstLayout;
     BOOL _allowsLogicalLayoutDirection;
+    BOOL _ignoresMultiClick;
 }
 
 @property BOOL allowsExpansionToolTips;
@@ -124,6 +125,18 @@ APPKIT_EXPORT const NSNotificationName NSControlTextDidEndEditingNotification;
 - (NSText *) currentEditor;
 - (void) validateEditing;
 - (BOOL) abortEditing;
+
+- (NSWritingDirection) baseWritingDirection;
+- (void) setBaseWritingDirection: (NSWritingDirection) direction;
+- (NSControlSize) controlSize;
+- (void) setControlSize: (NSControlSize) size;
+- (BOOL) isHighlighted;
+- (void) setHighlighted: (BOOL) flag;
+- (BOOL) ignoresMultiClick;
+- (void) setIgnoresMultiClick: (BOOL) flag;
+- (NSSize) sizeThatFits: (NSSize) size;
+- (void) drawWithExpansionFrame: (NSRect) contentFrame inView: (NSView *) view;
+- (void) endEditing: (NSText *) editor;
 
 - (void) calcSize;
 - (void) sizeToFit;

@@ -94,6 +94,19 @@ APPKIT_EXPORT NSString *const NSOutlineViewDisclosureButtonKey;
 
 - (NSRect) frameOfOutlineCellAtRow: (NSInteger) row;
 
+- (NSInteger) numberOfChildrenOfItem: (id) item;
+- (id) child: (NSInteger) index ofItem: (id) item;
+- (NSInteger) childIndexForItem: (id) item;
+
+- (void) removeItemsAtIndexes: (NSIndexSet *) indexes
+                     inParent: (id) parent
+                withAnimation: (NSTableViewAnimationOptions) animationOptions;
+- (void) insertRowsAtIndexes: (NSIndexSet *) indexes
+               withAnimation: (NSTableViewAnimationOptions) animationOptions;
+- (void) removeRowsAtIndexes: (NSIndexSet *) indexes
+               withAnimation: (NSTableViewAnimationOptions) animationOptions;
+- (void) moveRowAtIndex: (NSInteger) oldIndex toIndex: (NSInteger) newIndex;
+
 @end
 
 @protocol NSOutlineViewDataSource <NSObject>

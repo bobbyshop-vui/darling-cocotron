@@ -84,6 +84,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         _sendsActionOnArrowKeys = (flags & 0x00040000) ? YES : NO;
 
         _takesTitleFromPreviousColumn = YES;
+        [self _setBrowserDefaults];
 
         [self tile];
     } else {
@@ -119,11 +120,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _hasHorizontalScroller = NO;
 
     _takesTitleFromPreviousColumn = YES;
+    [self _setBrowserDefaults];
 
     return self;
 }
 
+- (void) _setBrowserDefaults {
+    _pathSeparator = [@"/" copy];
+    _clickedColumn = -1;
+    _clickedRow = -1;
+    _columnResizingType = NSBrowserAutoColumnResizing;
+    _minColumnWidth = 100;
+    _defaultColumnWidth = 100;
+    _rowHeight = 17;
+    _draggingSourceMaskLocal = NSDragOperationEvery;
+    _draggingSourceMaskRemote = NSDragOperationNone;
+}
+
 - (void) dealloc {
+    [_pathSeparator release];
+    [_columnWidths release];
+    [_columnsAutosaveName release];
     [_explicitTitles release];
     [_titles release];
     [_matrices release];
@@ -517,8 +534,325 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     }
 }
 
-- (void) setPath: (NSString *) path {
-    NSUnimplementedMethod();
+- (NSString *) pathSeparator {
+    return _pathSeparator != nil ? _pathSeparator : @"/";
+}
+
+- (void) setPathSeparator: (NSString *) separator {
+    if (separator != _pathSeparator) {
+        [_pathSeparator release];
+        _pathSeparator = [separator copy];
+    }
+}
+
+- (NSString *) pathToColumn: (NSInteger) column {
+    NSMutableString *result = [NSMutableString string];
+    NSInteger i, last = [self selectedColumn];
+
+    if (column < last + 1)
+        last = column - 1;
+
+    for (i = 0; i <= last; i++) {
+        [result appendString: [self pathSeparator]];
+        [result appendString: [[[self matrixInColumn: i] selectedCell]
+                                      stringValue]];
+    }
+
+    if (last < 0)
+        [result appendString: [self pathSeparator]];
+
+    return result;
+}
+
+- (NSString *) path {
+    return [self pathToColumn: [self selectedColumn] + 1];
+}
+
+- (BOOL) setPath: (NSString *) path {
+    NSString *separator = [self pathSeparator];
+    NSArray *components = [path componentsSeparatedByString: separator];
+    NSInteger column = 0;
+    BOOL result = YES;
+
+    if ([_matrices count] == 0)
+        [self loadColumnZero];
+
+    for (NSString *component in components) {
+        if ([component length] == 0)
+            continue;
+
+        NSMatrix *matrix = [self matrixInColumn: column];
+        NSInteger row, rows = [matrix numberOfRows];
+
+        for (row = 0; row < rows; row++) {
+            if ([[[matrix cellAtRow: row column: 0] stringValue]
+                        isEqualToString: component])
+                break;
+        }
+
+        if (row >= rows) {
+            result = NO;
+            break;
+        }
+
+        [self selectRow: row inColumn: column];
+        column++;
+    }
+
+    return result;
+}
+
+- (BOOL) isLoaded {
+    return [_matrices count] > 0;
+}
+
+- (NSInteger) clickedColumn {
+    return _clickedColumn;
+}
+
+- (NSInteger) clickedRow {
+    return _clickedRow;
+}
+
+- (BOOL) getRow: (NSInteger *) row
+          column: (NSInteger *) column
+        forPoint: (NSPoint) point
+{
+    NSInteger i;
+
+    for (i = [self firstVisibleColumn]; i <= [self lastVisibleColumn] &&
+                                        i < [_matrices count];
+         i++) {
+        if (!NSPointInRect(point, [self frameOfColumn: i]))
+            continue;
+
+        NSMatrix *matrix = [self matrixInColumn: i];
+        NSInteger r = -1, c = -1;
+        NSPoint local = [matrix convertPoint: point fromView: self];
+
+        if ([matrix getRow: &r column: &c forPoint: local]) {
+            if (row != NULL)
+                *row = r;
+            if (column != NULL)
+                *column = i;
+            return YES;
+        }
+        break;
+    }
+
+    if (row != NULL)
+        *row = -1;
+    if (column != NULL)
+        *column = -1;
+    return NO;
+}
+
+// Matrix based browsers have no items; the cell at the index path stands in
+// for the item.
+- (id) itemAtIndexPath: (NSIndexPath *) indexPath {
+    NSUInteger i, length = [indexPath length];
+    id cell = nil;
+
+    for (i = 0; i < length; i++) {
+        NSMatrix *matrix = [self matrixInColumn: i];
+        NSUInteger row = [indexPath indexAtPosition: i];
+
+        if (matrix == nil || row >= [matrix numberOfRows])
+            return nil;
+        cell = [matrix cellAtRow: row column: 0];
+    }
+    return cell;
+}
+
+- (NSIndexPath *) selectionIndexPath {
+    NSInteger i, last = [self selectedColumn];
+
+    if (last < 0)
+        return nil;
+
+    NSUInteger *indexes = malloc(sizeof(NSUInteger) * (last + 1));
+
+    for (i = 0; i <= last; i++)
+        indexes[i] = [[self matrixInColumn: i] selectedRow];
+
+    NSIndexPath *result = [NSIndexPath indexPathWithIndexes: indexes
+                                                     length: last + 1];
+
+    free(indexes);
+    return result;
+}
+
+- (void) setSelectionIndexPath: (NSIndexPath *) indexPath {
+    NSUInteger i, length = [indexPath length];
+
+    if ([_matrices count] == 0)
+        [self loadColumnZero];
+
+    if (length == 0) {
+        [[self matrixInColumn: 0] deselectAllCells];
+        _selectedColumn = -1;
+        [self _unloadAfterColumn: 0];
+        return;
+    }
+
+    for (i = 0; i < length; i++) {
+        NSUInteger row = [indexPath indexAtPosition: i];
+        NSMatrix *matrix = [self matrixInColumn: i];
+
+        if (matrix == nil || row >= [matrix numberOfRows])
+            break;
+        [self selectRow: row inColumn: i];
+    }
+}
+
+- (NSArray *) selectionIndexPaths {
+    NSIndexPath *single = [self selectionIndexPath];
+    NSInteger last = [self selectedColumn];
+    NSMutableArray *result = [NSMutableArray array];
+
+    if (single == nil)
+        return result;
+
+    NSMatrix *matrix = [self matrixInColumn: last];
+    NSIndexPath *parent = [single indexPathByRemovingLastIndex];
+
+    for (NSInteger row = 0; row < [matrix numberOfRows]; row++) {
+        if ([[matrix cellAtRow: row column: 0] state] != 0)
+            [result addObject: [parent indexPathByAddingIndex: row]];
+    }
+
+    if ([result count] == 0)
+        [result addObject: single];
+    return result;
+}
+
+- (void) setSelectionIndexPaths: (NSArray *) indexPaths {
+    NSIndexPath *first = [indexPaths firstObject];
+
+    [self setSelectionIndexPath: first];
+
+    if ([indexPaths count] < 2 || ![self allowsMultipleSelection])
+        return;
+
+    NSInteger column = [first length] - 1;
+    NSMatrix *matrix = [self matrixInColumn: column];
+
+    for (NSIndexPath *path in indexPaths) {
+        if ([path length] != [first length])
+            continue;
+        NSInteger row = [path indexAtPosition: column];
+
+        if (row < [matrix numberOfRows])
+            [matrix setSelectionFrom: row to: row anchor: row highlight: YES];
+    }
+    [self _reloadSelectionInColumn: column];
+}
+
+- (void) selectAll: (id) sender {
+    if (![self allowsMultipleSelection])
+        return;
+
+    NSInteger column = [self selectedColumn];
+
+    if (column < 0)
+        column = [self lastColumn];
+    if (column < 0)
+        return;
+
+    [[self matrixInColumn: column] selectAll: sender];
+    [self _reloadSelectionInColumn: column];
+}
+
+- (CGFloat) minColumnWidth {
+    return _minColumnWidth;
+}
+
+- (void) setMinColumnWidth: (CGFloat) width {
+    _minColumnWidth = width;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSBrowserColumnResizingType) columnResizingType {
+    return _columnResizingType;
+}
+
+- (void) setColumnResizingType: (NSBrowserColumnResizingType) type {
+    _columnResizingType = type;
+    [self tile];
+}
+
+- (BOOL) prefersAllColumnUserResizing {
+    return _prefersAllColumnUserResizing;
+}
+
+- (void) setPrefersAllColumnUserResizing: (BOOL) flag {
+    _prefersAllColumnUserResizing = flag;
+}
+
+- (void) setWidth: (CGFloat) width ofColumn: (NSInteger) column {
+    if (column < 0) {
+        _defaultColumnWidth = width;
+        return;
+    }
+
+    if (_columnResizingType == NSBrowserAutoColumnResizing)
+        return;
+
+    if (_columnWidths == nil)
+        _columnWidths = [[NSMutableDictionary alloc] init];
+    [_columnWidths setObject: [NSNumber numberWithDouble: width]
+                      forKey: [NSNumber numberWithInteger: column]];
+    [self setNeedsDisplay: YES];
+}
+
+- (CGFloat) widthOfColumn: (NSInteger) column {
+    if (_columnResizingType == NSBrowserAutoColumnResizing)
+        return [self frameOfColumn: column].size.width;
+
+    NSNumber *width = [_columnWidths
+            objectForKey: [NSNumber numberWithInteger: column]];
+
+    return width != nil ? [width doubleValue] : _defaultColumnWidth;
+}
+
+- (CGFloat) rowHeight {
+    return _rowHeight > 0 ? _rowHeight : 17;
+}
+
+- (void) setRowHeight: (CGFloat) height {
+    if (height <= 0)
+        return;
+
+    _rowHeight = floor(height + 0.5);
+
+    for (NSMatrix *matrix in _matrices) {
+        NSSize size = [matrix cellSize];
+
+        size.height = _rowHeight;
+        [matrix setCellSize: size];
+        [matrix sizeToFit];
+    }
+    [self setNeedsDisplay: YES];
+}
+
+- (NSString *) columnsAutosaveName {
+    return _columnsAutosaveName;
+}
+
+- (void) setColumnsAutosaveName: (NSString *) name {
+    if (name != _columnsAutosaveName) {
+        [_columnsAutosaveName release];
+        _columnsAutosaveName = [name copy];
+    }
+}
+
+- (void) setDraggingSourceOperationMask: (NSDragOperation) mask
+                               forLocal: (BOOL) isLocal
+{
+    if (isLocal)
+        _draggingSourceMaskLocal = mask;
+    else
+        _draggingSourceMaskRemote = mask;
 }
 
 - (BOOL) sendAction {
@@ -526,6 +860,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) doClick: sender {
+    _clickedColumn = [self columnOfMatrix: sender];
+    _clickedRow = [(NSMatrix *) sender selectedRow];
     [self _reloadSelectionInColumn: [self columnOfMatrix: sender]];
 
     if ([[[self window] currentEvent] type] != NSKeyDown ||
@@ -534,6 +870,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) doDoubleClick: sender {
+    _clickedColumn = [self columnOfMatrix: sender];
+    _clickedRow = [(NSMatrix *) sender selectedRow];
     [self sendAction: [self doubleAction] to: [self target]];
 }
 
@@ -576,7 +914,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         [matrix setDoubleAction: @selector(doDoubleClick:)];
 
         [matrix setCellClass: [self cellClass]];
-        [matrix setCellSize: NSMakeSize(frame.size.width, 16)];
+        [matrix setCellSize: NSMakeSize(frame.size.width, [self rowHeight])];
         [matrix setAutoresizingMask: NSViewWidthSizable];
         [matrix setAutosizesCells: YES];
         [matrix setAllowsEmptySelection: [self allowsEmptySelection]];

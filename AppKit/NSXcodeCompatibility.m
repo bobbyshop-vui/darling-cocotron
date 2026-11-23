@@ -39,7 +39,10 @@
 
 #import <AppKit/AppKitExport.h>
 #import <AppKit/NSBitmapImageRep.h>
+#import <AppKit/NSDraggingItem.h>
+#import <AppKit/NSImage.h>
 #import <AppKit/NSPanel.h>
+#import <AppKit/NSPasteboard.h>
 #import <Foundation/Foundation.h>
 
 #define DARLING_APPKIT_STUB_BODIES(className)                                  \
@@ -62,19 +65,168 @@ DARLING_APPKIT_STUB_BODIES(NSCGImageRep)
 @end
 
 /* Owns a drag operation's lifecycle. */
-@interface NSDraggingSession : NSObject
+@interface NSDraggingSession : NSObject {
+    NSInteger _darlingDraggingFormation;
+    BOOL _darlingAnimatesToStartingPositionsOnCancelOrFail;
+    NSPasteboard *_darlingDraggingPasteboard;
+    NSInteger _darlingDraggingSequenceNumber;
+    NSPoint _darlingDraggingLocation;
+    NSArray *_darlingDraggingItems;
+}
+- (NSInteger) draggingFormation;
+- (void) setDraggingFormation: (NSInteger) formation;
+- (BOOL) animatesToStartingPositionsOnCancelOrFail;
+- (void) setAnimatesToStartingPositionsOnCancelOrFail: (BOOL) flag;
+- (NSPasteboard *) draggingPasteboard;
+- (NSInteger) draggingSequenceNumber;
+- (NSPoint) draggingLocation;
+- (void) enumerateDraggingItemsWithOptions: (NSUInteger) options
+                                   forView: (NSView *) view
+                                   classes: (NSArray *) classArray
+                             searchOptions: (NSDictionary *) searchOptions
+                                usingBlock: (void (^)(NSDraggingItem *draggingItem,
+                                                      NSInteger idx,
+                                                      BOOL *stop)) block;
 @end
 
 @implementation NSDraggingSession
 DARLING_APPKIT_STUB_BODIES(NSDraggingSession)
+
+- (void) dealloc {
+    [_darlingDraggingPasteboard release];
+    [_darlingDraggingItems release];
+    [super dealloc];
+}
+
+- (NSInteger) draggingFormation {
+    return _darlingDraggingFormation;
+}
+
+- (void) setDraggingFormation: (NSInteger) formation {
+    _darlingDraggingFormation = formation;
+}
+
+- (BOOL) animatesToStartingPositionsOnCancelOrFail {
+    return _darlingAnimatesToStartingPositionsOnCancelOrFail;
+}
+
+- (void) setAnimatesToStartingPositionsOnCancelOrFail: (BOOL) flag {
+    _darlingAnimatesToStartingPositionsOnCancelOrFail = flag;
+}
+
+- (NSPasteboard *) draggingPasteboard {
+    if (_darlingDraggingPasteboard == nil)
+        _darlingDraggingPasteboard =
+                [[NSPasteboard pasteboardWithName: NSDragPboard] retain];
+    return _darlingDraggingPasteboard;
+}
+
+- (NSInteger) draggingSequenceNumber {
+    return _darlingDraggingSequenceNumber;
+}
+
+- (NSPoint) draggingLocation {
+    return _darlingDraggingLocation;
+}
+
+- (void) enumerateDraggingItemsWithOptions: (NSUInteger) options
+                                   forView: (NSView *) view
+                                   classes: (NSArray *) classArray
+                             searchOptions: (NSDictionary *) searchOptions
+                                usingBlock: (void (^)(NSDraggingItem *draggingItem,
+                                                      NSInteger idx,
+                                                      BOOL *stop)) block
+{
+    NSInteger index = 0;
+    BOOL stop = NO;
+
+    if (block == NULL)
+        return;
+
+    for (NSDraggingItem *draggingItem in _darlingDraggingItems) {
+        BOOL matches = ([classArray count] == 0);
+
+        for (Class cls in classArray) {
+            if ([[draggingItem item] isKindOfClass: cls]) {
+                matches = YES;
+                break;
+            }
+        }
+
+        if (!matches)
+            continue;
+
+        block(draggingItem, index++, &stop);
+        if (stop)
+            break;
+    }
+}
+
 @end
 
 /* The object model behind NSPathControl. */
-@interface NSPathControlItem : NSObject
+@interface NSPathControlItem : NSObject {
+    NSAttributedString *_darlingAttributedTitle;
+    NSImage *_darlingImage;
+    NSURL *_darlingURL;
+}
+- (NSString *) title;
+- (void) setTitle: (NSString *) title;
+- (NSAttributedString *) attributedTitle;
+- (void) setAttributedTitle: (NSAttributedString *) attributedTitle;
+- (NSImage *) image;
+- (void) setImage: (NSImage *) image;
+- (NSURL *) URL;
 @end
 
 @implementation NSPathControlItem
 DARLING_APPKIT_STUB_BODIES(NSPathControlItem)
+
+- (void) dealloc {
+    [_darlingAttributedTitle release];
+    [_darlingImage release];
+    [_darlingURL release];
+    [super dealloc];
+}
+
+- (NSString *) title {
+    NSString *string = [_darlingAttributedTitle string];
+    return string != nil ? string : @"";
+}
+
+- (void) setTitle: (NSString *) title {
+    NSAttributedString *attributed = [[NSAttributedString alloc]
+            initWithString: title != nil ? title : @""];
+    [_darlingAttributedTitle release];
+    _darlingAttributedTitle = attributed;
+}
+
+- (NSAttributedString *) attributedTitle {
+    return _darlingAttributedTitle != nil
+            ? _darlingAttributedTitle
+            : [[[NSAttributedString alloc] initWithString: @""] autorelease];
+}
+
+- (void) setAttributedTitle: (NSAttributedString *) attributedTitle {
+    NSAttributedString *copy = [attributedTitle copy];
+    [_darlingAttributedTitle release];
+    _darlingAttributedTitle = copy;
+}
+
+- (NSImage *) image {
+    return _darlingImage;
+}
+
+- (void) setImage: (NSImage *) image {
+    [image retain];
+    [_darlingImage release];
+    _darlingImage = image;
+}
+
+- (NSURL *) URL {
+    return _darlingURL;
+}
+
 @end
 
 /* The floating window used to host tooltips. */

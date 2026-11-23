@@ -54,4 +54,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) setHyphenationFactor: (float) factor;
 - (void) setTighteningFactorForTruncation: (float) factor;
+- (BOOL) allowsDefaultTighteningForTruncation;
+- (void) setAllowsDefaultTighteningForTruncation: (BOOL) flag;
 @end

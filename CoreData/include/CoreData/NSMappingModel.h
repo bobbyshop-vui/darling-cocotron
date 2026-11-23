@@ -19,6 +19,15 @@
 
 #import <Foundation/NSObject.h>
 
-@interface NSMappingModel : NSObject
+@class NSArray, NSURL, NSDictionary, NSMutableDictionary, NSEntityMapping;
+
+@interface NSMappingModel : NSObject {
+    NSArray *_entityMappings;
+}
+
+- (instancetype) initWithContentsOfURL: (NSURL *) url;
+
+@property (null_resettable, strong) NSArray *entityMappings;
+@property (readonly, copy) NSDictionary *entityMappingsByName;
 
 @end

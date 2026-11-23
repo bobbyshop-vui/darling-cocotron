@@ -19,7 +19,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSTextField.h>
 
-@interface NSSearchField : NSTextField
+@class NSMenu;
+
+@interface NSSearchField : NSTextField {
+    BOOL _centersPlaceholder;
+}
+
+- (NSInteger) maximumRecents;
+- (void) setMaximumRecents: (NSInteger) value;
+- (BOOL) sendsWholeSearchString;
+- (void) setSendsWholeSearchString: (BOOL) flag;
+- (BOOL) sendsSearchStringImmediately;
+- (void) setSendsSearchStringImmediately: (BOOL) flag;
+- (NSMenu *) searchMenuTemplate;
+- (void) setSearchMenuTemplate: (NSMenu *) menu;
+- (BOOL) centersPlaceholder;
+- (void) setCentersPlaceholder: (BOOL) flag;
+- (NSRect) rectForSearchTextWhenCentered: (BOOL) isCentered;
+- (NSRect) rectForCancelButtonWhenCentered: (BOOL) isCentered;
 
 - (NSArray *) recentSearches;
 - (NSString *) recentsAutosaveName;

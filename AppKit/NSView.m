@@ -46,6 +46,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <QuartzCore/CALayerContext.h>
 #import <QuartzCore/CATransaction.h>
 #import <AppKit/NSLayoutConstraint.h>
+#import <AppKit/NSGestureRecognizer.h>
+#import <AppKit/NSLayoutGuide.h>
+#import <Foundation/NSLayoutAnchor.h>
 
 @class IBMetricsTable;
 
@@ -60,6 +63,11 @@ const NSNotificationName NSViewGlobalFrameDidChangeNotification =
 
 const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPresentationOptions =
         @"NSFullScreenModeApplicationPresentationOptions";
+
+@interface NSObject (NSView_pasteboardWriting)
+- (NSArray *) writableTypesForPasteboard: (NSPasteboard *) pasteboard;
+- (id) pasteboardPropertyListForType: (NSString *) type;
+@end
 
 @interface NSView (NSView_forward)
 - (CGAffineTransform) transformFromWindow;
@@ -519,6 +527,23 @@ typedef struct __VFlags {
     [_layerContext release];
 
     [_identifier release];
+
+    [_constraints release];
+    [_layoutGuides release];
+    [_gestureRecognizers makeObjectsPerformSelector: @selector(_setView:)
+                                         withObject: nil];
+    [_gestureRecognizers release];
+    [_leadingAnchor release];
+    [_trailingAnchor release];
+    [_leftAnchor release];
+    [_rightAnchor release];
+    [_topAnchor release];
+    [_bottomAnchor release];
+    [_centerXAnchor release];
+    [_centerYAnchor release];
+    [_firstBaselineAnchor release];
+    [_widthAnchor release];
+    [_heightAnchor release];
 
     [super dealloc];
 }
@@ -2952,6 +2977,463 @@ static NSView *viewBeingPrinted = nil;
 
 - (void) _nsib_setUsesPointIntegralizationForLayout: (BOOL) usesPointIntegralizationForLayout {
     NSUnimplementedMethod();
+}
+
+#pragma mark - Constraint based layout
+
++ (BOOL) isCompatibleWithResponsiveScrolling {
+    return NO;
+}
+
+- (void) addConstraint: (NSLayoutConstraint *) constraint {
+    if (constraint == nil)
+        return;
+    if (_constraints == nil)
+        _constraints = [[NSMutableArray alloc] init];
+    if (![_constraints containsObject: constraint])
+        [_constraints addObject: constraint];
+    [self setNeedsUpdateConstraints: YES];
+}
+
+- (void) addConstraints: (NSArray *) constraints {
+    for (NSLayoutConstraint *constraint in constraints)
+        [self addConstraint: constraint];
+}
+
+- (void) removeConstraint: (NSLayoutConstraint *) constraint {
+    if (constraint == nil || ![_constraints containsObject: constraint])
+        return;
+    [_constraints removeObject: constraint];
+    [self setNeedsUpdateConstraints: YES];
+}
+
+- (void) removeConstraints: (NSArray *) constraints {
+    for (NSLayoutConstraint *constraint in [[constraints copy] autorelease])
+        [self removeConstraint: constraint];
+}
+
+- (NSArray *) constraints {
+    return _constraints != nil ? [[_constraints copy] autorelease]
+                               : [NSArray array];
+}
+
+- (NSArray *) constraintsAffectingLayoutForOrientation:
+        (NSLayoutConstraintOrientation) orientation {
+    // There is no constraint solver, so no constraint is known to affect the
+    // layout of this view.
+    return [NSArray array];
+}
+
+- (BOOL) hasAmbiguousLayout {
+    return NO;
+}
+
+- (void) exerciseAmbiguityInLayout {
+    // Without a constraint solver the layout is never ambiguous, so there is
+    // no alternative frame to switch to.
+}
+
+- (BOOL) needsUpdateConstraints {
+    return _needsUpdateConstraints;
+}
+
+- (void) setNeedsUpdateConstraints: (BOOL) flag {
+    _needsUpdateConstraints = flag;
+    if (flag)
+        _needsLayout = YES;
+}
+
+- (void) updateConstraints {
+    _needsUpdateConstraints = NO;
+}
+
+- (BOOL) needsLayout {
+    return _needsLayout;
+}
+
+- (void) setNeedsLayout: (BOOL) flag {
+    _needsLayout = flag;
+}
+
+- (void) layout {
+    _needsLayout = NO;
+}
+
+- (void) layoutSubtreeIfNeeded {
+    if (_needsUpdateConstraints)
+        [self updateConstraints];
+    if (_needsLayout)
+        [self layout];
+    for (NSView *subview in [[_subviews copy] autorelease])
+        [subview layoutSubtreeIfNeeded];
+}
+
+- (NSSize) intrinsicContentSize {
+    return NSMakeSize(-1.0, -1.0); // NSViewNoIntrinsicMetric
+}
+
+- (void) invalidateIntrinsicContentSize {
+    [self setNeedsLayout: YES];
+}
+
+- (NSSize) fittingSize {
+    if (_translatesAutoresizingMaskIntoConstraints)
+        return _frame.size;
+
+    NSSize size = [self intrinsicContentSize];
+    if (size.width < 0.0)
+        size.width = 0.0;
+    if (size.height < 0.0)
+        size.height = 0.0;
+    return size;
+}
+
+- (NSEdgeInsets) alignmentRectInsets {
+    return NSEdgeInsetsMake(0, 0, 0, 0);
+}
+
+- (NSRect) alignmentRectForFrame: (NSRect) frame {
+    NSEdgeInsets insets = [self alignmentRectInsets];
+    BOOL flipped = [self isFlipped];
+
+    frame.origin.x += insets.left;
+    frame.size.width -= insets.left + insets.right;
+    frame.origin.y += flipped ? insets.top : insets.bottom;
+    frame.size.height -= insets.top + insets.bottom;
+    return frame;
+}
+
+- (NSRect) frameForAlignmentRect: (NSRect) alignmentRect {
+    NSEdgeInsets insets = [self alignmentRectInsets];
+    BOOL flipped = [self isFlipped];
+
+    alignmentRect.origin.x -= insets.left;
+    alignmentRect.size.width += insets.left + insets.right;
+    alignmentRect.origin.y -= flipped ? insets.top : insets.bottom;
+    alignmentRect.size.height += insets.top + insets.bottom;
+    return alignmentRect;
+}
+
+- (CGFloat) baselineOffsetFromBottom {
+    return 0.0;
+}
+
+- (CGFloat) firstBaselineOffsetFromTop {
+    return 0.0;
+}
+
+- (CGFloat) lastBaselineOffsetFromBottom {
+    return [self baselineOffsetFromBottom];
+}
+
+#define NSVIEW_LAZY_ANCHOR(name, ivar, cls)                                    \
+    - (cls *) name {                                                           \
+        if (ivar == nil)                                                       \
+            ivar = [[cls alloc] init];                                         \
+        return ivar;                                                           \
+    }
+
+NSVIEW_LAZY_ANCHOR(leadingAnchor, _leadingAnchor, NSLayoutAnchor)
+NSVIEW_LAZY_ANCHOR(trailingAnchor, _trailingAnchor, NSLayoutAnchor)
+NSVIEW_LAZY_ANCHOR(leftAnchor, _leftAnchor, NSLayoutAnchor)
+NSVIEW_LAZY_ANCHOR(rightAnchor, _rightAnchor, NSLayoutAnchor)
+NSVIEW_LAZY_ANCHOR(topAnchor, _topAnchor, NSLayoutAnchor)
+NSVIEW_LAZY_ANCHOR(bottomAnchor, _bottomAnchor, NSLayoutAnchor)
+NSVIEW_LAZY_ANCHOR(centerXAnchor, _centerXAnchor, NSLayoutAnchor)
+NSVIEW_LAZY_ANCHOR(centerYAnchor, _centerYAnchor, NSLayoutAnchor)
+NSVIEW_LAZY_ANCHOR(firstBaselineAnchor, _firstBaselineAnchor, NSLayoutAnchor)
+NSVIEW_LAZY_ANCHOR(widthAnchor, _widthAnchor, NSLayoutDimension)
+NSVIEW_LAZY_ANCHOR(heightAnchor, _heightAnchor, NSLayoutDimension)
+
+#undef NSVIEW_LAZY_ANCHOR
+
+- (NSLayoutAnchor *) lastBaselineAnchor {
+    // The last baseline is tracked together with the first one.
+    return [self firstBaselineAnchor];
+}
+
+- (NSArray *) layoutGuides {
+    return _layoutGuides != nil ? [[_layoutGuides copy] autorelease]
+                                : [NSArray array];
+}
+
+- (void) addLayoutGuide: (NSLayoutGuide *) guide {
+    if (guide == nil)
+        return;
+    if (_layoutGuides == nil)
+        _layoutGuides = [[NSMutableArray alloc] init];
+    if (![_layoutGuides containsObject: guide])
+        [_layoutGuides addObject: guide];
+    [self setNeedsUpdateConstraints: YES];
+}
+
+#pragma mark - Gesture recognizers and touches
+
+- (NSArray *) gestureRecognizers {
+    return _gestureRecognizers != nil ? _gestureRecognizers : [NSArray array];
+}
+
+- (void) setGestureRecognizers: (NSArray *) recognizers {
+    NSArray *copy = [recognizers copy];
+    for (NSGestureRecognizer *old in _gestureRecognizers)
+        if (![copy containsObject: old])
+            [old _setView: nil];
+    [_gestureRecognizers release];
+    _gestureRecognizers = copy;
+    for (NSGestureRecognizer *recognizer in _gestureRecognizers)
+        [recognizer _setView: self];
+}
+
+- (void) addGestureRecognizer: (NSGestureRecognizer *) recognizer {
+    if (recognizer == nil || [_gestureRecognizers containsObject: recognizer])
+        return;
+    NSView *previous = [recognizer view];
+    if (previous != nil && previous != self)
+        [previous removeGestureRecognizer: recognizer];
+    NSArray *updated = _gestureRecognizers != nil
+            ? [_gestureRecognizers arrayByAddingObject: recognizer]
+            : [NSArray arrayWithObject: recognizer];
+    [self setGestureRecognizers: updated];
+}
+
+- (void) removeGestureRecognizer: (NSGestureRecognizer *) recognizer {
+    if (recognizer == nil || ![_gestureRecognizers containsObject: recognizer])
+        return;
+    NSMutableArray *updated = [_gestureRecognizers mutableCopy];
+    [updated removeObject: recognizer];
+    [self setGestureRecognizers: updated];
+    [updated release];
+}
+
+- (NSUInteger) allowedTouchTypes {
+    return _allowedTouchTypes;
+}
+
+- (void) setAllowedTouchTypes: (NSUInteger) types {
+    _allowedTouchTypes = types;
+}
+
+#pragma mark - Layer backing and misc properties
+
+- (BOOL) allowsVibrancy {
+    return NO;
+}
+
+- (BOOL) wantsUpdateLayer {
+    return NO;
+}
+
+- (void) updateLayer {
+    // Views that return YES from -wantsUpdateLayer override this.
+}
+
+- (BOOL) canDrawSubviewsIntoLayer {
+    return _canDrawSubviewsIntoLayer;
+}
+
+- (void) setCanDrawSubviewsIntoLayer: (BOOL) flag {
+    _canDrawSubviewsIntoLayer = flag;
+}
+
+- (BOOL) layerUsesCoreImageFilters {
+    return _layerUsesCoreImageFilters;
+}
+
+- (void) setLayerUsesCoreImageFilters: (BOOL) flag {
+    _layerUsesCoreImageFilters = flag;
+}
+
+- (BOOL) wantsBestResolutionOpenGLSurface {
+    return _wantsBestResolutionOpenGLSurface;
+}
+
+- (void) setWantsBestResolutionOpenGLSurface: (BOOL) flag {
+    _wantsBestResolutionOpenGLSurface = flag;
+}
+
+- (NSInteger) userInterfaceLayoutDirection {
+    return _userInterfaceLayoutDirection;
+}
+
+- (void) setUserInterfaceLayoutDirection: (NSInteger) direction {
+    if (_userInterfaceLayoutDirection == direction)
+        return;
+    _userInterfaceLayoutDirection = direction;
+    [self setNeedsLayout: YES];
+    [self setNeedsDisplay: YES];
+}
+
+- (void) viewDidChangeBackingProperties {
+    // Override point, nothing to do by default.
+}
+
+- (void) viewDidChangeEffectiveAppearance {
+    // Override point, nothing to do by default.
+}
+
+- (void) prepareForReuse {
+    // Override point, nothing to do by default.
+}
+
+- (void) prepareContentInRect: (NSRect) rect {
+    [self setPreparedContentRect: rect];
+}
+
+- (NSRect) preparedContentRect {
+    return _preparedContentRect;
+}
+
+- (void) setPreparedContentRect: (NSRect) rect {
+    _preparedContentRect = rect;
+}
+
+- (void) willOpenMenu: (NSMenu *) menu withEvent: (NSEvent *) event {
+    // Override point, nothing to do by default.
+}
+
+#pragma mark - Backing and layer coordinate conversion
+
+- (CGFloat) _backingScaleFactor {
+    CGFloat scale = 1.0;
+    if (_window != nil)
+        scale = [_window userSpaceScaleFactor];
+    return scale > 0.0 ? scale : 1.0;
+}
+
+- (NSPoint) convertPointToBacking: (NSPoint) point {
+    CGFloat scale = [self _backingScaleFactor];
+    return NSMakePoint(point.x * scale, point.y * scale);
+}
+
+- (NSPoint) convertPointFromBacking: (NSPoint) point {
+    CGFloat scale = [self _backingScaleFactor];
+    return NSMakePoint(point.x / scale, point.y / scale);
+}
+
+- (NSSize) convertSizeToBacking: (NSSize) size {
+    CGFloat scale = [self _backingScaleFactor];
+    return NSMakeSize(size.width * scale, size.height * scale);
+}
+
+- (NSSize) convertSizeFromBacking: (NSSize) size {
+    CGFloat scale = [self _backingScaleFactor];
+    return NSMakeSize(size.width / scale, size.height / scale);
+}
+
+- (NSRect) convertRectToBacking: (NSRect) rect {
+    return NSMakeRect([self convertPointToBacking: rect.origin].x,
+                      [self convertPointToBacking: rect.origin].y,
+                      [self convertSizeToBacking: rect.size].width,
+                      [self convertSizeToBacking: rect.size].height);
+}
+
+- (NSRect) convertRectFromBacking: (NSRect) rect {
+    return NSMakeRect([self convertPointFromBacking: rect.origin].x,
+                      [self convertPointFromBacking: rect.origin].y,
+                      [self convertSizeFromBacking: rect.size].width,
+                      [self convertSizeFromBacking: rect.size].height);
+}
+
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options {
+    // Align in backing store pixels, then return to view coordinates.
+    NSRect backing = [self convertRectToBacking: rect];
+    backing = NSIntegralRectWithOptions(backing, options);
+    return [self convertRectFromBacking: backing];
+}
+
+// The layer's coordinate space has the same bounds as the view (see
+// configureLayerGeometry), so converting between the two is the identity.
+- (NSPoint) convertPointToLayer: (NSPoint) point {
+    return point;
+}
+
+- (NSPoint) convertPointFromLayer: (NSPoint) point {
+    return point;
+}
+
+- (NSSize) convertSizeToLayer: (NSSize) size {
+    return size;
+}
+
+- (NSSize) convertSizeFromLayer: (NSSize) size {
+    return size;
+}
+
+- (NSRect) convertRectToLayer: (NSRect) rect {
+    return rect;
+}
+
+- (NSRect) convertRectFromLayer: (NSRect) rect {
+    return rect;
+}
+
+#pragma mark - Dragging sessions
+
+- (NSDraggingSession *) beginDraggingSessionWithItems: (NSArray *) items
+                                                event: (NSEvent *) event
+                                               source: (id) source
+{
+    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName: NSDragPboard];
+    NSMutableArray *types = [NSMutableArray array];
+    NSMutableArray *writers = [NSMutableArray array];
+
+    for (id draggingItem in items) {
+        id writer = [draggingItem respondsToSelector: @selector(item)]
+                ? [draggingItem performSelector: @selector(item)]
+                : draggingItem;
+        if (![writer respondsToSelector: @selector(writableTypesForPasteboard:)])
+            continue;
+        [writers addObject: writer];
+        for (NSString *type in [writer writableTypesForPasteboard: pasteboard])
+            if (![types containsObject: type])
+                [types addObject: type];
+    }
+
+    [pasteboard declareTypes: types owner: nil];
+    for (id writer in writers) {
+        for (NSString *type in [writer writableTypesForPasteboard: pasteboard]) {
+            id value = [writer respondsToSelector:
+                                       @selector(pasteboardPropertyListForType:)]
+                    ? [writer pasteboardPropertyListForType: type]
+                    : nil;
+            if ([value isKindOfClass: [NSData class]])
+                [pasteboard setData: value forType: type];
+            else if ([value isKindOfClass: [NSString class]])
+                [pasteboard setString: value forType: type];
+            else if (value != nil)
+                [pasteboard setPropertyList: value forType: type];
+        }
+    }
+
+    // There is no NSDraggingSession implementation, so the drag is performed
+    // through the legacy drag manager using the first item's image, if any.
+    NSImage *image = nil;
+    NSPoint location = [event locationInWindow];
+    id first = [items firstObject];
+    if ([first respondsToSelector: @selector(draggingFrame)]) {
+        NSRect frame = [[first valueForKey: @"draggingFrame"] rectValue];
+        location = [self convertPoint: frame.origin toView: nil];
+    }
+    if ([first respondsToSelector: @selector(imageComponents)]) {
+        id component = [[first performSelector: @selector(imageComponents)]
+                firstObject];
+        id contents = [component respondsToSelector: @selector(contents)]
+                ? [component performSelector: @selector(contents)]
+                : nil;
+        if ([contents isKindOfClass: [NSImage class]])
+            image = contents;
+    }
+    if (image != nil) {
+        [[NSDraggingManager draggingManager] dragImage: image
+                                                    at: location
+                                                offset: NSZeroSize
+                                                 event: event
+                                            pasteboard: pasteboard
+                                                source: source
+                                             slideBack: YES];
+    }
+
+    return nil;
 }
 
 - (NSLayoutPriority) contentHuggingPriorityForOrientation: (NSLayoutConstraintOrientation) orientation {

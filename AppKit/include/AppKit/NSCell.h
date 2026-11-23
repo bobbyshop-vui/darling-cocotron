@@ -25,7 +25,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSApplication.h>
 #import <Foundation/NSNotification.h>
 
-@class NSFont, NSImage, NSView;
+@class NSFont, NSImage, NSView, NSMenu, NSTextView;
 
 typedef NS_ENUM(NSUInteger, NSCellType) {
     NSNullCellType,
@@ -85,6 +85,29 @@ typedef NS_ENUM(NSUInteger, NSControlSize) {
 
 typedef NSUInteger NSControlTint;
 
+typedef NSUInteger NSCellHitResult;
+
+typedef NS_ENUM(NSUInteger, NSCellAttribute) {
+    NSCellDisabled = 0,
+    // NSCellState = 1 is not declared: the name is taken by the NSCellState
+    // typedef above.
+    NSPushInCell = 2,
+    NSCellEditable = 3,
+    NSChangeGrayCell = 4,
+    NSCellHighlighted = 5,
+    NSCellLightsByContents = 6,
+    NSCellLightsByGray = 7,
+    NSChangeBackgroundCell = 8,
+    NSCellLightsByBackground = 9,
+    NSCellIsBordered = 10,
+    NSCellHasOverlappingImage = 11,
+    NSCellHasImageHorizontal = 12,
+    NSCellHasImageOnLeftOrBottom = 13,
+    NSCellChangesContents = 14,
+    NSCellIsInsetButton = 15,
+    NSCellAllowsMixedState = 16
+};
+
 typedef NS_ENUM(NSInteger, NSBackgroundStyle) {
     NSBackgroundStyleLight = 0,
     NSBackgroundStyleDark = 1,
@@ -139,6 +162,9 @@ APPKIT_EXPORT NSNotificationName NSControlTintDidChangeNotification;
     BOOL _truncatesLastVisibleLine;
     BOOL _allowsUndo;
     NSUserInterfaceLayoutDirection _userInterfaceLayoutDirection;
+    NSMenu *_cellMenu;
+    NSControlTint _controlTint;
+    BOOL _importsGraphics;
 }
 
 @property BOOL truncatesLastVisibleLine;
@@ -304,6 +330,30 @@ APPKIT_EXPORT NSNotificationName NSControlTintDidChangeNotification;
 
 - (void) setSendsActionOnEndEditing: (BOOL) flag;
 - (BOOL) sendsActionOnEndEditing;
+
+- (BOOL) acceptsFirstResponder;
+- (NSInteger) cellAttribute: (NSCellAttribute) parameter;
+- (void) setCellAttribute: (NSCellAttribute) parameter to: (NSInteger) value;
+- (NSComparisonResult) compare: (id) otherCell;
+- (NSControlTint) controlTint;
+- (void) setControlTint: (NSControlTint) tint;
+- (void) drawFocusRingMaskWithFrame: (NSRect) cellFrame
+                             inView: (NSView *) controlView;
+- (void) drawWithExpansionFrame: (NSRect) cellFrame inView: (NSView *) view;
+- (NSRect) expansionFrameWithFrame: (NSRect) cellFrame inView: (NSView *) view;
+- (NSTextView *) fieldEditorForView: (NSView *) controlView;
+- (NSCellHitResult) hitTestForEvent: (NSEvent *) event
+                             inRect: (NSRect) cellFrame
+                             ofView: (NSView *) controlView;
+- (BOOL) importsGraphics;
+- (void) setImportsGraphics: (BOOL) flag;
+- (NSBackgroundStyle) interiorBackgroundStyle;
+- (BOOL) isOpaque;
+- (NSString *) keyEquivalent;
+- (NSMenu *) menu;
+- (void) setMenu: (NSMenu *) menu;
+- (NSString *) mnemonic;
+- (void) performClick: (id) sender;
 
 @end
 

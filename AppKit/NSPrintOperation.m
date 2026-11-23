@@ -78,6 +78,8 @@ static NSPrintOperation *_currentOperation = nil;
 - (void) dealloc {
     [_view release];
     [_printInfo release];
+    [_jobTitle release];
+    [_accessoryView release];
     [_printPanel release];
     [_context release];
     [_mutableData release];
@@ -148,6 +150,46 @@ static NSPrintOperation *_currentOperation = nil;
     view = [view retain];
     [_accessoryView release];
     _accessoryView = view;
+}
+
+- (NSView *) accessoryView {
+    return _accessoryView;
+}
+
+- (NSString *) jobTitle {
+    return _jobTitle;
+}
+
+- (void) setJobTitle: (NSString *) title {
+    title = [title copy];
+    [_jobTitle release];
+    _jobTitle = title;
+}
+
+- (void) setPrintInfo: (NSPrintInfo *) printInfo {
+    printInfo = [printInfo retain];
+    [_printInfo release];
+    _printInfo = printInfo;
+}
+
+- (void) runOperationModalForWindow: (NSWindow *) window
+                           delegate: (id) delegate
+                     didRunSelector: (SEL) didRunSelector
+                        contextInfo: (void *) contextInfo
+{
+    BOOL success = [self runOperation];
+
+    if (delegate != nil && didRunSelector != NULL) {
+        NSMethodSignature *sig = [delegate methodSignatureForSelector: didRunSelector];
+        NSInvocation *inv = [NSInvocation invocationWithMethodSignature: sig];
+
+        [inv setSelector: didRunSelector];
+        [inv setTarget: delegate];
+        [inv setArgument: &self atIndex: 2];
+        [inv setArgument: &success atIndex: 3];
+        [inv setArgument: &contextInfo atIndex: 4];
+        [inv invoke];
+    }
 }
 
 - (NSView *) view {
@@ -294,7 +336,7 @@ static NSPrintOperation *_currentOperation = nil;
             int panelResult;
 
             // We can't assume that there are valid titles on every window
-            NSString *title = [[_view window] title];
+            NSString *title = _jobTitle != nil ? _jobTitle : [[_view window] title];
             if (title == nil) {
                 title = @"Printing View";
             }

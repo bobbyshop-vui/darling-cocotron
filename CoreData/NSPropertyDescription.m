@@ -22,6 +22,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @implementation NSPropertyDescription
 
+- (void) dealloc {
+    [_propertyVersionHashModifier release];
+    [super dealloc];
+}
+
+- (BOOL) isIndexed {
+    return _propertyIndexed;
+}
+
+- (void) setIndexed: (BOOL) indexed {
+    _propertyIndexed = indexed;
+}
+
+- (NSString *) versionHashModifier {
+    return _propertyVersionHashModifier;
+}
+
+- (void) setVersionHashModifier: (NSString *) modifier {
+    modifier = [modifier copy];
+    [_propertyVersionHashModifier release];
+    _propertyVersionHashModifier = modifier;
+}
+
 - init {
     NSInvalidAbstractInvocation();
     return nil;

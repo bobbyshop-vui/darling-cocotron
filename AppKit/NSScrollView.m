@@ -159,6 +159,10 @@ static Class _rulerViewClass = nil;
 - initWithCoder: (NSCoder *) coder {
     [super initWithCoder: coder];
 
+    _automaticallyAdjustsContentInsets = YES;
+    _scrollerStyle = [NSScroller preferredScrollerStyle];
+    _usesPredominantAxisScrolling = YES;
+
     if ([coder allowsKeyedCoding]) {
         NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
         unsigned flags = [keyed decodeIntForKey: @"NSsFlags"];
@@ -422,6 +426,9 @@ static Class _rulerViewClass = nil;
     _drawsBackground = YES;
     _borderType = NSNoBorder;
     _backgroundColor = [[NSColor controlBackgroundColor] copy];
+    _automaticallyAdjustsContentInsets = YES;
+    _scrollerStyle = [NSScroller preferredScrollerStyle];
+    _usesPredominantAxisScrolling = YES;
 
     [self setLineScroll: 1.0];
     [self setPageScroll: 10.0]; // entirely arbitrary
@@ -831,6 +838,131 @@ static Class _rulerViewClass = nil;
         _magnification = _maxMagnification;
 
     // TODO: calculate new bounds and call setBounds
+}
+
+- (void) setMagnification: (CGFloat) value centeredAtPoint: (NSPoint) point {
+    [self setMagnification: value];
+
+    // Scroll so that the requested point (in document coordinates) is in the
+    // middle of the visible area.
+    NSRect visible = [_clipView documentVisibleRect];
+    [_clipView scrollToPoint: NSMakePoint(point.x - visible.size.width / 2.0,
+                                          point.y - visible.size.height / 2.0)];
+    [self reflectScrolledClipView: _clipView];
+}
+
+- (void) magnifyToFitRect: (NSRect) rect {
+    NSRect visible = [_clipView documentVisibleRect];
+
+    if (rect.size.width <= 0 || rect.size.height <= 0 ||
+        visible.size.width <= 0 || visible.size.height <= 0)
+        return;
+
+    // The visible rectangle is expressed at the current magnification, so
+    // compute the scale relative to it.
+    CGFloat scaleX = visible.size.width / rect.size.width;
+    CGFloat scaleY = visible.size.height / rect.size.height;
+    CGFloat scale = scaleX < scaleY ? scaleX : scaleY;
+    CGFloat current = _magnification > 0 ? _magnification : 1.0;
+
+    [self setMagnification: current * scale
+           centeredAtPoint: NSMakePoint(NSMidX(rect), NSMidY(rect))];
+}
+
+- (void) addFloatingSubview: (NSView *) view forAxis: (NSInteger) axis {
+    // Floating subviews live above the clip view and do not scroll.
+    [self addSubview: view];
+}
+
+- (NSEdgeInsets) contentInsets {
+    return _contentInsets;
+}
+
+- (void) setContentInsets: (NSEdgeInsets) insets {
+    _contentInsets = insets;
+    [_clipView setContentInsets: insets];
+    [self tile];
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) automaticallyAdjustsContentInsets {
+    return _automaticallyAdjustsContentInsets;
+}
+
+- (void) setAutomaticallyAdjustsContentInsets: (BOOL) flag {
+    _automaticallyAdjustsContentInsets = flag;
+}
+
+- (NSEdgeInsets) scrollerInsets {
+    return _scrollerInsets;
+}
+
+- (void) setScrollerInsets: (NSEdgeInsets) insets {
+    _scrollerInsets = insets;
+    [self tile];
+}
+
+- (NSScrollerStyle) scrollerStyle {
+    return _scrollerStyle;
+}
+
+- (void) setScrollerStyle: (NSScrollerStyle) style {
+    _scrollerStyle = style;
+    [_verticalScroller setScrollerStyle: style];
+    [_horizontalScroller setScrollerStyle: style];
+    [self tile];
+}
+
+- (NSScrollerKnobStyle) scrollerKnobStyle {
+    return _scrollerKnobStyle;
+}
+
+- (void) setScrollerKnobStyle: (NSScrollerKnobStyle) style {
+    _scrollerKnobStyle = style;
+    [_verticalScroller setKnobStyle: style];
+    [_horizontalScroller setKnobStyle: style];
+}
+
+- (void) flashScrollers {
+    // Only overlay scrollers fade in and out; legacy scrollers are always
+    // visible so there is nothing to flash.
+    if (_scrollerStyle != NSScrollerStyleOverlay)
+        return;
+    [_verticalScroller setNeedsDisplay: YES];
+    [_horizontalScroller setNeedsDisplay: YES];
+}
+
+- (NSScrollElasticity) horizontalScrollElasticity {
+    return _horizontalScrollElasticity;
+}
+
+- (void) setHorizontalScrollElasticity: (NSScrollElasticity) value {
+    _horizontalScrollElasticity = value;
+}
+
+- (NSScrollElasticity) verticalScrollElasticity {
+    return _verticalScrollElasticity;
+}
+
+- (void) setVerticalScrollElasticity: (NSScrollElasticity) value {
+    _verticalScrollElasticity = value;
+}
+
+- (BOOL) usesPredominantAxisScrolling {
+    return _usesPredominantAxisScrolling;
+}
+
+- (void) setUsesPredominantAxisScrolling: (BOOL) flag {
+    _usesPredominantAxisScrolling = flag;
+}
+
+- (NSScrollViewFindBarPosition) findBarPosition {
+    return _findBarPosition;
+}
+
+- (void) setFindBarPosition: (NSScrollViewFindBarPosition) position {
+    _findBarPosition = position;
+    [self tile];
 }
 
 - (void) setMinMagnification: (CGFloat) value {

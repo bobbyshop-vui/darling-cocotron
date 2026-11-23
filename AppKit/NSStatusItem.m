@@ -32,6 +32,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSPlatform_win32.h>
 #endif
 
+@implementation NSStatusBarButton
+@end
+
 @implementation NSStatusItem
 
 #pragma mark Private Methods
@@ -272,6 +275,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return self;
 }
 
+- (void) dealloc {
+    [_toolTip release];
+    [_autosaveName release];
+    [_button release];
+    [super dealloc];
+}
+
 - (NSStatusBar *) statusBar {
     return [NSStatusBar systemStatusBar];
 }
@@ -281,6 +291,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 - (void) setAction: (SEL) action {
     _action = action;
+    [_button setAction: action];
 }
 - (SEL) doubleAction {
     return _doubleAction;
@@ -293,6 +304,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 - (void) setTarget: (id) target {
     _target = target;
+    [_button setTarget: target];
 }
 
 - (NSImage *) image {
@@ -303,6 +315,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_image release];
     _image = nil;
     _image = [image copy];
+    [_button setImage: _image];
 #ifdef WIN32
     if (_trayIconID <= -1) {
         [self _createTrayIcon];
@@ -317,6 +330,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_alternateImage release];
     _alternateImage = nil;
     _alternateImage = [image copy];
+    [_button setAlternateImage: _alternateImage];
 #endif
 }
 
@@ -328,9 +342,58 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_title release];
     _title = nil;
     _title = [title copy];
+    [_button setTitle: _title ? _title : @""];
 #endif
 }
+- (NSString *) toolTip {
+    return _toolTip;
+}
 - (void) setToolTip: (NSString *) toolTip {
+    if (toolTip != _toolTip) {
+        [_toolTip release];
+        _toolTip = [toolTip copy];
+    }
+    [_button setToolTip: _toolTip];
+}
+
+/* There is no system menu bar to host the item, so the button is a plain
+   NSButton that mirrors the item's image, title, tooltip and action. */
+- (NSStatusBarButton *) button {
+    if (_button == nil) {
+        _button = [[NSStatusBarButton alloc] initWithFrame: NSMakeRect(0, 0, 22, 22)];
+        [_button setImage: _image];
+        [_button setAlternateImage: _alternateImage];
+        [_button setTitle: _title ? _title : @""];
+        [_button setToolTip: _toolTip];
+        [_button setTarget: _target];
+        [_button setAction: _action];
+        [_button setEnabled: _enabled];
+    }
+    return _button;
+}
+
+- (NSString *) autosaveName {
+    return _autosaveName;
+}
+- (void) setAutosaveName: (NSString *) autosaveName {
+    if (autosaveName != _autosaveName) {
+        [_autosaveName release];
+        _autosaveName = [autosaveName copy];
+    }
+}
+
+- (NSStatusItemBehavior) behavior {
+    return _behavior;
+}
+- (void) setBehavior: (NSStatusItemBehavior) behavior {
+    _behavior = behavior;
+}
+
+- (BOOL) isVisible {
+    return !_hidden;
+}
+- (void) setVisible: (BOOL) visible {
+    _hidden = !visible;
 }
 - (NSAttributedString *) attributedTitle {
     return _atrTitle;

@@ -19,6 +19,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSCell.h>
 #import <AppKit/NSControl.h>
+#import <AppKit/NSText.h>
 
 enum {
     NSSegmentStyleAutomatic = 0,
@@ -31,7 +32,40 @@ enum {
 };
 typedef NSInteger NSSegmentStyle;
 
-@interface NSSegmentedControl : NSControl
+typedef NS_ENUM(NSInteger, NSSegmentDistribution) {
+    NSSegmentDistributionFit = 0,
+    NSSegmentDistributionFill,
+    NSSegmentDistributionFillEqually,
+    NSSegmentDistributionFillProportionally
+};
+
+@class NSColor;
+
+@interface NSSegmentedControl : NSControl {
+    NSColor *_selectedSegmentBezelColor;
+    NSMutableDictionary *_segmentAlignments;
+    NSSegmentDistribution _segmentDistribution;
+    BOOL _springLoaded;
+    BOOL _segmentDistributionSet;
+}
+
+// trackingMode is an NSSegmentSwitchTracking (declared in NSSegmentedCell.h)
++ (instancetype) segmentedControlWithLabels: (NSArray *) labels
+                               trackingMode: (NSUInteger) trackingMode
+                                     target: (id) target
+                                     action: (SEL) action;
+
+- (NSUInteger) trackingMode;
+- (void) setTrackingMode: (NSUInteger) trackingMode;
+- (NSInteger) indexOfSelectedItem;
+- (BOOL) isSpringLoaded;
+- (void) setSpringLoaded: (BOOL) flag;
+- (NSSegmentDistribution) segmentDistribution;
+- (void) setSegmentDistribution: (NSSegmentDistribution) value;
+- (NSColor *) selectedSegmentBezelColor;
+- (void) setSelectedSegmentBezelColor: (NSColor *) color;
+- (NSTextAlignment) alignmentForSegment: (NSInteger) segment;
+- (void) setAlignment: (NSTextAlignment) alignment forSegment: (NSInteger) segment;
 
 - (NSInteger) segmentCount;
 - (NSSegmentStyle) segmentStyle;

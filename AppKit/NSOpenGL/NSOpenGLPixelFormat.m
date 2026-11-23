@@ -21,19 +21,103 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSCoder.h>
 #import <Foundation/NSData.h>
 #import <OpenGL/OpenGL.h>
+#import <string.h>
 
 @implementation NSOpenGLPixelFormat
+
+// Attributes that are followed by an argument in the attribute list.
+static BOOL attributeTakesArgument(NSOpenGLPixelFormatAttribute attribute) {
+    switch (attribute) {
+    case NSOpenGLPFAAuxBuffers:
+    case NSOpenGLPFAColorSize:
+    case NSOpenGLPFAAlphaSize:
+    case NSOpenGLPFADepthSize:
+    case NSOpenGLPFAStencilSize:
+    case NSOpenGLPFAAccumSize:
+    case NSOpenGLPFASampleBuffers:
+    case NSOpenGLPFASamples:
+    case NSOpenGLPFARendererID:
+    case NSOpenGLPFAScreenMask:
+    case NSOpenGLPFAVirtualScreenCount:
+        return YES;
+    default:
+        return NO;
+    }
+}
+
+// Copies the zero terminated attribute list, including the terminator.
+static NSData *dataForAttributes(const NSOpenGLPixelFormatAttribute *attributes) {
+    NSUInteger count = 0;
+
+    if (attributes != NULL) {
+        while (attributes[count] != 0) {
+            BOOL hasArgument = attributeTakesArgument(attributes[count]);
+
+            count++;
+            if (hasArgument)
+                count++;
+        }
+    }
+
+    NSMutableData *data = [NSMutableData
+            dataWithLength: (count + 1) * sizeof(NSOpenGLPixelFormatAttribute)];
+    if (count > 0)
+        memcpy([data mutableBytes], attributes,
+               count * sizeof(NSOpenGLPixelFormatAttribute));
+    return data;
+}
+
+- (void) _chooseWithAttributes: (const NSOpenGLPixelFormatAttribute *) attributes
+{
+    if (_cglPixelFormat != NULL) {
+        CGLReleasePixelFormat(_cglPixelFormat);
+        _cglPixelFormat = NULL;
+    }
+    _numberOfVirtualScreens = 0;
+    CGLChoosePixelFormat(attributes, (CGLPixelFormatObj *) &_cglPixelFormat,
+                         &_numberOfVirtualScreens);
+}
 
 - (instancetype) initWithAttributes:
         (const NSOpenGLPixelFormatAttribute *) attributes
 {
-    CGLChoosePixelFormat(attributes, (CGLPixelFormatObj *) &_cglPixelFormat,
-                         &_numberOfVirtualScreens);
+    [_attributes release];
+    _attributes = [dataForAttributes(attributes) copy];
+    [self _chooseWithAttributes: [_attributes bytes]];
     return self;
+}
+
+// The data may lack the terminating zero, so pad it before walking it.
+static NSData *terminatedAttributeData(NSData *data) {
+    NSMutableData *padded = [NSMutableData
+            dataWithLength: [data length] + 2 * sizeof(NSOpenGLPixelFormatAttribute)];
+    if ([data length] > 0)
+        memcpy([padded mutableBytes], [data bytes], [data length]);
+    return padded;
+}
+
+- (instancetype) initWithData: (NSData *) attribs {
+    return [self initWithAttributes: (const NSOpenGLPixelFormatAttribute *)
+                                             [terminatedAttributeData(attribs)
+                                                     bytes]];
+}
+
+- (NSData *) attributes {
+    return _attributes;
+}
+
+- (void) setAttributes: (NSData *) attribs {
+    NSData *copy = [dataForAttributes((const NSOpenGLPixelFormatAttribute *)
+                                              [terminatedAttributeData(attribs)
+                                                      bytes]) copy];
+    [_attributes release];
+    _attributes = copy;
+    [self _chooseWithAttributes: [_attributes bytes]];
 }
 
 - (void) dealloc {
     CGLReleasePixelFormat(_cglPixelFormat);
+    [_attributes release];
     [super dealloc];
 }
 

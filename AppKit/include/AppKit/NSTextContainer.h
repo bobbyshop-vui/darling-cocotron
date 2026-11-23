@@ -44,6 +44,7 @@ typedef enum {
     NSUInteger _maximumNumberOfLines;
     BOOL _widthTracksTextView;
     BOOL _heightTracksTextView;
+    NSUInteger _lineBreakModeValue;
 }
 
 - initWithContainerSize: (NSSize) size;
@@ -70,6 +71,11 @@ typedef enum {
 
 - (void) setLineFragmentPadding: (CGFloat) padding;
 - (void) setMaximumNumberOfLines: (NSUInteger) maximumNumberOfLines;
+
+- (NSSize) size;
+- (void) setSize: (NSSize) size;
+- (NSUInteger) lineBreakMode;
+- (void) setLineBreakMode: (NSUInteger) lineBreakMode;
 
 - (BOOL) isSimpleRectangularTextContainer;
 

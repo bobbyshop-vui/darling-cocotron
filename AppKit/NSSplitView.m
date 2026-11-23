@@ -118,6 +118,90 @@ NSString *const NSSplitViewWillResizeSubviewsNotification =
     [self adjustSubviews];
 }
 
+- (void) dealloc {
+    [_autosaveName release];
+    [_holdingPriorities release];
+    [super dealloc];
+}
+
+- (NSColor *) dividerColor {
+    return [NSColor gridColor];
+}
+
+- (NSString *) autosaveName {
+    return _autosaveName;
+}
+
+- (void) setAutosaveName: (NSString *) autosaveName {
+    if (autosaveName != _autosaveName) {
+        [_autosaveName release];
+        _autosaveName = [autosaveName copy];
+    }
+}
+
+/* Every subview of an NSSplitView is arranged (collapsed subviews stay in the
+   hierarchy but hidden), so the arranged views are the subviews. */
+- (NSArray *) arrangedSubviews {
+    return [NSArray arrayWithArray: [self subviews]];
+}
+
+- (void) addArrangedSubview: (NSView *) view {
+    if ([view superview] != self) {
+        [self addSubview: view];
+    }
+}
+
+- (void) insertArrangedSubview: (NSView *) view atIndex: (NSInteger) index {
+    NSArray *subviews = [self subviews];
+    if ([view superview] == self) {
+        return;
+    }
+    if (index < 0 || index >= (NSInteger)[subviews count]) {
+        [self addSubview: view];
+    } else {
+        [self addSubview: view
+              positioned: NSWindowBelow
+              relativeTo: [subviews objectAtIndex: index]];
+        [self adjustSubviews];
+    }
+}
+
+- (void) removeArrangedSubview: (NSView *) view {
+    if ([view superview] == self) {
+        [view removeFromSuperview];
+        [self adjustSubviews];
+    }
+}
+
+- (void) setArrangesAllSubviews: (BOOL) flag {
+    _arrangesAllSubviews = flag;
+}
+
+- (NSLayoutPriority) holdingPriorityForSubviewAtIndex: (NSInteger) subviewIndex
+{
+    if (subviewIndex >= 0 &&
+        subviewIndex < (NSInteger)[_holdingPriorities count]) {
+        return [[_holdingPriorities objectAtIndex: subviewIndex] floatValue];
+    }
+    return 250;
+}
+
+- (void) setHoldingPriority: (NSLayoutPriority) priority
+         forSubviewAtIndex: (NSInteger) subviewIndex
+{
+    if (subviewIndex < 0) {
+        return;
+    }
+    if (_holdingPriorities == nil) {
+        _holdingPriorities = [[NSMutableArray alloc] init];
+    }
+    while ((NSInteger)[_holdingPriorities count] <= subviewIndex) {
+        [_holdingPriorities addObject: [NSNumber numberWithFloat: 250]];
+    }
+    [_holdingPriorities replaceObjectAtIndex: subviewIndex
+                                  withObject: [NSNumber numberWithFloat: priority]];
+}
+
 - (BOOL) isFlipped {
     return YES;
 }

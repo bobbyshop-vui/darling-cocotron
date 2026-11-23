@@ -275,6 +275,28 @@ set(AppKit_sources
 	NSPrintPanel.m
 	NSGlyphInfo.m
 	NSWindowController.m
+	NSAccessibilityCustomAction.m
+	NSAccessibilityCustomRotor.m
+	NSAccessibilityCustomRotorItemResult.m
+	NSAccessibilityCustomRotorSearchParameters.m
+	NSDictionaryControllerKeyValuePair.m
+	NSFilePromiseReceiver.m
+	NSMediaLibraryBrowserController.m
+	NSMenuItemCell+XcodeAdditions.m
+	NSObject+XcodeAdditions.m
+	NSPDFInfo.m
+	NSPDFPanel.m
+	NSPICTImageRep.m
+	NSScrubberImageItemView.m
+	NSScrubberLayoutAttributes.m
+	NSSimpleHorizontalTypesetter.m
+	NSSpeechRecognizer.m
+	NSStoryboardSegue.m
+	NSTouch.m
+	NSURL+XcodeAdditions.m
+	NSUserInterfaceCompressionOptions.m
+	NSWindowTab.m
+	NSWindowTabGroup.m
 	NSColorSpace.m
 	NSView.m
 

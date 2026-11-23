@@ -202,5 +202,8 @@ typedef NSInteger NSCorrectionResponse;
 #pragma mark Automatic Text Replacement
 
 + (BOOL) isAutomaticTextReplacementEnabled;
++ (BOOL) isAutomaticDashSubstitutionEnabled;
++ (BOOL) isAutomaticQuoteSubstitutionEnabled;
++ (BOOL) isAutomaticTextCompletionEnabled;
 
 @end

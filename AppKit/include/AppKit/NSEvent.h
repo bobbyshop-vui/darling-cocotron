@@ -20,8 +20,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
+#import <AppKit/NSTouch.h>
+#import <ApplicationServices/ApplicationServices.h>
 
-@class NSWindow, NSGraphicsContext, NSTrackingArea;
+@class NSWindow, NSGraphicsContext, NSTrackingArea, NSView;
+
+typedef NS_OPTIONS(NSUInteger, NSEventPhase) {
+    NSEventPhaseNone = 0,
+    NSEventPhaseBegan = 0x1 << 0,
+    NSEventPhaseStationary = 0x1 << 1,
+    NSEventPhaseChanged = 0x1 << 2,
+    NSEventPhaseEnded = 0x1 << 3,
+    NSEventPhaseCancelled = 0x1 << 4,
+    NSEventPhaseMayBegin = 0x1 << 5,
+};
+
+typedef NS_OPTIONS(NSUInteger, NSEventSwipeTrackingOptions) {
+    NSEventSwipeTrackingLockDirection = 0x1 << 0,
+    NSEventSwipeTrackingClampGestureAmount = 0x1 << 1
+};
+
+typedef NSUInteger NSEventButtonMask;
 
 typedef NS_ENUM(NSUInteger, NSEventType) {
     NSEventTypeLeftMouseDown = 1,
@@ -306,6 +325,37 @@ enum { NSApplicationActivated = 0, NSApplicationDeactivated = 1 };
 - (BOOL) isARepeat;
 @property(readonly) NSInteger buttonNumber;
 - (NSInteger) buttonNumber;
+
++ (id) addGlobalMonitorForEventsMatchingMask: (NSEventMask) mask
+                                     handler: (void (^)(NSEvent *event)) block;
++ (NSTimeInterval) doubleClickInterval;
++ (BOOL) isSwipeTrackingFromScrollEventsEnabled;
++ (NSUInteger) pressedMouseButtons;
+
+- (CGEventRef) CGEvent;
+- (NSEventButtonMask) buttonMask;
+- (NSGraphicsContext *) context;
+- (NSUInteger) deviceID;
+- (NSInteger) eventNumber;
+- (BOOL) hasPreciseScrollingDeltas;
+- (BOOL) isDirectionInvertedFromDevice;
+- (CGFloat) magnification;
+- (NSEventPhase) momentumPhase;
+- (NSEventPhase) phase;
+- (float) pressure;
+- (float) rotation;
+- (CGFloat) scrollingDeltaX;
+- (CGFloat) scrollingDeltaY;
+- (NSInteger) stage;
+- (NSSet *) touchesMatchingPhase: (NSTouchPhase) phase inView: (NSView *) view;
+- (void) trackSwipeEventWithOptions: (NSEventSwipeTrackingOptions) options
+           dampenAmountThresholdMin: (CGFloat) minDampenThreshold
+                                max: (CGFloat) maxDampenThreshold
+                       usingHandler: (void (^)(CGFloat gestureAmount,
+                                               NSEventPhase phase,
+                                               BOOL isComplete,
+                                               BOOL *stop)) trackingHandler;
+- (unsigned long long) uniqueID;
 
 @end
 

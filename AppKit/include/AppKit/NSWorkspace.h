@@ -20,7 +20,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@class NSImage, NSView;
+@class NSImage, NSView, NSRunningApplication, NSAppleEventDescriptor;
+
+#ifndef NSWorkspaceLaunchOptions_DEFINED_BY_DARLING
+#define NSWorkspaceLaunchOptions_DEFINED_BY_DARLING 1
+typedef NSUInteger NSWorkspaceLaunchOptions;
+#endif
 
 APPKIT_EXPORT NSString *const NSWorkspaceApplicationKey;
 
@@ -137,6 +142,31 @@ typedef NSUInteger NSWorkspaceIconCreationOptions;
 - (NSURL *) URLForApplicationWithBundleIdentifier:
         (NSString *) bundleIdentifier;
 - (NSString *) fullPathForApplication: (NSString *) appName;
+- (NSURL *) URLForApplicationToOpenURL: (NSURL *) url;
+- (BOOL) accessibilityDisplayShouldIncreaseContrast;
+- (BOOL) accessibilityDisplayShouldReduceMotion;
+- (BOOL) isVoiceOverEnabled;
+- (NSRunningApplication *) launchApplicationAtURL: (NSURL *) url
+                                          options: (NSWorkspaceLaunchOptions) options
+                                    configuration: (NSDictionary *) configuration
+                                            error: (NSError **) error;
+- (NSRunningApplication *) openURLs: (NSArray<NSURL *> *) urls
+               withApplicationAtURL: (NSURL *) applicationURL
+                            options: (NSWorkspaceLaunchOptions) options
+                      configuration: (NSDictionary *) configuration
+                              error: (NSError **) error;
+- (BOOL) launchAppWithBundleIdentifier: (NSString *) bundleIdentifier
+                               options: (NSWorkspaceLaunchOptions) options
+        additionalEventParamDescriptor: (NSAppleEventDescriptor *) descriptor
+                      launchIdentifier: (NSNumber **) identifier;
+- (BOOL) openURLs: (NSArray<NSURL *> *) urls
+        withAppBundleIdentifier: (NSString *) bundleIdentifier
+                        options: (NSWorkspaceLaunchOptions) options
+        additionalEventParamDescriptor: (NSAppleEventDescriptor *) descriptor
+              launchIdentifiers: (NSArray<NSNumber *> **) identifiers;
+- (void) recycleURLs: (NSArray<NSURL *> *) URLs
+        completionHandler: (void (^)(NSDictionary<NSURL *, NSURL *> *newURLs,
+                                     NSError *error)) handler;
 
 @end
 

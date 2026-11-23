@@ -21,6 +21,30 @@
 
 @implementation NSClickGestureRecognizer
 
+- (instancetype) initWithTarget: (id) target action: (SEL) action {
+    if ((self = [super initWithTarget: target action: action]) != nil) {
+        _numberOfClicksRequired = 1;
+        _numberOfTouchesRequired = 1;
+    }
+    return self;
+}
+
+- (NSInteger) numberOfClicksRequired {
+    return _numberOfClicksRequired;
+}
+
+- (void) setNumberOfClicksRequired: (NSInteger) value {
+    _numberOfClicksRequired = value;
+}
+
+- (NSInteger) numberOfTouchesRequired {
+    return _numberOfTouchesRequired;
+}
+
+- (void) setNumberOfTouchesRequired: (NSInteger) value {
+    _numberOfTouchesRequired = value;
+}
+
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {
     return [NSMethodSignature signatureWithObjCTypes: "v@:"];

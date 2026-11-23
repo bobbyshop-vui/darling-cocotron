@@ -18,8 +18,16 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSControl.h>
+#import <AppKit/NSDragging.h>
+#import <Foundation/NSIndexPath.h>
 
 @class NSMatrix, NSScroller;
+
+typedef NS_ENUM(NSUInteger, NSBrowserColumnResizingType) {
+    NSBrowserNoColumnResizing = 0,
+    NSBrowserAutoColumnResizing = 1,
+    NSBrowserUserColumnResizing = 2,
+};
 
 @interface NSBrowser : NSControl {
     id _target;
@@ -53,6 +61,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     BOOL _takesTitleFromPreviousColumn;
     BOOL _acceptsArrowKeys;
     BOOL _sendsActionOnArrowKeys;
+
+    NSString *_pathSeparator;
+    NSInteger _clickedColumn;
+    NSInteger _clickedRow;
+    NSBrowserColumnResizingType _columnResizingType;
+    BOOL _prefersAllColumnUserResizing;
+    CGFloat _defaultColumnWidth;
+    NSMutableDictionary *_columnWidths;
+    CGFloat _rowHeight;
+    NSString *_columnsAutosaveName;
+    NSDragOperation _draggingSourceMaskLocal;
+    NSDragOperation _draggingSourceMaskRemote;
 }
 
 - delegate;
@@ -110,7 +130,39 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) setTitle: (NSString *) title ofColumn: (NSInteger) column;
 
 - (void) selectRow: (NSInteger) row inColumn: (NSInteger) column;
-- (void) setPath: (NSString *) path;
+- (BOOL) setPath: (NSString *) path;
+- (NSString *) path;
+- (NSString *) pathSeparator;
+- (void) setPathSeparator: (NSString *) separator;
+
+- (BOOL) isLoaded;
+- (NSInteger) clickedColumn;
+- (NSInteger) clickedRow;
+- (BOOL) getRow: (NSInteger *) row
+          column: (NSInteger *) column
+        forPoint: (NSPoint) point;
+
+- (id) itemAtIndexPath: (NSIndexPath *) indexPath;
+- (NSIndexPath *) selectionIndexPath;
+- (void) setSelectionIndexPath: (NSIndexPath *) indexPath;
+- (NSArray *) selectionIndexPaths;
+- (void) setSelectionIndexPaths: (NSArray *) indexPaths;
+- (void) selectAll: (id) sender;
+
+- (CGFloat) minColumnWidth;
+- (void) setMinColumnWidth: (CGFloat) width;
+- (NSBrowserColumnResizingType) columnResizingType;
+- (void) setColumnResizingType: (NSBrowserColumnResizingType) type;
+- (BOOL) prefersAllColumnUserResizing;
+- (void) setPrefersAllColumnUserResizing: (BOOL) flag;
+- (void) setWidth: (CGFloat) width ofColumn: (NSInteger) column;
+- (CGFloat) widthOfColumn: (NSInteger) column;
+- (CGFloat) rowHeight;
+- (void) setRowHeight: (CGFloat) height;
+- (NSString *) columnsAutosaveName;
+- (void) setColumnsAutosaveName: (NSString *) name;
+- (void) setDraggingSourceOperationMask: (NSDragOperation) mask
+                               forLocal: (BOOL) isLocal;
 
 - (BOOL) sendAction;
 - (void) doClick: sender;

@@ -17,7 +17,8 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#import <Foundation/NSObject.h>
+#import <Foundation/Foundation.h>
+#import <sys/types.h>
 
 typedef enum {
     NSApplicationActivationPolicyRegular,
@@ -25,8 +26,38 @@ typedef enum {
     NSApplicationActivationPolicyProhibited
 } NSApplicationActivationPolicy;
 
-@interface NSRunningApplication : NSObject
+typedef NSUInteger NSApplicationActivationOptions;
+enum {
+    NSApplicationActivateAllWindows = 1 << 0,
+    NSApplicationActivateIgnoringOtherApps = 1 << 1
+};
+
+@class NSImage, NSURL, NSDate;
+
+@interface NSRunningApplication : NSObject {
+    pid_t _processIdentifier;
+    BOOL _isCurrent;
+}
 
 + (NSArray<NSRunningApplication *> *) runningApplicationsWithBundleIdentifier: (NSString *) bundleIdentifier;
++ (NSRunningApplication *) runningApplicationWithProcessIdentifier: (pid_t) pid;
++ (NSRunningApplication *) currentApplication;
+
+- (BOOL) isTerminated;
+- (BOOL) isFinishedLaunching;
+- (BOOL) isHidden;
+- (BOOL) isActive;
+- (NSString *) localizedName;
+- (NSString *) bundleIdentifier;
+- (NSURL *) bundleURL;
+- (NSURL *) executableURL;
+- (pid_t) processIdentifier;
+- (NSImage *) icon;
+
+- (BOOL) hide;
+- (BOOL) unhide;
+- (BOOL) activateWithOptions: (NSApplicationActivationOptions) options;
+- (BOOL) terminate;
+- (BOOL) forceTerminate;
 
 @end

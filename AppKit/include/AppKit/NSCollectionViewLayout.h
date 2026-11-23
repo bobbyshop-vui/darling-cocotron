@@ -20,12 +20,55 @@
 #import <AppKit/AppKitExport.h>
 #import <AppKit/NSCollectionView.h>
 #import <Foundation/NSString.h>
+#import <AppKit/NSCollectionViewLayoutAttributes.h>
 
 typedef NSString *NSCollectionViewDecorationElementKind;
 
 APPKIT_EXPORT NSCollectionViewSupplementaryElementKind const
         NSCollectionElementKindInterItemGapIndicator;
 
-@interface NSCollectionViewLayout : NSObject
+@interface NSCollectionViewLayout : NSObject <NSCoding> {
+    NSCollectionView *_collectionView;
+}
+
+- (NSCollectionView *) collectionView;
+- (void) _setCollectionView: (NSCollectionView *) value;
+
+- (void) invalidateLayout;
+- (void) prepareLayout;
+- (NSArray<NSCollectionViewLayoutAttributes *> *) layoutAttributesForElementsInRect: (NSRect) rect;
+- (NSCollectionViewLayoutAttributes *) layoutAttributesForItemAtIndexPath: (NSIndexPath *) indexPath;
+- (BOOL) shouldInvalidateLayoutForBoundsChange: (NSRect) newBounds;
+- (NSSize) collectionViewContentSize;
+
+@end
+
+@interface NSCollectionViewGridLayout : NSCollectionViewLayout {
+    NSEdgeInsets _margins;
+    CGFloat _minimumInteritemSpacing;
+    CGFloat _minimumLineSpacing;
+    NSUInteger _maximumNumberOfRows;
+    NSUInteger _maximumNumberOfColumns;
+    NSSize _minimumItemSize;
+    NSSize _maximumItemSize;
+    NSArray *_backgroundColors;
+}
+
+- (NSEdgeInsets) margins;
+- (void) setMargins: (NSEdgeInsets) value;
+- (CGFloat) minimumInteritemSpacing;
+- (void) setMinimumInteritemSpacing: (CGFloat) value;
+- (CGFloat) minimumLineSpacing;
+- (void) setMinimumLineSpacing: (CGFloat) value;
+- (NSUInteger) maximumNumberOfRows;
+- (void) setMaximumNumberOfRows: (NSUInteger) value;
+- (NSUInteger) maximumNumberOfColumns;
+- (void) setMaximumNumberOfColumns: (NSUInteger) value;
+- (NSSize) minimumItemSize;
+- (void) setMinimumItemSize: (NSSize) value;
+- (NSSize) maximumItemSize;
+- (void) setMaximumItemSize: (NSSize) value;
+- (NSArray *) backgroundColors;
+- (void) setBackgroundColors: (NSArray *) value;
 
 @end

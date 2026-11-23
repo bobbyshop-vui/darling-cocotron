@@ -19,6 +19,41 @@
 
 #import <Foundation/NSObject.h>
 
-@interface NSEntityMapping : NSObject
+@class NSString, NSData, NSArray, NSMutableArray, NSDictionary, NSExpression;
+
+typedef NS_ENUM(NSUInteger, NSEntityMappingType) {
+    NSUndefinedEntityMappingType = 0x00,
+    NSCustomEntityMappingType = 0x01,
+    NSAddEntityMappingType = 0x02,
+    NSRemoveEntityMappingType = 0x03,
+    NSCopyEntityMappingType = 0x04,
+    NSTransformEntityMappingType = 0x05,
+};
+
+@interface NSEntityMapping : NSObject {
+    NSString *_name;
+    NSEntityMappingType _mappingType;
+    NSString *_sourceEntityName;
+    NSData *_sourceEntityVersionHash;
+    NSString *_destinationEntityName;
+    NSData *_destinationEntityVersionHash;
+    NSExpression *_sourceExpression;
+    NSDictionary *_userInfo;
+    NSString *_entityMigrationPolicyClassName;
+    NSArray *_attributeMappings;
+    NSArray *_relationshipMappings;
+}
+
+@property (null_resettable, copy) NSString *name;
+@property () NSEntityMappingType mappingType;
+@property (nullable, copy) NSString *sourceEntityName;
+@property (nullable, copy) NSData *sourceEntityVersionHash;
+@property (nullable, copy) NSString *destinationEntityName;
+@property (nullable, copy) NSData *destinationEntityVersionHash;
+@property (nullable, copy) NSArray *attributeMappings;
+@property (nullable, copy) NSArray *relationshipMappings;
+@property (nullable, strong) NSExpression *sourceExpression;
+@property (nullable, copy) NSDictionary *userInfo;
+@property (nullable, copy) NSString *entityMigrationPolicyClassName;
 
 @end

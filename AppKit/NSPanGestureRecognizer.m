@@ -21,14 +21,49 @@
 
 @implementation NSPanGestureRecognizer
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+- (instancetype) initWithTarget: (id) target action: (SEL) action
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    if ((self = [super initWithTarget: target action: action]) != nil)
+        _numberOfTouchesRequired = 1;
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (instancetype) initWithCoder: (NSCoder *) coder
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    if ((self = [super initWithCoder: coder]) != nil) {
+        _numberOfTouchesRequired = 1;
+        if ([coder allowsKeyedCoding] &&
+            [coder containsValueForKey: @"NSPanGestureRecognizerNumberOfTouchesRequired"])
+            _numberOfTouchesRequired = [coder decodeIntegerForKey: @"NSPanGestureRecognizerNumberOfTouchesRequired"];
+    }
+    return self;
+}
+
+- (void) encodeWithCoder: (NSCoder *) coder
+{
+    [super encodeWithCoder: coder];
+    if ([coder allowsKeyedCoding])
+        [coder encodeInteger: _numberOfTouchesRequired forKey: @"NSPanGestureRecognizerNumberOfTouchesRequired"];
+}
+
+- (NSInteger) numberOfTouchesRequired
+{
+    return _numberOfTouchesRequired;
+}
+
+- (void) setNumberOfTouchesRequired: (NSInteger) count
+{
+    _numberOfTouchesRequired = count;
+}
+
+- (NSPoint) translationInView: (NSView *) view
+{
+    return _translation;
+}
+
+- (void) setTranslation: (NSPoint) translation inView: (NSView *) view
+{
+    _translation = translation;
 }
 
 @end

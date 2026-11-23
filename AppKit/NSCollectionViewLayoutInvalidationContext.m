@@ -21,6 +21,16 @@
 
 @implementation NSCollectionViewLayoutInvalidationContext
 
+- (NSPoint)contentOffsetAdjustment
+{
+    return _contentOffsetAdjustment;
+}
+
+- (void)setContentOffsetAdjustment:(NSPoint)adjustment
+{
+    _contentOffsetAdjustment = adjustment;
+}
+
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {
     return [NSMethodSignature signatureWithObjCTypes: "v@:"];

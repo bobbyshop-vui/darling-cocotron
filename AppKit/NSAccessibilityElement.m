@@ -24,6 +24,14 @@
 
 @synthesize accessibilityElement = _isAccessible;
 
+- (NSRect) accessibilityFrameInParentSpace {
+    return _accessibilityFrameInParentSpace;
+}
+
+- (void) setAccessibilityFrameInParentSpace: (NSRect) frame {
+    _accessibilityFrameInParentSpace = frame;
+}
+
 - (NSMethodSignature *) methodSignatureForSelector: (SEL) aSelector {
     return [NSMethodSignature signatureWithObjCTypes: "v@:"];
 }

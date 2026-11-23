@@ -19,6 +19,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSActionCell.h>
 
+@class NSColor, NSFont;
+
 typedef enum {
     NSTickMarkBelow = 0,
     NSTickMarkAbove = 1,
@@ -42,6 +44,8 @@ typedef enum {
     int _numberOfTickMarks;
     NSTickMarkPosition _tickMarkPosition;
     BOOL _allowsTickMarkValuesOnly;
+    NSColor *_titleColor;
+    NSFont *_titleFont;
 }
 
 - (NSSliderType) sliderType;
@@ -74,6 +78,13 @@ typedef enum {
 - (double) closestTickMarkValueToValue: (double) value;
 
 - (NSRect) trackRect;
+- (NSRect) barRectFlipped: (BOOL) flipped;
+- (void) setVertical: (BOOL) vertical;
+- (id) titleCell;
+- (void) setTitleColor: (NSColor *) color;
+- (NSColor *) titleColor;
+- (void) setTitleFont: (NSFont *) font;
+- (NSFont *) titleFont;
 
 - (NSRect) rectOfTickMarkAtIndex: (NSInteger) index;
 

@@ -22,7 +22,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #ifdef WIN32
 #import <windows.h>
 #endif
+#import <AppKit/NSButton.h>
+
 @class NSStatusBar, NSImage, NSAttributedString, NSMenu, NSView, NSWindow;
+typedef NS_OPTIONS(NSUInteger, NSStatusItemBehavior) {
+    NSStatusItemBehaviorRemovalAllowed = (1 << 1),
+    NSStatusItemBehaviorTerminationOnRemoval = (1 << 2),
+};
+
+@interface NSStatusBarButton : NSButton
+@end
+
 @interface NSStatusItem : NSObject {
     SEL _action;
     SEL _doubleAction;
@@ -41,6 +51,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     CGFloat _length;
     NSMenu *_menu;
     NSInteger _actionMask;
+    NSString *_toolTip;
+    NSString *_autosaveName;
+    NSStatusItemBehavior _behavior;
+    BOOL _hidden;
+    NSStatusBarButton *_button;
 #ifdef WIN32
     int _trayIconID;
     HICON _trayIcon;
@@ -63,7 +78,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (NSString *) title;
 - (void) setTitle: (NSString *) title;
+- (NSString *) toolTip;
 - (void) setToolTip: (NSString *) toolTip;
+- (NSStatusBarButton *) button;
+- (NSString *) autosaveName;
+- (void) setAutosaveName: (NSString *) autosaveName;
+- (NSStatusItemBehavior) behavior;
+- (void) setBehavior: (NSStatusItemBehavior) behavior;
+- (BOOL) isVisible;
+- (void) setVisible: (BOOL) visible;
 - (NSAttributedString *) attributedTitle;
 - (void) setAttributedTitle: (NSAttributedString *) title;
 

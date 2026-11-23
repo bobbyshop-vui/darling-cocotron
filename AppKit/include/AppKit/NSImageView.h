@@ -24,7 +24,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @interface NSImageView : NSControl {
     id _target;
     SEL _action;
+    NSColor *_contentTintColor;
 }
+
++ (instancetype) imageViewWithImage: (NSImage *) image;
+- (NSColor *) contentTintColor;
+- (void) setContentTintColor: (NSColor *) color;
 
 - (BOOL) allowsCutCopyPaste;
 - (BOOL) animates;

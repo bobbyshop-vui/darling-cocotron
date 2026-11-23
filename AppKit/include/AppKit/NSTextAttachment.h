@@ -27,6 +27,9 @@ enum { NSAttachmentCharacter = 0xFFFC };
 @interface NSTextAttachment : NSObject {
     NSFileWrapper *_fileWrapper;
     id<NSTextAttachmentCell> _cell;
+    NSImage *_darlingImage;
+    NSRect _darlingBounds;
+    NSString *_darlingFileType;
 }
 
 - initWithFileWrapper: (NSFileWrapper *) fileWrapper;
@@ -36,5 +39,12 @@ enum { NSAttachmentCharacter = 0xFFFC };
 
 - (void) setFileWrapper: (NSFileWrapper *) fileWrapper;
 - (void) setAttachmentCell: (id<NSTextAttachmentCell>) cell;
+
+- (NSRect) bounds;
+- (void) setBounds: (NSRect) bounds;
+- (NSString *) fileType;
+- (void) setFileType: (NSString *) fileType;
+- (NSImage *) image;
+- (void) setImage: (NSImage *) image;
 
 @end

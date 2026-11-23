@@ -18,8 +18,39 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSCollectionViewItem.h>
 #import <AppKit/NSView.h>
+#import <AppKit/NSUserInterfaceItemIdentification.h>
+
+@class NSCollectionViewLayout, NSCollectionViewLayoutAttributes, NSNib, NSCollectionView;
 
 typedef NSString *NSCollectionViewSupplementaryElementKind;
+
+@protocol NSCollectionViewDataSource <NSObject>
+@required
+- (NSInteger) collectionView: (NSCollectionView *) collectionView
+      numberOfItemsInSection: (NSInteger) section;
+- (NSCollectionViewItem *) collectionView: (NSCollectionView *) collectionView
+        itemForRepresentedObjectAtIndexPath: (NSIndexPath *) indexPath;
+@optional
+- (NSInteger) numberOfSectionsInCollectionView: (NSCollectionView *) collectionView;
+- (NSView *) collectionView: (NSCollectionView *) collectionView
+        viewForSupplementaryElementOfKind: (NSCollectionViewSupplementaryElementKind) kind
+                              atIndexPath: (NSIndexPath *) indexPath;
+@end
+
+@protocol NSCollectionViewPrefetching <NSObject>
+@required
+- (void) collectionView: (NSCollectionView *) collectionView
+    prefetchItemsAtIndexPaths: (NSArray<NSIndexPath *> *) indexPaths;
+@optional
+- (void) collectionView: (NSCollectionView *) collectionView
+    cancelPrefetchingForItemsAtIndexPaths: (NSArray<NSIndexPath *> *) indexPaths;
+@end
+
+@interface NSIndexPath (NSCollectionViewAdditions)
++ (NSIndexPath *) indexPathForItem: (NSInteger) item inSection: (NSInteger) section;
+- (NSInteger) item;
+- (NSInteger) section;
+@end
 
 @interface NSCollectionView : NSView {
     NSArray *_content;
@@ -32,6 +63,16 @@ typedef NSString *NSCollectionViewSupplementaryElementKind;
     NSArray *_backgroundColors;
     BOOL _allowsMultipleSelection;
     NSIndexSet *_selectionIndexes;
+    BOOL _disallowsEmptySelection;
+    NSSet *_selectionIndexPaths;
+    id<NSCollectionViewPrefetching> _prefetchDataSource;
+    id<NSCollectionViewDataSource> _dataSource;
+    NSCollectionViewLayout *_collectionViewLayout;
+    NSMutableDictionary *_registeredItemClasses;
+    NSMutableDictionary *_registeredItemNibs;
+    NSMutableDictionary *_registeredSupplementaryClasses;
+    NSMutableDictionary *_registeredSupplementaryNibs;
+    NSMutableDictionary *_itemsByIndexPath;
 }
 
 - (NSArray *) content;
@@ -64,6 +105,41 @@ typedef NSString *NSCollectionViewSupplementaryElementKind;
 
 - (BOOL) isFirstResponder;
 - (NSCollectionViewItem *) newItemForRepresentedObject: object;
+
+- (id<NSCollectionViewDataSource>) dataSource;
+- (void) setDataSource: (id<NSCollectionViewDataSource>) value;
+- (NSCollectionViewLayout *) collectionViewLayout;
+- (void) setCollectionViewLayout: (NSCollectionViewLayout *) value;
+- (id<NSCollectionViewPrefetching>) prefetchDataSource;
+- (void) setPrefetchDataSource: (id<NSCollectionViewPrefetching>) value;
+
+- (BOOL) allowsEmptySelection;
+- (void) setAllowsEmptySelection: (BOOL) value;
+- (NSSet<NSIndexPath *> *) selectionIndexPaths;
+- (void) setSelectionIndexPaths: (NSSet<NSIndexPath *> *) value;
+- (IBAction) selectAll: (id) sender;
+- (IBAction) deselectAll: (id) sender;
+
+- (void) reloadData;
+- (NSInteger) numberOfSections;
+- (NSInteger) numberOfItemsInSection: (NSInteger) section;
+- (NSCollectionViewLayoutAttributes *) layoutAttributesForItemAtIndexPath: (NSIndexPath *) indexPath;
+
+- (void) registerClass: (Class) itemClass forItemWithIdentifier: (NSUserInterfaceItemIdentifier) identifier;
+- (void) registerNib: (NSNib *) nib forItemWithIdentifier: (NSUserInterfaceItemIdentifier) identifier;
+- (void) registerClass: (Class) viewClass
+    forSupplementaryViewOfKind: (NSCollectionViewSupplementaryElementKind) kind
+                withIdentifier: (NSUserInterfaceItemIdentifier) identifier;
+- (void) registerNib: (NSNib *) nib
+    forSupplementaryViewOfKind: (NSCollectionViewSupplementaryElementKind) kind
+                withIdentifier: (NSUserInterfaceItemIdentifier) identifier;
+- (NSCollectionViewItem *) makeItemWithIdentifier: (NSUserInterfaceItemIdentifier) identifier
+                                     forIndexPath: (NSIndexPath *) indexPath;
+- (NSView *) makeSupplementaryViewOfKind: (NSCollectionViewSupplementaryElementKind) elementKind
+                          withIdentifier: (NSUserInterfaceItemIdentifier) identifier
+                            forIndexPath: (NSIndexPath *) indexPath;
+- (NSCollectionViewItem *) itemAtIndexPath: (NSIndexPath *) indexPath;
+- (NSArray<NSCollectionViewItem *> *) visibleItems;
 
 @end
 

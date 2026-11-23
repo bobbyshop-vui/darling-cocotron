@@ -57,6 +57,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [self setTabStops: [other tabStops]];
     _hyphenationFactor = other->_hyphenationFactor;
     _tighteningFactorForTruncation = other->_tighteningFactorForTruncation;
+    _allowsDefaultTighteningForTruncation =
+            other->_allowsDefaultTighteningForTruncation;
 }
 
 - (void) setBaseWritingDirection: (NSWritingDirection) direction {
@@ -159,6 +161,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) setTighteningFactorForTruncation: (float) factor {
     _tighteningFactorForTruncation = factor;
+
+    // Explicitly setting the factor to 0.0 also turns off default tightening
+    if (factor == 0.0f)
+        _allowsDefaultTighteningForTruncation = NO;
+}
+
+- (BOOL) allowsDefaultTighteningForTruncation {
+    return _allowsDefaultTighteningForTruncation;
+}
+
+- (void) setAllowsDefaultTighteningForTruncation: (BOOL) flag {
+    _allowsDefaultTighteningForTruncation = flag;
 }
 
 @end

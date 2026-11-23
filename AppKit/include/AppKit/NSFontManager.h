@@ -58,6 +58,8 @@ enum {
     BOOL _isMultiple;
     NSFontAction _currentFontAction;
     int _currentTrait;
+    BOOL _isEnabled;
+    id _target;
 }
 
 + (NSFontManager *) sharedFontManager;
@@ -104,6 +106,10 @@ enum {
 - (BOOL) sendAction;
 
 - (BOOL) isEnabled;
+- (void) setEnabled: (BOOL) flag;
+- (id) target;
+- (void) setTarget: (id) target;
+- (NSFontTraitMask) convertFontTraits: (NSFontTraitMask) traits;
 - (BOOL) isMultiple;
 - (NSFont *) selectedFont;
 

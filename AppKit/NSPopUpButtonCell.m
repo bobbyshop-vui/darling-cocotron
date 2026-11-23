@@ -17,6 +17,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import <AppKit/NSApplication.h>
 #import <AppKit/NSEvent.h>
 #import <AppKit/NSGraphics.h>
 #import <AppKit/NSGraphicsStyle.h>
@@ -32,10 +33,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - init {
     self = [super init];
     _pullsDown = NO;
-    _menu = [[NSMenu alloc] init];
+    _popUpMenu = [[NSMenu alloc] init];
     _selectedIndex = -1;
     _arrowPosition = NSPopUpArrowAtCenter;
     _preferredEdge = NSMaxYEdge;
+    _usesItemFromMenu = YES;
+    _altersStateOfSelectedItem = YES;
     return self;
 }
 
@@ -47,18 +50,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     self = [super initWithCoder: coder];
     if ([coder allowsKeyedCoding]) {
         _pullsDown = [coder decodeBoolForKey: @"NSPullDown"];
-        _menu = [[coder decodeObjectForKey: @"NSMenu"] retain];
+        _popUpMenu = [[coder decodeObjectForKey: @"NSMenu"] retain];
         _selectedIndex = [coder decodeIntForKey: @"NSSelectedIndex"];
         _arrowPosition = [coder decodeIntForKey: @"NSArrowPosition"];
         _preferredEdge = [coder decodeIntForKey: @"NSPreferredEdge"];
         _usesItemFromMenu = [coder decodeBoolForKey: @"NSUsesItemFromMenu"];
+        _altersStateOfSelectedItem = YES;
+        if ([coder containsValueForKey: @"NSAltersState"]) {
+            _altersStateOfSelectedItem =
+                    [coder decodeBoolForKey: @"NSAltersState"];
+        }
 
         [self synchronizeTitleAndSelectedItem];
     } else {
+        _altersStateOfSelectedItem = YES;
         int flags; // TODO: Handle flags
-        [coder decodeValuesOfObjCTypes:"i@i", &flags, &_menu, &_selectedIndex];
+        [coder decodeValuesOfObjCTypes:"i@i", &flags, &_popUpMenu, &_selectedIndex];
 
-        // We can't call synchronizeTitleAndSelectedItem, as the _menu may not be finished decoding and we can't access the items
+        // We can't call synchronizeTitleAndSelectedItem, as the _popUpMenu may not be finished decoding and we can't access the items
         _syncTitleNeeded = YES;
     }
     return self;
@@ -67,15 +76,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - copyWithZone: (NSZone *) zone {
     NSPopUpButtonCell *copy = [super copyWithZone: zone];
 
-    copy->_menu = [_menu copy];
+    copy->_popUpMenu = [_popUpMenu copy];
 
     return copy;
 }
 
 - initTextCell: (NSString *) string pullsDown: (BOOL) pullDown {
     self = [super initTextCell: string];
-    _menu = [[NSMenu alloc] initWithTitle: string];
-    [_menu addItemWithTitle: string action: [self action] keyEquivalent: @""];
+    _popUpMenu = [[NSMenu alloc] initWithTitle: string];
+    [_popUpMenu addItemWithTitle: string action: [self action] keyEquivalent: @""];
     _arrowPosition = NSPopUpArrowAtCenter;
     _preferredEdge = NSMaxYEdge;
     _pullsDown = pullDown;
@@ -83,8 +92,38 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) dealloc {
-    [_menu release];
+    [_popUpMenu release];
     [super dealloc];
+}
+
+- (BOOL) usesItemFromMenu {
+    return _usesItemFromMenu;
+}
+
+- (void) setUsesItemFromMenu: (BOOL) flag {
+    _usesItemFromMenu = flag;
+}
+
+- (BOOL) altersStateOfSelectedItem {
+    return _altersStateOfSelectedItem;
+}
+
+- (void) setAltersStateOfSelectedItem: (BOOL) flag {
+    _altersStateOfSelectedItem = flag;
+}
+
+- (void) attachPopUpWithFrame: (NSRect) cellFrame inView: (NSView *) controlView {
+    // Prepare the menu so it is current when the pop up is shown.
+    [[_popUpMenu delegate] menuNeedsUpdate: _popUpMenu];
+    [_popUpMenu update];
+}
+
+- (void) performClickWithFrame: (NSRect) frame inView: (NSView *) controlView {
+    [self attachPopUpWithFrame: frame inView: controlView];
+    [self synchronizeTitleAndSelectedItem];
+    if ([self action] != NULL) {
+        [NSApp sendAction: [self action] to: [self target] from: controlView];
+    }
 }
 
 - (BOOL) isOpaque {
@@ -96,7 +135,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSMenu *) menu {
-    return _menu;
+    return _popUpMenu;
 }
 
 - (BOOL) autoenablesItems {
@@ -112,57 +151,57 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSArray *) itemArray {
-    return [_menu itemArray];
+    return [_popUpMenu itemArray];
 }
 
 - (NSInteger) numberOfItems {
-    return [_menu numberOfItems];
+    return [_popUpMenu numberOfItems];
 }
 
 - (NSMenuItem *) itemAtIndex: (NSInteger) index {
-    return [_menu itemAtIndex: index];
+    return [_popUpMenu itemAtIndex: index];
 }
 
 - (NSMenuItem *) itemWithTitle: (NSString *) title {
-    return [_menu itemWithTitle: title];
+    return [_popUpMenu itemWithTitle: title];
 }
 
 - (NSMenuItem *) lastItem {
-    if ([_menu numberOfItems] == 0)
+    if ([_popUpMenu numberOfItems] == 0)
         return nil;
 
-    return [_menu itemAtIndex: [_menu numberOfItems] - 1];
+    return [_popUpMenu itemAtIndex: [_popUpMenu numberOfItems] - 1];
 }
 
 - (NSInteger) indexOfItem: (NSMenuItem *) item {
-    return [_menu indexOfItem: item];
+    return [_popUpMenu indexOfItem: item];
 }
 
 - (NSInteger) indexOfItemWithTitle: (NSString *) title {
-    return [_menu indexOfItemWithTitle: title];
+    return [_popUpMenu indexOfItemWithTitle: title];
 }
 
 - (NSInteger) indexOfItemWithTag: (NSInteger) tag {
-    return [_menu indexOfItemWithTag: tag];
+    return [_popUpMenu indexOfItemWithTag: tag];
 }
 
 - (NSInteger) indexOfItemWithRepresentedObject: object {
-    return [_menu indexOfItemWithRepresentedObject: object];
+    return [_popUpMenu indexOfItemWithRepresentedObject: object];
 }
 
 - (NSInteger) indexOfItemWithTarget: target andAction: (SEL) action {
-    return [_menu indexOfItemWithTarget: target andAction: action];
+    return [_popUpMenu indexOfItemWithTarget: target andAction: action];
 }
 
 - (NSMenuItem *) selectedItem {
     if (_selectedIndex < 0)
         return nil;
 
-    if (_selectedIndex >= [_menu numberOfItems]) {
+    if (_selectedIndex >= [_popUpMenu numberOfItems]) {
         return nil;
     }
 
-    return [_menu itemAtIndex: _selectedIndex];
+    return [_popUpMenu itemAtIndex: _selectedIndex];
 }
 
 - (NSString *) titleOfSelectedItem {
@@ -179,10 +218,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) setMenu: (NSMenu *) menu {
     menu = [menu retain];
-    [_menu release];
-    _menu = menu;
+    [_popUpMenu release];
+    _popUpMenu = menu;
 
-    if ([_menu numberOfItems] > 0)
+    if ([_popUpMenu numberOfItems] > 0)
         _selectedIndex = 0;
     else
         _selectedIndex = -1;
@@ -204,16 +243,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) _addItemWithTitle: (NSString *) title {
 
-    NSMenuItem *duplicate = [_menu itemWithTitle: title];
+    NSMenuItem *duplicate = [_popUpMenu itemWithTitle: title];
     if (duplicate != nil) {
         // don't allow items with duplicate titles by default
-        [_menu removeItem: duplicate];
+        [_popUpMenu removeItem: duplicate];
     }
 
-    [_menu addItemWithTitle: title
+    [_popUpMenu addItemWithTitle: title
                      action: @selector(_popUpItemAction:)
               keyEquivalent: nil];
-    NSMenuItem *item = [[_menu itemArray] lastObject];
+    NSMenuItem *item = [[_popUpMenu itemArray] lastObject];
     [item setTarget: self];
 
     if (_selectedIndex < 0)
@@ -235,15 +274,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) removeAllItems {
-    [_menu removeAllItems];
+    [_popUpMenu removeAllItems];
     _selectedIndex = -1;
     [self synchronizeTitleAndSelectedItem];
 }
 
 - (void) removeItemAtIndex: (NSInteger) index {
-    [_menu removeItemAtIndex: index];
+    [_popUpMenu removeItemAtIndex: index];
 
-    if (_selectedIndex >= [_menu numberOfItems]) {
+    if (_selectedIndex >= [_popUpMenu numberOfItems]) {
         // Don't know what to select anymore...
         _selectedIndex = -1;
     }
@@ -256,11 +295,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) insertItemWithTitle: (NSString *) title atIndex: (NSInteger) index {
-    [_menu insertItemWithTitle: title
+    [_popUpMenu insertItemWithTitle: title
                         action: @selector(_popUpItemAction:)
                  keyEquivalent: nil
                        atIndex: index];
-    NSMenuItem *check = [_menu itemAtIndex: index];
+    NSMenuItem *check = [_popUpMenu itemAtIndex: index];
     [check setTarget: self];
 
     [self synchronizeTitleAndSelectedItem];
@@ -272,7 +311,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     if (item == nil)
         selectedIndex = -1;
     else {
-        NSInteger check = [[_menu itemArray] indexOfObjectIdenticalTo: item];
+        NSInteger check = [[_popUpMenu itemArray] indexOfObjectIdenticalTo: item];
 
         selectedIndex = (check == NSNotFound) ? -1 : check;
     }
@@ -321,7 +360,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) synchronizeTitleAndSelectedItem {
-    NSArray *itemArray = [_menu itemArray];
+    NSArray *itemArray = [_popUpMenu itemArray];
     NSMenuItem *item = nil;
 
     if (_selectedIndex < 0 || _pullsDown) {
@@ -444,7 +483,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         // to the argument and doesn't affect the selection
         [super setTitle: title];
     } else {
-        NSMenuItem *item = [_menu itemWithTitle: title];
+        NSMenuItem *item = [_popUpMenu itemWithTitle: title];
 
         if (item == nil)
             [self addItemWithTitle: title];
@@ -462,7 +501,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSImage *) image {
-    NSArray *itemArray = [_menu itemArray];
+    NSArray *itemArray = [_popUpMenu itemArray];
     NSMenuItem *item = nil;
     if (_selectedIndex < 0 || _pullsDown) {
         if ([itemArray count] > 0)
@@ -512,12 +551,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     origin = [controlView convertPoint: origin toView: nil];
     origin = [[controlView window] convertBaseToScreen: origin];
 
-    [[_menu delegate] menuNeedsUpdate: _menu];
-    //	[[_menu delegate] menuWillOpen: _menu];
-    NSMenu *menu = _menu;
-    if (_pullsDown && [_menu numberOfItems]) {
+    [[_popUpMenu delegate] menuNeedsUpdate: _popUpMenu];
+    //	[[_popUpMenu delegate] menuWillOpen: _popUpMenu];
+    NSMenu *menu = _popUpMenu;
+    if (_pullsDown && [_popUpMenu numberOfItems]) {
         // Don't display the first item for pullDowns controls
-        menu = [[_menu copy] autorelease];
+        menu = [[_popUpMenu copy] autorelease];
         [menu removeItemAtIndex: 0];
     }
     [menu update];
@@ -549,7 +588,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     }
     _selectedIndex = (itemIndex == NSNotFound) ? -1 : itemIndex;
     [window close]; // release when closed=YES
-                    //	[[_menu delegate] menuDidClose: _menu];
+                    //	[[_popUpMenu delegate] menuDidClose: _popUpMenu];
 
     return itemIndex != NSNotFound;
 }
@@ -570,7 +609,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 /* That's the action the menu items are connected to in nibs */
 - (void) _popUpItemAction: (id) sender {
-    NSUInteger itemIndex = [_menu indexOfItem: sender];
+    NSUInteger itemIndex = [_popUpMenu indexOfItem: sender];
     if (itemIndex != NSNotFound) {
         [self selectItemAtIndex: itemIndex];
     }
@@ -580,7 +619,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) setControlView: (NSView *) view {
     [super setControlView: view];
 
-    // Is this hacky? We need to a way to sync the title after _menu is fully initialized
+    // Is this hacky? We need to a way to sync the title after _popUpMenu is fully initialized
     if (_syncTitleNeeded) {
         [self synchronizeTitleAndSelectedItem];
         _syncTitleNeeded = NO;

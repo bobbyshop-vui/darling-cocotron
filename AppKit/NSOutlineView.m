@@ -603,6 +603,97 @@ static void loadItemIntoMapTables(NSOutlineView *self, id item,
     }
 }
 
+- (NSInteger) numberOfChildrenOfItem: (id) item {
+    return numberOfChildrenOfItemAndReload(self, item, YES);
+}
+
+- (id) child: (NSInteger) index ofItem: (id) item {
+    return childOfItemAtIndex(self, item, index);
+}
+
+- (NSInteger) childIndexForItem: (id) item {
+    if (item == nil)
+        return -1;
+
+    id parent = [self parentForItem: item];
+    NSInteger i, count = numberOfChildrenOfItemAndReload(self, parent, YES);
+
+    for (i = 0; i < count; i++) {
+        id child = childOfItemAtIndex(self, parent, i);
+
+        if (child == item || [child isEqual: item])
+            return i;
+    }
+    return -1;
+}
+
+// Rows of 'item' and of all of its currently displayed descendants.
+- (void) _addRowsOfItem: (id) item toIndexSet: (NSMutableIndexSet *) rows {
+    NSInteger row = [self rowForItem: item];
+
+    if (item == nil || row >= (NSInteger) _numberOfCachedRows ||
+        [self itemAtRow: row] != item)
+        return;
+
+    NSInteger level = [self levelForRow: row], last = row;
+
+    while (last + 1 < (NSInteger) _numberOfCachedRows &&
+           [self levelForRow: last + 1] > level)
+        last++;
+    [rows addIndexesInRange: NSMakeRange(row, last - row + 1)];
+}
+
+- (void) removeItemsAtIndexes: (NSIndexSet *) indexes
+                     inParent: (id) parent
+                withAnimation: (NSTableViewAnimationOptions) animationOptions {
+    NSMutableIndexSet *rows = [NSMutableIndexSet indexSet];
+
+    if ([indexes count] == 0)
+        return;
+    if (_numberOfCachedRows == 0)
+        [self loadRootItem];
+
+    // The children rows only exist while the parent is displayed expanded.
+    if (parent == nil || isItemExpanded(self, parent)) {
+        NSUInteger index = [indexes firstIndex];
+
+        while (index != NSNotFound) {
+            [self _addRowsOfItem: childOfItemAtIndex(self, parent, index)
+                      toIndexSet: rows];
+            index = [indexes indexGreaterThanIndex: index];
+        }
+    }
+
+    [self _resetMapTables];
+    [self invalidateRowCache];
+    if ([rows count] > 0)
+        [super removeRowsAtIndexes: rows withAnimation: animationOptions];
+    else {
+        [self noteNumberOfRowsChanged];
+        [self setNeedsDisplay: YES];
+    }
+}
+
+- (void) insertRowsAtIndexes: (NSIndexSet *) indexes
+               withAnimation: (NSTableViewAnimationOptions) animationOptions {
+    [self _resetMapTables];
+    [self invalidateRowCache];
+    [super insertRowsAtIndexes: indexes withAnimation: animationOptions];
+}
+
+- (void) removeRowsAtIndexes: (NSIndexSet *) indexes
+               withAnimation: (NSTableViewAnimationOptions) animationOptions {
+    [self _resetMapTables];
+    [self invalidateRowCache];
+    [super removeRowsAtIndexes: indexes withAnimation: animationOptions];
+}
+
+- (void) moveRowAtIndex: (NSInteger) oldIndex toIndex: (NSInteger) newIndex {
+    [self _resetMapTables];
+    [self invalidateRowCache];
+    [super moveRowAtIndex: oldIndex toIndex: newIndex];
+}
+
 - (NSInteger) numberOfRows {
     if (_numberOfCachedRows == 0) {
         [self loadRootItem];

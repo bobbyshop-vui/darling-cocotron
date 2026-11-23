@@ -66,9 +66,13 @@ typedef NSString *NSToolbarIdentifier;
     BOOL _allowsUserCustomization;
     BOOL _isLoadingConfiguration;
     BOOL _loadDefaultItems;
+    NSString *_centeredItemIdentifierValue;
 }
 
 - (instancetype) initWithIdentifier: (NSToolbarIdentifier) identifier;
+
+- (NSString *) centeredItemIdentifier;
+- (void) setCenteredItemIdentifier: (NSString *) identifier;
 
 - (NSToolbarIdentifier) identifier;
 - (id<NSToolbarDelegate>) delegate;

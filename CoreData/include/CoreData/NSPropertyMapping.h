@@ -19,6 +19,19 @@
 
 #import <Foundation/NSObject.h>
 
-@interface NSPropertyMapping : NSObject
+@class NSExpression, NSString, NSDictionary;
+
+@interface NSPropertyMapping : NSObject {
+    NSString *_mappingName;
+    NSExpression *_mappingValueExpression;
+    NSDictionary *_mappingUserInfo;
+}
+
+- (NSString *)name;
+- (void)setName:(NSString *)name;
+- (NSExpression *)valueExpression;
+- (void)setValueExpression:(NSExpression *)valueExpression;
+- (NSDictionary *)userInfo;
+- (void)setUserInfo:(NSDictionary *)userInfo;
 
 @end

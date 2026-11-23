@@ -154,6 +154,58 @@ static void evaluate(void *info, CGFloat const *input, CGFloat *output) {
     return self;
 }
 
+- (instancetype) initWithCoder: (NSCoder *) coder {
+    NSArray *colors = nil;
+    NSData *locationData = nil;
+    NSColorSpace *space = nil;
+
+    if ([coder allowsKeyedCoding]) {
+        colors = [coder decodeObjectForKey: @"NSColors"];
+        locationData = [coder decodeObjectForKey: @"NSLocations"];
+        space = [coder decodeObjectForKey: @"NSColorSpace"];
+    } else {
+        colors = [coder decodeObject];
+        locationData = [coder decodeObject];
+    }
+
+    NSInteger count = [colors count];
+    if (count < 2 || [locationData length] < count * sizeof(CGFloat)) {
+        // Archive carries no usable stops; fall back to a black to white ramp.
+        colors = [NSArray arrayWithObjects: [NSColor blackColor],
+                                            [NSColor whiteColor], nil];
+        CGFloat fallback[2] = {0.0, 1.0};
+        return [self initWithColors: colors
+                        atLocations: fallback
+                         colorSpace: space];
+    }
+
+    return [self initWithColors: colors
+                    atLocations: (const CGFloat *) [locationData bytes]
+                     colorSpace: space ? space : [NSColorSpace deviceRGBColorSpace]];
+}
+
+- (void) encodeWithCoder: (NSCoder *) coder {
+    NSMutableArray *colors = [NSMutableArray array];
+    NSInteger i;
+
+    for (i = 0; i < _numberOfColors; i++)
+        [colors addObject: [NSColor colorWithDeviceRed: _components[i][0]
+                                                 green: _components[i][1]
+                                                  blue: _components[i][2]
+                                                 alpha: _components[i][3]]];
+    NSData *locations = [NSData dataWithBytes: _locations
+                                       length: sizeof(CGFloat) * _numberOfColors];
+
+    if ([coder allowsKeyedCoding]) {
+        [coder encodeObject: colors forKey: @"NSColors"];
+        [coder encodeObject: locations forKey: @"NSLocations"];
+        [coder encodeObject: _colorSpace forKey: @"NSColorSpace"];
+    } else {
+        [coder encodeObject: colors];
+        [coder encodeObject: locations];
+    }
+}
+
 - (void) dealloc {
     NSInteger i;
 

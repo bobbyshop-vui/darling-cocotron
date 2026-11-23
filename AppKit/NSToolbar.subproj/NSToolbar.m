@@ -124,6 +124,7 @@ const NSNotificationName NSToolbarChangeAppearanceNotification =
     [[NSNotificationCenter defaultCenter] removeObserver: self];
 
     [_identifier release];
+    [_centeredItemIdentifierValue release];
     [_items release];
     [_allowedItems release];
     [_defaultItems release];
@@ -134,6 +135,17 @@ const NSNotificationName NSToolbarChangeAppearanceNotification =
     _palette = nil;
 
     [super dealloc];
+}
+
+- (NSString *) centeredItemIdentifier {
+    return _centeredItemIdentifierValue;
+}
+
+- (void) setCenteredItemIdentifier: (NSString *) identifier {
+    if (identifier != _centeredItemIdentifierValue) {
+        [_centeredItemIdentifierValue release];
+        _centeredItemIdentifierValue = [identifier copy];
+    }
 }
 
 - (NSToolbarView *) _view {

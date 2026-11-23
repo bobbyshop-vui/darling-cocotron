@@ -87,6 +87,32 @@ NSString *const NSPrintSavePath = @"NSPrintSavePath";
     return [self initWithDictionary: defaults];
 }
 
+- initWithCoder: (NSCoder *) coder {
+    NSDictionary *dictionary = nil;
+
+    if ([coder allowsKeyedCoding])
+        dictionary = [coder decodeObjectForKey: @"NSAttributes"];
+    if (dictionary == nil)
+        return [self init];
+    return [self initWithDictionary: dictionary];
+}
+
+- (void) encodeWithCoder: (NSCoder *) coder {
+    if ([coder allowsKeyedCoding])
+        [coder encodeObject: _attributes forKey: @"NSAttributes"];
+}
+
+- (CGFloat) scalingFactor {
+    NSNumber *value = [_attributes objectForKey: NSPrintScalingFactor];
+
+    return value != nil ? [value doubleValue] : 1.0;
+}
+
+- (void) setScalingFactor: (CGFloat) value {
+    [_attributes setObject: [NSNumber numberWithDouble: value]
+                    forKey: NSPrintScalingFactor];
+}
+
 - (void) dealloc {
     [_attributes release];
     [super dealloc];

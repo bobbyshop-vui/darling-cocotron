@@ -1,5 +1,6 @@
 #import <CoreGraphics/CoreGraphics.h>
 #import <Foundation/NSObject.h>
+#import <AppKit/NSGraphics.h>
 
 @class CIFilter;
 
@@ -12,5 +13,14 @@
 
 - initWithCGImage: (CGImageRef) cgImage;
 - (CGRect) extent;
+
+- (void) drawAtPoint: (NSPoint) point
+            fromRect: (NSRect) fromRect
+           operation: (NSCompositingOperation) operation
+            fraction: (CGFloat) delta;
+- (void) drawInRect: (NSRect) rect
+           fromRect: (NSRect) fromRect
+          operation: (NSCompositingOperation) operation
+           fraction: (CGFloat) delta;
 
 @end

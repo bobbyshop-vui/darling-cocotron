@@ -22,7 +22,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @interface NSCustomImageRep : NSImageRep {
     SEL _drawSelector;
     id _delegate;
+    BOOL (^_drawingHandler)(NSRect dstRect);
+    BOOL _flipped;
 }
+
+- (instancetype) initWithSize: (NSSize) size
+                      flipped: (BOOL) drawingHandlerShouldBeCalledWithFlippedContext
+               drawingHandler: (BOOL (^)(NSRect dstRect)) drawingHandler;
+- (BOOL (^)(NSRect)) drawingHandler;
 
 - initWithDrawSelector: (SEL) selector delegate: delegate;
 

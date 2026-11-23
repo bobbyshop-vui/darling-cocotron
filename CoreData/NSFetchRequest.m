@@ -25,12 +25,56 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @implementation NSFetchRequest
 
 - init {
+    if ((self = [super init]) == nil)
+        return nil;
     _entity = nil;
     _predicate = nil;
     _sortDescriptors = nil;
-    _affectedStores = nil;
     _fetchLimit = 0;
     return self;
+}
+
++ (instancetype) fetchRequestWithEntityName: (NSString *) entityName {
+    return [[[self alloc] initWithEntityName: entityName] autorelease];
+}
+
+- (instancetype) initWithEntityName: (NSString *) entityName {
+    if ((self = [self init]) != nil)
+        _fetchEntityName = [entityName copy];
+    return self;
+}
+
+- (NSString *) entityName {
+    return _entity != nil ? [_entity name] : _fetchEntityName;
+}
+
+- (void) setEntityName: (NSString *) value {
+    value = [value copy];
+    [_fetchEntityName release];
+    _fetchEntityName = value;
+}
+
+- (NSArray *) execute: (NSError **) error {
+    NSValue *current = [[[NSThread currentThread] threadDictionary]
+            objectForKey: @"NSManagedObjectContextCurrentContext"];
+    NSManagedObjectContext *context = [current nonretainedObjectValue];
+
+    if (context == nil) {
+        if (error != NULL)
+            *error = [NSError
+                    errorWithDomain: NSCocoaErrorDomain
+                               code: 134060
+                           userInfo: [NSDictionary
+                                             dictionaryWithObject:
+                                                     @"No managed object "
+                                                     @"context to execute "
+                                                     @"the fetch request in."
+                                                           forKey:
+                                                                   NSLocalizedDescriptionKey]];
+        return nil;
+    }
+
+    return [context executeFetchRequest: self error: error];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -46,6 +90,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSFetchRequest *result = NSCopyObject(self, 0, zone);
 
     result->_entity = [_entity retain];
+    result->_fetchEntityName = [_fetchEntityName copy];
     result->_predicate = [_predicate copy];
     result->_sortDescriptors = [_sortDescriptors copy];
     result->_affectedStores = [_affectedStores copy];
@@ -58,10 +103,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) dealloc {
     [_entity release];
+    [_fetchEntityName release];
     [_predicate release];
     [_sortDescriptors release];
-    [_affectedStores release];
     [super dealloc];
+}
+
+- (NSPersistentStoreRequestType) requestType {
+    return NSFetchRequestType;
 }
 
 - (NSFetchRequestResultType) resultType {
@@ -69,6 +118,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSEntityDescription *) entity {
+    if (_entity == nil && _fetchEntityName != nil) {
+        NSValue *current = [[[NSThread currentThread] threadDictionary]
+                objectForKey: @"NSManagedObjectContextCurrentContext"];
+        NSManagedObjectContext *context = [current nonretainedObjectValue];
+
+        if (context != nil)
+            return [NSEntityDescription entityForName: _fetchEntityName
+                               inManagedObjectContext: context];
+    }
     return _entity;
 }
 
@@ -78,10 +136,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (NSArray *) sortDescriptors {
     return _sortDescriptors;
-}
-
-- (NSArray *) affectedStores {
-    return _affectedStores;
 }
 
 - (NSUInteger) fetchLimit {
@@ -144,12 +198,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     value = [value copy];
     [_sortDescriptors release];
     _sortDescriptors = value;
-}
-
-- (void) setAffectedStores: (NSArray *) value {
-    value = [value copy];
-    [_affectedStores release];
-    _affectedStores = value;
 }
 
 - (void) setFetchLimit: (NSUInteger) value {

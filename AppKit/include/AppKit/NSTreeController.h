@@ -18,57 +18,43 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSObjectController.h>
 
-@class NSIndexPath;
+@class NSIndexPath, NSSortDescriptor, NSTreeNode;
 
 @interface NSTreeController : NSObjectController <NSCoding, NSCopying> {
+    NSString *_childrenKeyPath;
+    NSString *_countKeyPath;
+    NSString *_leafKeyPath;
+    NSArray *_sortDescriptors;
+    NSArray *_arrangedObjects;
+    NSArray *_selectionIndexPaths;
+    BOOL _avoidsEmptySelection;
 }
 
-#if 0
--content;
--(NSString *)countKeyPath;
--(NSString *)childrenKeyPath;
--(NSString *)leafKeyPath;
--(NSArray *)sortDescriptors;
--(BOOL)alwaysUsesMultipleValuesMarker;
--(BOOL)avoidsEmptySelection;
--(BOOL)selectsInsertedObjects;
--(BOOL)preservesSelection;
+- (NSString *) childrenKeyPath;
+- (void) setChildrenKeyPath: (NSString *) path;
+- (NSString *) countKeyPath;
+- (NSString *) leafKeyPath;
+- (NSArray *) sortDescriptors;
+- (void) setSortDescriptors: (NSArray *) descriptors;
+- (BOOL) avoidsEmptySelection;
+- (void) setAvoidsEmptySelection: (BOOL) flag;
 
--(void)setContent:content;
--(void)setCountKeyPath:(NSString *)path;
--(void)setChildrenKeyPath:(NSString *)path;
--(void)setLeafPathKey:(NSString *)key;
--(void)setSortDescriptors:(NSArray *)descriptors;
--(void)setAlwaysUsesMultipleValuesMarker:(BOOL)flag;
--(void)setAvoidsEmptySelection:(BOOL)flag;
--(void)setSelectsInsertedObjects:(BOOL)flag;
--(void)setPreservesSelection:(BOOL)flag;
+- (id) arrangedObjects;
+- (void) rearrangeObjects;
 
--(void)insertObject:object atArrangedObjectIndexPath:(NSIndexPath *)indexPath;
--(void)insertObjects:(NSArray *)objects atArrangedObjectIndexPaths:(NSArray *)indexPaths;
--(void)removeObjectAtArrangedObjectIndexPath:(NSIndexPath *)indexPath;
--(void)removeObjectsAtArrangedObjectIndexPaths:(NSArray *)indexPaths;
+- (void) insertObject: (id) object
+        atArrangedObjectIndexPath: (NSIndexPath *) indexPath;
 
--arrangedObjects;
--(void)rearrangeObjects;
+- (NSIndexPath *) selectionIndexPath;
+- (NSArray *) selectionIndexPaths;
+- (BOOL) setSelectionIndexPath: (NSIndexPath *) indexPath;
+- (BOOL) setSelectionIndexPaths: (NSArray *) indexPaths;
+- (NSArray *) selectedNodes;
 
--(NSArray *)selectedObjects;
--(NSIndexPath *)selectionIndexPath;
--(NSArray *)selectionIndexPaths;
-
--(BOOL)addSelectionIndexPaths:(NSArray *)indexPaths;
--(void)removeSelectionIndexPaths:(NSArray *)indexPaths;
--(BOOL)setSelectionIndexPath:(NSIndexPath *)indexPath;
--(BOOL)setSelectionIndexPaths:(NSArray *)indexPaths;
-
--(BOOL)canAddChid;
--(BOOL)canInsert;
--(BOOL)canInsertChild;
--(void)add:sender;
--(void)addChild:sender;
--(void)insert:sender;
--(void)insertChild:sender;
--(void)remove:sender;
-#endif
+- (BOOL) canInsert;
+- (void) add: (id) sender;
+- (void) addChild: (id) sender;
+- (void) insert: (id) sender;
+- (void) remove: (id) sender;
 
 @end

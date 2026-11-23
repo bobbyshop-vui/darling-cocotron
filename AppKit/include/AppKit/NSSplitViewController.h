@@ -21,6 +21,25 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/NSViewController.h>
 
-@interface NSSplitViewController : NSViewController
+#import <AppKit/NSSplitView.h>
+#import <AppKit/NSUserInterfaceValidation.h>
+
+@class NSSplitViewItem;
+
+@interface NSSplitViewController : NSViewController <NSSplitViewDelegate> {
+    NSSplitView *_splitView;
+    NSMutableArray *_splitViewItems;
+}
+
+- (NSSplitView *) splitView;
+- (void) setSplitView: (NSSplitView *) splitView;
+- (NSArray *) splitViewItems;
+- (void) setSplitViewItems: (NSArray *) splitViewItems;
+- (void) addSplitViewItem: (NSSplitViewItem *) splitViewItem;
+- (void) insertSplitViewItem: (NSSplitViewItem *) splitViewItem
+                     atIndex: (NSInteger) index;
+- (void) removeSplitViewItem: (NSSplitViewItem *) splitViewItem;
+- (void) viewDidLoad;
+- (BOOL) validateUserInterfaceItem: (id<NSValidatedUserInterfaceItem>) item;
 
 @end

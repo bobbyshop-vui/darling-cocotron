@@ -21,14 +21,48 @@
 
 @implementation NSPropertyMapping
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+- (void)dealloc
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    [_mappingName release];
+    [_mappingValueExpression release];
+    [_mappingUserInfo release];
+    [super dealloc];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (NSString *)name
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    return _mappingName;
+}
+
+- (void)setName:(NSString *)name
+{
+    name = [name copy];
+    [_mappingName release];
+    _mappingName = name;
+}
+
+- (NSExpression *)valueExpression
+{
+    return _mappingValueExpression;
+}
+
+- (void)setValueExpression:(NSExpression *)valueExpression
+{
+    valueExpression = [valueExpression retain];
+    [_mappingValueExpression release];
+    _mappingValueExpression = valueExpression;
+}
+
+- (NSDictionary *)userInfo
+{
+    return _mappingUserInfo;
+}
+
+- (void)setUserInfo:(NSDictionary *)userInfo
+{
+    userInfo = [userInfo copy];
+    [_mappingUserInfo release];
+    _mappingUserInfo = userInfo;
 }
 
 @end

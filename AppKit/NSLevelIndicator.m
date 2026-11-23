@@ -17,6 +17,8 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import <AppKit/NSColor.h>
+#import <AppKit/NSImage.h>
 #import <AppKit/NSLevelIndicator.h>
 #import <AppKit/NSLevelIndicatorCell.h>
 
@@ -24,6 +26,57 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (NSLevelIndicatorCell *) _indicatorCell {
     return [self cell];
+}
+
+- (void) dealloc {
+    [_ratingImage release];
+    [_ratingPlaceholderImage release];
+    [_warningFillColor release];
+    [super dealloc];
+}
+
+- (NSLevelIndicatorStyle) levelIndicatorStyle {
+    return [[self _indicatorCell] levelIndicatorStyle];
+}
+
+- (void) setLevelIndicatorStyle: (NSLevelIndicatorStyle) style {
+    [[self _indicatorCell] setLevelIndicatorStyle: style];
+    [self setNeedsDisplay: YES];
+}
+
+- (NSImage *) ratingImage {
+    return _ratingImage;
+}
+
+- (void) setRatingImage: (NSImage *) image {
+    image = [image retain];
+    [_ratingImage release];
+    _ratingImage = image;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSImage *) ratingPlaceholderImage {
+    return _ratingPlaceholderImage;
+}
+
+- (void) setRatingPlaceholderImage: (NSImage *) image {
+    image = [image retain];
+    [_ratingPlaceholderImage release];
+    _ratingPlaceholderImage = image;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSColor *) warningFillColor {
+    // Null-resettable: the default is the system yellow used for warnings.
+    return _warningFillColor != nil ? _warningFillColor
+                                    : [NSColor yellowColor];
+}
+
+- (void) setWarningFillColor: (NSColor *) color {
+    color = [color copy];
+    [_warningFillColor release];
+    _warningFillColor = color;
+    [self setNeedsDisplay: YES];
 }
 
 - (double) minValue {

@@ -19,6 +19,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSSound.h>
+#import <AppKit/NSPasteboard.h>
+#import <Foundation/NSData.h>
 #import <Foundation/NSArray.h>
 #import <Foundation/NSEnumerator.h>
 #import <Foundation/NSMutableDictionary.h>
@@ -27,6 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSString.h>
 
 static NSMutableDictionary *sSounds = nil;
+static NSString *const NSSoundPasteboardType = @"NXSoundPboardType";
 
 @implementation NSSound
 
@@ -36,6 +39,18 @@ static NSMutableDictionary *sSounds = nil;
         return [self performSelector: @selector(_soundUnfilteredFileTypes)];
 
     return nil;
+}
+
++ (NSArray *) soundUnfilteredTypes {
+    NSArray *types = [self soundUnfilteredFileTypes];
+    if (types == nil)
+        types = [NSArray arrayWithObjects: @"aiff", @"aif", @"wav", @"au",
+                                           @"snd", @"mp3", @"m4a", nil];
+    return types;
+}
+
++ (BOOL) canInitWithPasteboard: (NSPasteboard *) pasteboard {
+    return [[pasteboard types] containsObject: NSSoundPasteboardType];
 }
 
 + (NSSound *) soundNamed: (NSString *) name {
@@ -71,21 +86,132 @@ static NSMutableDictionary *sSounds = nil;
     }
     return sound;
 }
-- (id) initWithContentsOfURL: (NSURL *) url byReference: (BOOL) byReference {
+- (id) init {
     self = [super init];
+    if (self)
+        _volume = 1.0f;
+    return self;
+}
+
+- (id) initWithContentsOfURL: (NSURL *) url byReference: (BOOL) byReference {
+    self = [self init];
+    if (self) {
+        _data = [[NSData alloc] initWithContentsOfURL: url];
+        if (_data == nil) {
+            [self release];
+            return nil;
+        }
+    }
     return self;
 }
 
 - (id) initWithContentsOfFile: (NSString *) path
                   byReference: (BOOL) byReference
 {
-    self = [super init];
+    self = [self init];
+    if (self) {
+        _data = [[NSData alloc] initWithContentsOfFile: path];
+        if (_data == nil) {
+            [self release];
+            return nil;
+        }
+    }
     return self;
 }
 
+- (id) initWithData: (NSData *) data {
+    if (data == nil) {
+        [self release];
+        return nil;
+    }
+    self = [self init];
+    if (self)
+        _data = [data copy];
+    return self;
+}
+
+- (id) initWithPasteboard: (NSPasteboard *) pasteboard {
+    NSData *data = [pasteboard dataForType: NSSoundPasteboardType];
+    return [self initWithData: data];
+}
+
+- (void) writeToPasteboard: (NSPasteboard *) pasteboard {
+    [pasteboard declareTypes: [NSArray arrayWithObject: NSSoundPasteboardType]
+                       owner: nil];
+    if (_data != nil)
+        [pasteboard setData: _data forType: NSSoundPasteboardType];
+}
+
+- (void) dealloc {
+    [_name release];
+    [_data release];
+    [super dealloc];
+}
+
 - (BOOL) setName: (NSString *) name {
-    NSUnimplementedMethod();
-    return NO;
+    if (sSounds == nil)
+        sSounds = [[NSMutableDictionary dictionaryWithCapacity: 10] retain];
+
+    @synchronized(sSounds) {
+        if (name != nil && [sSounds objectForKey: name] != nil)
+            return NO;
+        if (_name != nil && [sSounds objectForKey: _name] == self)
+            [sSounds removeObjectForKey: _name];
+        [_name release];
+        _name = [name copy];
+        if (_name != nil)
+            [sSounds setObject: self forKey: _name];
+    }
+    return YES;
+}
+
+- (NSString *) name {
+    return _name;
+}
+
+- (id<NSSoundDelegate>) delegate {
+    return _delegate;
+}
+
+- (void) setDelegate: (id<NSSoundDelegate>) delegate {
+    _delegate = delegate;
+}
+
+- (BOOL) isPlaying {
+    return _playing;
+}
+
+- (BOOL) loops {
+    return _loops;
+}
+
+- (void) setLoops: (BOOL) loops {
+    _loops = loops;
+}
+
+- (float) volume {
+    return _volume;
+}
+
+- (void) setVolume: (float) volume {
+    if (volume < 0.0f)
+        volume = 0.0f;
+    else if (volume > 1.0f)
+        volume = 1.0f;
+    _volume = volume;
+}
+
+- (NSTimeInterval) currentTime {
+    return _currentTime;
+}
+
+- (void) setCurrentTime: (NSTimeInterval) currentTime {
+    _currentTime = currentTime < 0 ? 0 : currentTime;
+}
+
+- (NSTimeInterval) duration {
+    // No audio decoder is available, so the length cannot be determined.
+    return 0;
 }
 
 - (BOOL) play {

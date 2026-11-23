@@ -224,6 +224,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _maximumNumberOfLines = maximumNumberOfLines;
 }
 
+- (NSSize) size {
+    return [self containerSize];
+}
+
+- (void) setSize: (NSSize) size {
+    [self setContainerSize: size];
+}
+
+- (NSUInteger) lineBreakMode {
+    // Zero is NSLineBreakByWordWrapping, the SDK default
+    return _lineBreakModeValue;
+}
+
+- (void) setLineBreakMode: (NSUInteger) lineBreakMode {
+    _lineBreakModeValue = lineBreakMode;
+}
+
 - (BOOL) isSimpleRectangularTextContainer {
     return YES;
 }

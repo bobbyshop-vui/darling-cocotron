@@ -18,15 +18,40 @@
 */
 
 #import <AppKit/AppKitExport.h>
-#import <Foundation/NSObject.h>
+#import <Foundation/Foundation.h>
+#import <Foundation/NSGeometry.h>
+
+@protocol NSPasteboardWriting;
 
 typedef NSString *NSDraggingImageComponentKey;
 
 APPKIT_EXPORT NSDraggingImageComponentKey const NSDraggingImageComponentIconKey;
 APPKIT_EXPORT NSDraggingImageComponentKey const NSDraggingImageComponentLabelKey;
 
-@interface NSDraggingImageComponent : NSObject
+@interface NSDraggingImageComponent : NSObject {
+    NSDraggingImageComponentKey _key;
+    id _contents;
+    NSRect _frame;
+}
+- (instancetype)initWithKey:(NSDraggingImageComponentKey)key;
+- (NSDraggingImageComponentKey)key;
+- (void)setKey:(NSDraggingImageComponentKey)key;
+- (id)contents;
+- (void)setContents:(id)contents;
+- (NSRect)frame;
+- (void)setFrame:(NSRect)frame;
 @end
 
-@interface NSDraggingItem : NSObject
+@interface NSDraggingItem : NSObject {
+    id _item;
+    NSRect _draggingFrame;
+    NSArray *_imageComponents;
+    NSArray *(^_imageComponentsProvider)(void);
+}
+- (instancetype)initWithPasteboardWriter:(id<NSPasteboardWriting>)pasteboardWriter;
+- (id)item;
+- (NSRect)draggingFrame;
+- (void)setDraggingFrame:(NSRect)frame;
+- (void)setDraggingFrame:(NSRect)frame contents:(id)contents;
+- (NSArray *)imageComponents;
 @end

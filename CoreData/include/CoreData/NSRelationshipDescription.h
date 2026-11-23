@@ -34,6 +34,7 @@ typedef enum {
     NSUInteger _minCount;
     NSString *_destinationEntityName;
     NSString *_inverseRelationshipName;
+    BOOL _relationshipOrdered;
 }
 
 - (BOOL) isToMany;
@@ -48,5 +49,8 @@ typedef enum {
 - (void) setDeleteRule: (NSDeleteRule) value;
 - (void) setDestinationEntity: (NSEntityDescription *) value;
 - (void) setInverseRelationship: (NSRelationshipDescription *) value;
+
+- (BOOL) isOrdered;
+- (void) setOrdered: (BOOL) ordered;
 
 @end

@@ -49,6 +49,7 @@ typedef enum {
 - initWithFormat: (NSOpenGLPixelFormat *) pixelFormat
         shareContext: (NSOpenGLContext *) shareContext;
 
+- (NSOpenGLPixelFormat *) pixelFormat;
 - (NSView *) view;
 - (NSOpenGLPixelBuffer *) pixelBuffer;
 - (unsigned long) pixelBufferCubeMapFace;

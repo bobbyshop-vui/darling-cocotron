@@ -23,6 +23,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @interface NSPropertyDescription : NSObject <NSCoding, NSCopying> {
     NSEntityDescription *_entity;
     NSString *_propertyName;
+    BOOL _propertyIndexed;
+    NSString *_propertyVersionHashModifier;
 }
 
 - (NSEntityDescription *) entity;
@@ -40,5 +42,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) setUserInfo: (NSDictionary *) value;
 - (void) setValidationPredicates: (NSArray *) predicates
           withValidationWarnings: (NSArray *) warnings;
+
+- (BOOL) isIndexed;
+- (void) setIndexed: (BOOL) indexed;
+- (NSString *) versionHashModifier;
+- (void) setVersionHashModifier: (NSString *) modifier;
 
 @end

@@ -28,6 +28,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return self;
 }
 
+- (instancetype) initWithSize: (NSSize) size
+                      flipped: (BOOL) drawingHandlerShouldBeCalledWithFlippedContext
+               drawingHandler: (BOOL (^)(NSRect dstRect)) drawingHandler
+{
+    if ((self = [super init])) {
+        [self setSize: size];
+        _flipped = drawingHandlerShouldBeCalledWithFlippedContext;
+        _drawingHandler = [drawingHandler copy];
+    }
+    return self;
+}
+
+- (BOOL (^)(NSRect)) drawingHandler {
+    return _drawingHandler;
+}
+
+- (void) dealloc {
+    [_drawingHandler release];
+    [super dealloc];
+}
+
 - (SEL) drawSelector {
     return _drawSelector;
 }
@@ -37,6 +58,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (BOOL) draw {
+    if (_drawingHandler != nil) {
+        NSRect rect = NSMakeRect(0, 0, [self size].width, [self size].height);
+        return _drawingHandler(rect);
+    }
     [_delegate performSelector: _drawSelector withObject: self];
     return YES;
 }

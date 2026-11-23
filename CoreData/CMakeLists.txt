@@ -43,6 +43,24 @@ set(CoreData_sources
     NSMappingModel.m
     NSPersistentStoreCoordinator.m
     NSPersistentStore.m
+    NSAsynchronousFetchRequest.m
+    NSBatchDeleteRequest.m
+    NSBatchUpdateRequest.m
+    NSConstraintConflict.m
+    NSCoreDataCoreSpotlightDelegate.m
+    NSExpressionDescription.m
+    NSFetchIndexDescription.m
+    NSFetchIndexElementDescription.m
+    NSFetchedResultsController.m
+    NSIncrementalStoreNode.m
+    NSMigrationManager.m
+    NSPersistentContainer.m
+    NSPersistentHistoryChangeRequest.m
+    NSPersistentHistoryToken.m
+    NSPersistentHistoryTransaction.m
+    NSPersistentStoreDescription.m
+    NSPersistentStoreRequest.m
+    NSPersistentStoreResult.m
     NSPropertyDescription.m
     NSPropertyMapping.m
     NSRelationshipDescription.m

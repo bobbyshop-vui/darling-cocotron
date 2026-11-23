@@ -21,6 +21,17 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/NSGestureRecognizer.h>
 
-@interface NSPressGestureRecognizer : NSGestureRecognizer <NSCoding>
+@interface NSPressGestureRecognizer : NSGestureRecognizer <NSCoding> {
+    NSTimeInterval _minimumPressDuration;
+    CGFloat _allowableMovement;
+    NSInteger _numberOfTouchesRequired;
+}
+
+- (NSTimeInterval) minimumPressDuration;
+- (void) setMinimumPressDuration: (NSTimeInterval) value;
+- (CGFloat) allowableMovement;
+- (void) setAllowableMovement: (CGFloat) value;
+- (NSInteger) numberOfTouchesRequired;
+- (void) setNumberOfTouchesRequired: (NSInteger) value;
 
 @end

@@ -18,17 +18,106 @@
 */
 
 #import <AppKit/NSTableRowView.h>
+#import <AppKit/NSColor.h>
+#import <AppKit/NSGraphics.h>
 
 @implementation NSTableRowView
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (void) dealloc {
+    [_rowBackgroundColor release];
+    [super dealloc];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (NSColor *) backgroundColor {
+    return _rowBackgroundColor;
+}
+
+- (void) setBackgroundColor: (NSColor *) color {
+    color = [color copy];
+    [_rowBackgroundColor release];
+    _rowBackgroundColor = color;
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) isSelected {
+    return _rowSelected;
+}
+
+- (void) setSelected: (BOOL) flag {
+    _rowSelected = flag;
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) isEmphasized {
+    return _rowEmphasized;
+}
+
+- (void) setEmphasized: (BOOL) flag {
+    _rowEmphasized = flag;
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) isGroupRowStyle {
+    return _rowGroupRowStyle;
+}
+
+- (void) setGroupRowStyle: (BOOL) flag {
+    _rowGroupRowStyle = flag;
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) isFloating {
+    return _rowFloating;
+}
+
+- (void) setFloating: (BOOL) flag {
+    _rowFloating = flag;
+    [self setNeedsDisplay: YES];
+}
+
+- (void) setDraggingDestinationFeedbackStyle:
+        (NSTableViewDraggingDestinationFeedbackStyle) style {
+    _rowDraggingFeedbackStyle = style;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSTableViewDraggingDestinationFeedbackStyle) draggingDestinationFeedbackStyle {
+    return _rowDraggingFeedbackStyle;
+}
+
+- (NSBackgroundStyle) interiorBackgroundStyle {
+    if (_rowSelected && _rowEmphasized)
+        return NSBackgroundStyleDark;
+    return NSBackgroundStyleLight;
+}
+
+// One subview per column.
+- (NSInteger) numberOfColumns {
+    return [[self subviews] count];
+}
+
+- (void) drawSelectionInRect: (NSRect) dirtyRect {
+    if (!_rowSelected)
+        return;
+    if (_rowEmphasized)
+        [[NSColor selectedControlColor] setFill];
+    else
+        [[NSColor secondarySelectedControlColor] setFill];
+    NSRectFill(NSIntersectionRect(dirtyRect, [self bounds]));
+}
+
+- (void) drawSeparatorInRect: (NSRect) dirtyRect {
+    NSRect bounds = [self bounds];
+    NSRect line = bounds;
+
+    line.size.height = 1;
+    if ([self isFlipped])
+        line.origin.y = NSMaxY(bounds) - 1;
+    line = NSIntersectionRect(line, dirtyRect);
+    if (NSIsEmptyRect(line))
+        return;
+    [[NSColor separatorColor] setFill];
+    NSRectFill(line);
 }
 
 @end

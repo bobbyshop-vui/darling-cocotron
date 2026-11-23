@@ -22,6 +22,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSImageRep.h>
 #import <ApplicationServices/ApplicationServices.h>
 
+@class CIImage;
+
 typedef enum {
     NSTIFFFileType,
     NSBMPFileType,
@@ -125,6 +127,9 @@ APPKIT_EXPORT NSBitmapImageRepPropertyKey NSImageCurrentFrame;
 - initWithData: (NSData *) data;
 - initWithContentsOfFile: (NSString *) path;
 - initWithCGImage: (CGImageRef) cgImage;
+- (instancetype) initWithCIImage: (CIImage *) ciImage;
+
+- (NSColorSpace *) colorSpace;
 
 - (int) incrementalLoadFromData: (NSData *) data complete: (BOOL) complete;
 

@@ -56,4 +56,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _isSelected = value;
 }
 
+- (NSImageView *) imageView {
+    return _imageView;
+}
+
+- (void) setImageView: (NSImageView *) value {
+    _imageView = value;
+}
+
+- (NSTextField *) textField {
+    return _textField;
+}
+
+- (void) setTextField: (NSTextField *) value {
+    _textField = value;
+}
+
+- (void) _setCollectionView: (NSCollectionView *) value {
+    _collectionView = value;
+}
+
 @end

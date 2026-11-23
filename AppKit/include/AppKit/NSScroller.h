@@ -54,6 +54,12 @@ typedef NS_ENUM(NSInteger, NSScrollerStyle) {
 
 typedef NSUInteger NSUsableScrollerParts;
 
+typedef NS_ENUM(NSInteger, NSScrollerKnobStyle) {
+    NSScrollerKnobStyleDefault = 0,
+    NSScrollerKnobStyleDark = 1,
+    NSScrollerKnobStyleLight = 2
+};
+
 @interface NSScroller : NSControl {
     id _target;
     SEL _action;
@@ -72,9 +78,14 @@ typedef NSUInteger NSUsableScrollerParts;
     BOOL _isHighlighted;
 
     NSScrollerStyle _scrollerStyle;
+    NSScrollerKnobStyle _knobStyle;
+    NSControlTint _controlTint;
 }
 
 + (CGFloat) scrollerWidth;
++ (CGFloat) scrollerWidthForControlSize: (NSControlSize) controlSize
+                          scrollerStyle: (NSScrollerStyle) scrollerStyle;
++ (BOOL) isCompatibleWithOverlayScrollers;
 
 - (CGFloat) knobProportion;
 - (NSScrollArrowPosition) arrowsPosition;
@@ -87,6 +98,11 @@ typedef NSUInteger NSUsableScrollerParts;
 - (void) setArrowsPosition: (NSScrollArrowPosition) position;
 - (void) setControlSize: (NSControlSize) value;
 - (void) setScrollerStyle: (NSScrollerStyle) style;
+- (void) setKnobProportion: (CGFloat) proportion;
+- (NSScrollerKnobStyle) knobStyle;
+- (void) setKnobStyle: (NSScrollerKnobStyle) style;
+- (NSControlTint) controlTint;
+- (void) setControlTint: (NSControlTint) tint;
 
 - (NSRect) rectForPart: (NSScrollerPart) part;
 - (void) checkSpaceForParts;

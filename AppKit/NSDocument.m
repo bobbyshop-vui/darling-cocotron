@@ -177,6 +177,7 @@ static int untitled_document_number = 0;
     [_printInfo release];
     [_undoManager release];
     [_activeEditors release];
+    [_displayName release];
 
     [super dealloc];
 }
@@ -374,6 +375,8 @@ static int untitled_document_number = 0;
 }
 
 - (NSString *) displayName {
+    if (_displayName != nil)
+        return _displayName;
     if (_fileURL == nil) {
         NSString *untitledName = NSLocalizedStringFromTableInBundle(
                 @"Untitled", nil, [NSBundle bundleForClass: [NSDocument class]],
@@ -1524,6 +1527,240 @@ static int untitled_document_number = 0;
                           completionHandler: (void (^)(NSError *errorOrNil)) completionHandler
 {
     NSUnimplementedMethod();
+}
+
++ (BOOL) autosavesInPlace {
+    return NO;
+}
+
++ (BOOL) preservesVersions {
+    return [self autosavesInPlace];
+}
+
++ (BOOL) autosavesDrafts {
+    return YES;
+}
+
+- (BOOL) autosavingIsImplicitlyCancellable {
+    return [[self class] autosavesInPlace];
+}
+
+- (NSURL *) backupFileURL {
+    NSURL *url = [self fileURL];
+
+    if (url == nil || ![url isFileURL])
+        return nil;
+    if (![[self class] preservesVersions] && ![self keepBackupFile])
+        return nil;
+
+    NSString *path = [url path];
+    NSString *name = [[path lastPathComponent] stringByAppendingString: @"~"];
+    return [NSURL fileURLWithPath: [[path stringByDeletingLastPathComponent]
+                                          stringByAppendingPathComponent: name]];
+}
+
+- (id) changeCountTokenForSaveOperation: (NSSaveOperationType) saveOperation {
+    return [NSNumber numberWithInt: _changeCount];
+}
+
+- (void) updateChangeCountWithToken: (id) changeCountToken
+                   forSaveOperation: (NSSaveOperationType) saveOperation
+{
+    // Saving to a different place or autosaving elsewhere does not change
+    // whether the document's own file is up to date.
+    if (saveOperation == NSSaveToOperation ||
+        saveOperation == NSAutosaveElsewhereOperation ||
+        saveOperation == NSAutosaveAsOperation) {
+        [self scheduleAutosaving];
+        return;
+    }
+
+    int saved = [changeCountToken respondsToSelector: @selector(intValue)]
+                        ? [changeCountToken intValue]
+                        : _changeCount;
+
+    if (saved == _changeCount) {
+        [self updateChangeCount: NSChangeCleared];
+    } else {
+        // Changes were made while the save was in progress.
+        _changeCount -= saved;
+        BOOL edited = [self isDocumentEdited];
+        for (NSWindowController *controller in _windowControllers)
+            [controller setDocumentEdited: edited];
+    }
+    [self scheduleAutosaving];
+}
+
+- (void) continueActivityUsingBlock: (void (^)(void)) block {
+    if (block != nil)
+        block();
+}
+
+- (void) _runBlockOnMainThread: (void (^)(void)) block {
+    block();
+}
+
+- (void) continueAsynchronousWorkOnMainThreadUsingBlock: (void (^)(void)) block {
+    if (block == nil)
+        return;
+    if ([NSThread isMainThread])
+        block();
+    else
+        [self performSelectorOnMainThread: @selector(_runBlockOnMainThread:)
+                               withObject: [[block copy] autorelease]
+                            waitUntilDone: NO];
+}
+
+- (void) performAsynchronousFileAccessUsingBlock:
+        (void (^)(void (^fileAccessCompletionHandler)(void))) block
+{
+    // File access is not serialized here, so completing is immediate.
+    if (block != nil)
+        block(^{
+        });
+}
+
+- (NSDocument *) duplicateAndReturnError: (NSError **) outError {
+    NSDocument *copy = [[[[self class] alloc] initWithType: [self fileType]
+                                                     error: outError] autorelease];
+    if (copy == nil)
+        return nil;
+
+    NSData *data = [self dataOfType: [self fileType] error: outError];
+    if (data == nil)
+        return nil;
+    if (![copy readFromData: data ofType: [self fileType] error: outError])
+        return nil;
+
+    [copy setFileType: [self fileType]];
+    [copy setFileURL: nil];
+    [copy setFileModificationDate: nil];
+    [copy setPrintInfo: _printInfo];
+
+    NSDocumentController *controller = [NSDocumentController sharedDocumentController];
+    if (![[controller documents] containsObject: copy])
+        [controller addDocument: copy];
+    [copy makeWindowControllers];
+    [copy showWindows];
+    return copy;
+}
+
+- (void) encodeRestorableStateWithCoder: (NSCoder *) coder {
+    if (_displayName != nil)
+        [coder encodeObject: _displayName forKey: @"NSDocumentDisplayName"];
+}
+
+- (void) restoreStateWithCoder: (NSCoder *) coder {
+    if ([coder containsValueForKey: @"NSDocumentDisplayName"])
+        [self setDisplayName: [coder decodeObjectForKey: @"NSDocumentDisplayName"]];
+}
+
+- (void) invalidateRestorableState {
+    for (NSWindowController *controller in _windowControllers) {
+        NSWindow *window = [controller window];
+        if (window != nil)
+            [window invalidateRestorableState];
+    }
+}
+
+- (void) restoreDocumentWindowWithIdentifier: (NSString *) identifier
+                                       state: (NSCoder *) state
+                           completionHandler: (void (^)(NSWindow *window,
+                                                        NSError *error)) completionHandler
+{
+    NSWindow *found = nil;
+
+    if ([_windowControllers count] == 0)
+        [self makeWindowControllers];
+
+    for (NSWindowController *controller in _windowControllers) {
+        NSWindow *window = [controller window];
+        if (window == nil)
+            continue;
+        if (found == nil)
+            found = window;
+        if ([window respondsToSelector: @selector(identifier)] &&
+            [identifier isEqual: [window performSelector: @selector(identifier)]]) {
+            found = window;
+            break;
+        }
+    }
+
+    if (completionHandler == nil)
+        return;
+    if (found != nil) {
+        [self restoreStateWithCoder: state];
+        completionHandler(found, nil);
+    } else {
+        completionHandler(nil, [NSError errorWithDomain: NSCocoaErrorDomain
+                                                   code: NSFileNoSuchFileError
+                                               userInfo: nil]);
+    }
+}
+
+- (NSString *) fileNameExtensionForType: (NSString *) typeName
+                          saveOperation: (NSSaveOperationType) saveOperation
+{
+    if (typeName == nil)
+        return nil;
+    return [[[NSDocumentController sharedDocumentController]
+            fileExtensionsFromType: typeName] firstObject];
+}
+
+- (id) handleCloseScriptCommand: (id) command {
+    // Scripting is not available; closing discards the document like the
+    // "no" save option.
+    [self close];
+    return nil;
+}
+
+- (id) objectSpecifier {
+    // No scripting support, so there is nothing to specify the document with.
+    return nil;
+}
+
+- (BOOL) isLocked {
+    return _locked;
+}
+
+- (void) moveDocument: (id) sender {
+    NSURL *source = [self fileURL];
+
+    if (source == nil || ![source isFileURL]) {
+        [self saveDocumentAs: sender];
+        return;
+    }
+
+    NSSavePanel *panel = [NSSavePanel savePanel];
+    NSInteger result = [panel runModalForDirectory: [[source path] stringByDeletingLastPathComponent]
+                                              file: [[source path] lastPathComponent]];
+    if (result == 0 || [panel URL] == nil)
+        return;
+
+    NSError *error = nil;
+    if ([[NSFileManager defaultManager] moveItemAtURL: source
+                                                toURL: [panel URL]
+                                                error: &error]) {
+        [self setFileURL: [panel URL]];
+        [self _updateFileModificationDate];
+    } else {
+        [self presentError: error];
+    }
+}
+
+- (void) scheduleAutosaving {
+    // Periodic crash-protection autosaving is not performed: documents are
+    // only autosaved by an explicit autosaveDocumentWithDelegate: request.
+}
+
+- (void) setDisplayName: (NSString *) displayNameOrNil {
+    displayNameOrNil = [displayNameOrNil copy];
+    [self willChangeValueForKey: @"displayName"];
+    [_displayName release];
+    _displayName = displayNameOrNil;
+    [self didChangeValueForKey: @"displayName"];
+    for (NSWindowController *controller in _windowControllers)
+        [controller synchronizeWindowTitleWithDocumentName];
 }
 
 @end

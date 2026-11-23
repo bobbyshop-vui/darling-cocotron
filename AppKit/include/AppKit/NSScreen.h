@@ -24,6 +24,8 @@ extern NSNotificationName const NSScreenColorSpaceDidChangeNotification;
 
 typedef NSString *NSDeviceDescriptionKey;
 
+@class NSColorSpace;
+
 @interface NSScreen : NSObject {
     NSWindowDepth _depth;
     NSRect _frame;
@@ -36,6 +38,7 @@ typedef NSString *NSDeviceDescriptionKey;
 @property(readonly, copy) NSDictionary<NSDeviceDescriptionKey, id> *deviceDescription;
 
 + (NSScreen *) mainScreen;
++ (NSScreen *) deepestScreen;
 
 + (NSArray *) screens;
 
@@ -46,6 +49,13 @@ typedef NSString *NSDeviceDescriptionKey;
 - (NSRect) visibleFrame;
 
 - (CGFloat) userSpaceScaleFactor;
+
+- (CGFloat) backingScaleFactor;
+- (NSColorSpace *) colorSpace;
+- (BOOL) canRepresentDisplayGamut: (NSInteger) displayGamut;
+- (NSRect) convertRectToBacking: (NSRect) rect;
+- (NSRect) convertRectFromBacking: (NSRect) rect;
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options;
 
 @end
 

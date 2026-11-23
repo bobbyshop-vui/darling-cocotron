@@ -19,6 +19,22 @@
 
 #import <Foundation/NSExpression.h>
 
-@interface NSFetchRequestExpression : NSExpression
+#ifndef NSFetchRequestExpressionType
+static const NSExpressionType NSFetchRequestExpressionType = (NSExpressionType) 50;
+#endif
+
+@interface NSFetchRequestExpression : NSExpression {
+    NSExpression *_fetchRequest;
+    NSExpression *_managedObjectContext;
+    BOOL _isCountOnly;
+}
+
++ (NSExpression *) expressionForFetch: (NSExpression *) fetch
+                              context: (NSExpression *) context
+                            countOnly: (BOOL) countFlag;
+
+@property (readonly, strong) NSExpression *requestExpression;
+@property (readonly, strong) NSExpression *contextExpression;
+@property (getter=isCountOnlyRequest, readonly) BOOL countOnlyRequest;
 
 @end

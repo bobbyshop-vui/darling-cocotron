@@ -22,6 +22,10 @@
 
 @interface NSAccessibilityElement : NSObject <NSAccessibility> {
     BOOL _isAccessible;
+    NSRect _accessibilityFrameInParentSpace;
 }
+
+- (NSRect) accessibilityFrameInParentSpace;
+- (void) setAccessibilityFrameInParentSpace: (NSRect) frame;
 
 @end

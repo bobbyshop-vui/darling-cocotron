@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSBitmapImageRep.h>
 #import <AppKit/NSGraphics.h>
 
-@class NSImageRep;
+@class NSImageRep, NSGraphicsContext;
 
 typedef enum {
     NSImageCacheDefault,
@@ -28,6 +28,11 @@ typedef enum {
     NSImageCacheBySize,
     NSImageCacheNever,
 } NSImageCacheMode;
+
+typedef enum {
+    NSImageResizingModeStretch,
+    NSImageResizingModeTile,
+} NSImageResizingMode;
 
 @interface NSImage : NSObject <NSCopying, NSCoding> {
     NSString *_name;
@@ -46,7 +51,34 @@ typedef enum {
     BOOL _isDataRetained;
     BOOL _cacheIsValid;
     NSImageCacheMode _cacheMode;
+    NSRect _alignmentRect;
+    BOOL _hasAlignmentRect;
+    NSEdgeInsets _capInsets;
+    NSImageResizingMode _resizingMode;
+    CGImageRef _proposedCGImage;
 }
+
++ (NSArray *) imageTypes;
++ (instancetype) imageWithSize: (NSSize) size
+                       flipped: (BOOL) flipped
+                drawingHandler: (BOOL (^)(NSRect dstRect)) drawingHandler;
+
+- (NSRect) alignmentRect;
+- (void) setAlignmentRect: (NSRect) rect;
+- (NSEdgeInsets) capInsets;
+- (void) setCapInsets: (NSEdgeInsets) insets;
+- (NSImageResizingMode) resizingMode;
+- (void) setResizingMode: (NSImageResizingMode) mode;
+- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
+                              context: (NSGraphicsContext *) context
+                                hints: (NSDictionary *) hints;
+- (NSImageRep *) bestRepresentationForRect: (NSRect) rect
+                                   context: (NSGraphicsContext *) context
+                                     hints: (NSDictionary *) hints;
+- (CGFloat) recommendedLayerContentsScale: (CGFloat) preferredContentsScale;
+- (id) layerContentsForContentsScale: (CGFloat) layerContentsScale;
+- (void) lockFocusFlipped: (BOOL) flipped;
+- (void) drawInRect: (NSRect) rect;
 
 + (NSArray *) imageFileTypes;
 + (NSArray *) imageUnfilteredFileTypes;

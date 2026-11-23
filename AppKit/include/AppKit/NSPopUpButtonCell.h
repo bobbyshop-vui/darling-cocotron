@@ -28,11 +28,12 @@ typedef enum {
 } NSPopUpArrowPosition;
 
 @interface NSPopUpButtonCell : NSMenuItemCell {
-    NSMenu *_menu;
+    NSMenu *_popUpMenu;
     NSInteger _selectedIndex;
     BOOL _pullsDown;
     BOOL _autoenablesItems;
     BOOL _usesItemFromMenu;
+    BOOL _altersStateOfSelectedItem;
     NSPopUpArrowPosition _arrowPosition;
     NSRectEdge _preferredEdge;
     BOOL _syncTitleNeeded;
@@ -87,5 +88,13 @@ typedef enum {
 - (NSArray *) itemTitles;
 
 - (void) synchronizeTitleAndSelectedItem;
+
+- (BOOL) usesItemFromMenu;
+- (void) setUsesItemFromMenu: (BOOL) flag;
+- (BOOL) altersStateOfSelectedItem;
+- (void) setAltersStateOfSelectedItem: (BOOL) flag;
+
+- (void) attachPopUpWithFrame: (NSRect) cellFrame inView: (NSView *) controlView;
+- (void) performClickWithFrame: (NSRect) frame inView: (NSView *) controlView;
 
 @end

@@ -18,11 +18,15 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSControl.h>
+#import <AppKit/NSTextFieldCell.h>
 
 @interface NSTextField : NSControl {
     id _delegate;
     SEL _errorAction;
     CGFloat _preferredMaxLayoutWidth;
+    BOOL _darlingAllowsDefaultTightening;
+    BOOL _darlingAutomaticTextCompletion;
+    BOOL _darlingAllowsCharacterPicker;
 }
 
 @property CGFloat preferredMaxLayoutWidth;
@@ -51,6 +55,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) setNextText: text;
 
 - (void) setTitleWithMnemonic: (NSString *) value;
+
++ (instancetype) labelWithString: (NSString *) stringValue;
++ (instancetype) wrappingLabelWithString: (NSString *) stringValue;
++ (instancetype) textFieldWithString: (NSString *) stringValue;
+
+- (NSTextFieldBezelStyle) bezelStyle;
+- (void) setBezelStyle: (NSTextFieldBezelStyle) style;
+- (BOOL) allowsDefaultTighteningForTruncation;
+- (void) setAllowsDefaultTighteningForTruncation: (BOOL) flag;
+- (BOOL) isAutomaticTextCompletionEnabled;
+- (void) setAutomaticTextCompletionEnabled: (BOOL) flag;
+- (BOOL) allowsCharacterPickerTouchBarItem;
+- (void) setAllowsCharacterPickerTouchBarItem: (BOOL) flag;
+- (BOOL) allowsEditingTextAttributes;
+- (void) setAllowsEditingTextAttributes: (BOOL) flag;
+- (BOOL) importsGraphics;
+- (void) setImportsGraphics: (BOOL) flag;
 
 @end
 

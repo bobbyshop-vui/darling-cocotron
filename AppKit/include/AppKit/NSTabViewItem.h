@@ -19,7 +19,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <Foundation/Foundation.h>
 
-@class NSView, NSColor, NSTabView;
+@class NSView, NSColor, NSTabView, NSImage, NSViewController;
 
 typedef enum { NSSelectedTab, NSBackgroundTab, NSPressedTab } NSTabState;
 
@@ -32,6 +32,9 @@ typedef enum { NSSelectedTab, NSBackgroundTab, NSPressedTab } NSTabState;
     id _initialFirstResponder;
     NSTabState _state;
     NSRect _lastRect;
+    NSImage *_tabItemImage;
+    NSString *_tabItemToolTip;
+    NSViewController *_tabItemViewController;
 }
 
 - initWithIdentifier: identifier;
@@ -44,6 +47,13 @@ typedef enum { NSSelectedTab, NSBackgroundTab, NSPressedTab } NSTabState;
 - (NSTabState) tabState;
 - initialFirstResponder;
 
+- (void) setIdentifier: identifier;
+- (NSImage *) image;
+- (void) setImage: (NSImage *) image;
+- (NSString *) toolTip;
+- (void) setToolTip: (NSString *) toolTip;
+- (NSViewController *) viewController;
+- (void) setViewController: (NSViewController *) viewController;
 - (void) setLabel: (NSString *) label;
 - (void) setView: (NSView *) view;
 - (void) setColor: (NSColor *) color;

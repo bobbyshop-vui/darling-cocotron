@@ -33,8 +33,144 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return [NSButtonCell class];
 }
 
++ (instancetype) buttonWithTitle: (NSString *) title
+                           image: (NSImage *) image
+                          target: (id) target
+                          action: (SEL) action {
+    NSButton *button = [[[self alloc] initWithFrame: NSMakeRect(0, 0, 0, 0)]
+            autorelease];
+    [button setButtonType: NSMomentaryLightButton];
+    [button setBezelStyle: NSRoundedBezelStyle];
+    [button setTitle: title];
+    [button setImage: image];
+    [button setImagePosition: NSImageLeft];
+    [button setTarget: target];
+    [button setAction: action];
+    [button sizeToFit];
+    return button;
+}
+
++ (instancetype) buttonWithTitle: (NSString *) title
+                          target: (id) target
+                          action: (SEL) action {
+    NSButton *button = [[[self alloc] initWithFrame: NSMakeRect(0, 0, 0, 0)]
+            autorelease];
+    [button setButtonType: NSMomentaryLightButton];
+    [button setBezelStyle: NSRoundedBezelStyle];
+    [button setTitle: title];
+    [button setImagePosition: NSNoImage];
+    [button setTarget: target];
+    [button setAction: action];
+    [button sizeToFit];
+    return button;
+}
+
++ (instancetype) buttonWithImage: (NSImage *) image
+                          target: (id) target
+                          action: (SEL) action {
+    NSButton *button = [[[self alloc] initWithFrame: NSMakeRect(0, 0, 0, 0)]
+            autorelease];
+    [button setButtonType: NSMomentaryLightButton];
+    [button setBezelStyle: NSRoundedBezelStyle];
+    [button setTitle: @""];
+    [button setImage: image];
+    [button setImagePosition: NSImageOnly];
+    [button setTarget: target];
+    [button setAction: action];
+    [button sizeToFit];
+    return button;
+}
+
++ (instancetype) checkboxWithTitle: (NSString *) title
+                            target: (id) target
+                            action: (SEL) action {
+    NSButton *button = [[[self alloc] initWithFrame: NSMakeRect(0, 0, 0, 0)]
+            autorelease];
+    [button setButtonType: NSSwitchButton];
+    [button setTitle: title];
+    [button setImagePosition: NSImageLeft];
+    [button setTarget: target];
+    [button setAction: action];
+    [button sizeToFit];
+    return button;
+}
+
+- initWithFrame: (NSRect) frame {
+    if ((self = [super initWithFrame: frame]) != nil) {
+        _maxAcceleratorLevel = 2;
+    }
+    return self;
+}
+
+- (void) dealloc {
+    [_bezelColor release];
+    [_contentTintColor release];
+    [super dealloc];
+}
+
+- (NSColor *) bezelColor {
+    return _bezelColor;
+}
+
+- (void) setBezelColor: (NSColor *) value {
+    value = [value copy];
+    [_bezelColor release];
+    _bezelColor = value;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSColor *) contentTintColor {
+    return _contentTintColor;
+}
+
+- (void) setContentTintColor: (NSColor *) value {
+    value = [value copy];
+    [_contentTintColor release];
+    _contentTintColor = value;
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) imageHugsTitle {
+    return _imageHugsTitle;
+}
+
+- (void) setImageHugsTitle: (BOOL) value {
+    _imageHugsTitle = value;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSImageScaling) imageScaling {
+    return [_cell imageScaling];
+}
+
+- (void) setImageScaling: (NSImageScaling) value {
+    [_cell setImageScaling: value];
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) isSpringLoaded {
+    return _springLoaded;
+}
+
+- (void) setSpringLoaded: (BOOL) value {
+    _springLoaded = value;
+}
+
+- (NSInteger) maxAcceleratorLevel {
+    return _maxAcceleratorLevel;
+}
+
+- (void) setMaxAcceleratorLevel: (NSInteger) value {
+    if (value < 1)
+        value = 1;
+    if (value > 5)
+        value = 5;
+    _maxAcceleratorLevel = value;
+}
+
 - initWithCoder: (NSCoder *) coder {
     [super initWithCoder: coder];
+    _maxAcceleratorLevel = 2;
 
     if ([[self cell] controlSize] == NSMiniControlSize) {
         NSRect frame = [self frame];

@@ -2925,4 +2925,237 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
     _allowsNonContiguousLayout = value;
     NSUnimplementedMethod();
 }
+
+#pragma mark - Additional NSLayoutManager API
+
+- (NSSize) attachmentSizeForGlyphAtIndex: (NSUInteger) glyphIndex {
+    if (glyphIndex >= [_textStorage length])
+        return NSMakeSize(-1, -1);
+
+    NSUInteger charIndex = [self characterIndexForGlyphAtIndex: glyphIndex];
+    NSTextAttachment *attachment =
+            [_textStorage attribute: NSAttachmentAttributeName
+                            atIndex: charIndex
+                     effectiveRange: NULL];
+    if (![attachment isKindOfClass: [NSTextAttachment class]])
+        return NSMakeSize(-1, -1);
+
+    id<NSTextAttachmentCell> cell = [attachment attachmentCell];
+    if (cell == nil)
+        return NSMakeSize(-1, -1);
+    return [cell cellSize];
+}
+
+- (NSUInteger) characterIndexForPoint: (NSPoint) point
+                      inTextContainer: (NSTextContainer *) container
+        fractionOfDistanceBetweenInsertionPoints: (CGFloat *) partialFraction
+{
+    CGFloat fraction = 0;
+    NSUInteger glyphIndex = [self glyphIndexForPoint: point
+                                     inTextContainer: container
+                      fractionOfDistanceThroughGlyph: &fraction];
+    NSUInteger result = [self characterIndexForGlyphAtIndex: glyphIndex];
+
+    if (partialFraction != NULL)
+        *partialFraction = fraction;
+    return result;
+}
+
+- (void) ensureLayoutForGlyphRange: (NSRange) glyphRange {
+    NSUInteger length = [self numberOfGlyphs];
+
+    if (glyphRange.location >= length)
+        return;
+    if (NSMaxRange(glyphRange) > length)
+        glyphRange.length = length - glyphRange.location;
+    [self validateGlyphsAndLayoutForGlyphRange: glyphRange];
+}
+
+- (void) ensureLayoutForCharacterRange: (NSRange) charRange {
+    NSRange glyphRange = [self glyphRangeForCharacterRange: charRange
+                                      actualCharacterRange: NULL];
+    [self ensureLayoutForGlyphRange: glyphRange];
+}
+
+- (void) fillBackgroundRectArray: (const NSRect *) rectArray
+                           count: (NSUInteger) rectCount
+               forCharacterRange: (NSRange) charRange
+                           color: (NSColor *) color
+{
+    if (rectCount == 0 || rectArray == NULL)
+        return;
+
+    [NSGraphicsContext saveGraphicsState];
+    [color set];
+    for (NSUInteger i = 0; i < rectCount; i++)
+        NSRectFill(rectArray[i]);
+    [NSGraphicsContext restoreGraphicsState];
+}
+
+- (NSUInteger) getGlyphsInRange: (NSRange) glyphRange
+                         glyphs: (unsigned short *) glyphBuffer
+                     properties: (NSInteger *) props
+               characterIndexes: (NSUInteger *) charIndexBuffer
+                     bidiLevels: (unsigned char *) bidiLevelBuffer
+{
+    NSUInteger total = [self numberOfGlyphs];
+
+    if (glyphRange.location >= total)
+        return 0;
+    if (NSMaxRange(glyphRange) > total)
+        glyphRange.length = total - glyphRange.location;
+    if (glyphRange.length == 0)
+        return 0;
+
+    NSGlyph *wide = NULL;
+    if (glyphBuffer != NULL)
+        wide = NSZoneMalloc(NULL, sizeof(NSGlyph) * glyphRange.length);
+
+    NSUInteger result = [self getGlyphsInRange: glyphRange
+                                        glyphs: wide
+                              characterIndexes: charIndexBuffer
+                             glyphInscriptions: NULL
+                                   elasticBits: NULL
+                                    bidiLevels: bidiLevelBuffer];
+
+    if (wide != NULL) {
+        for (NSUInteger i = 0; i < result; i++)
+            glyphBuffer[i] = (unsigned short) wide[i];
+        NSZoneFree(NULL, wide);
+    }
+    if (props != NULL) {
+        // No special glyph properties are tracked
+        for (NSUInteger i = 0; i < glyphRange.length; i++)
+            props[i] = 0;
+    }
+    return result;
+}
+
+- (NSGlyph) glyphAtIndex: (NSUInteger) glyphIndex
+            isValidIndex: (BOOL *) isValidIndex
+{
+    BOOL valid = glyphIndex < [self numberOfGlyphs];
+    NSGlyph glyph = 0;
+
+    if (valid) {
+        if ([self getGlyphs: &glyph range: NSMakeRange(glyphIndex, 1)] == 0)
+            glyph = 0;
+    }
+    if (isValidIndex != NULL)
+        *isValidIndex = valid;
+    return glyph;
+}
+
+- (NSGlyph) glyphAtIndex: (NSUInteger) glyphIndex {
+    BOOL valid = NO;
+    NSGlyph glyph = [self glyphAtIndex: glyphIndex isValidIndex: &valid];
+
+    if (!valid)
+        [NSException raise: NSRangeException
+                    format: @"-[%@ %s] glyph index %lu out of range",
+                            [self class], sel_getName(_cmd),
+                            (unsigned long) glyphIndex];
+    return glyph;
+}
+
+- (NSUInteger) glyphIndexForCharacterAtIndex: (NSUInteger) charIndex {
+    // Glyphs map one to one onto characters in this implementation
+    return charIndex;
+}
+
+- (CGFloat) hyphenationFactor {
+    return _lmHyphenationFactor;
+}
+
+- (void) setHyphenationFactor: (CGFloat) factor {
+    _lmHyphenationFactor = factor;
+    [_typesetter setHyphenationFactor: factor];
+}
+
+- (void) insertGlyphs: (const NSGlyph *) glyphs
+                     length: (NSUInteger) length
+        forStartingGlyphAtIndex: (NSUInteger) glyphIndex
+                 characterIndex: (NSUInteger) charIndex
+{
+    for (NSUInteger i = 0; i < length; i++)
+        [self insertGlyph: glyphs[i]
+                  atGlyphIndex: glyphIndex + i
+                characterIndex: charIndex + i];
+}
+
+- (void) invalidateLayoutForCharacterRange: (NSRange) charRange
+                      actualCharacterRange: (NSRangePointer) actualCharRange
+{
+    [self invalidateLayoutForCharacterRange: charRange
+                                     isSoft: NO
+                       actualCharacterRange: actualCharRange];
+}
+
+- (void) setBackgroundLayoutEnabled: (BOOL) flag {
+    _lmBackgroundLayoutDisabled = !flag;
+}
+
+- (BOOL) backgroundLayoutEnabled {
+    return !_lmBackgroundLayoutDisabled;
+}
+
+- (void) setShowsControlCharacters: (BOOL) flag {
+    _lmShowsControlCharacters = flag;
+}
+
+- (BOOL) showsControlCharacters {
+    return _lmShowsControlCharacters;
+}
+
+- (void) setShowsInvisibleCharacters: (BOOL) flag {
+    _lmShowsInvisibleCharacters = flag;
+}
+
+- (BOOL) showsInvisibleCharacters {
+    return _lmShowsInvisibleCharacters;
+}
+
+- (void) setTypesetterBehavior: (NSInteger) behavior {
+    _lmTypesetterBehavior = behavior;
+    _lmTypesetterBehaviorSet = YES;
+}
+
+- (NSInteger) typesetterBehavior {
+    // NSTypesetterLatestBehavior is -1 in the SDK
+    return _lmTypesetterBehaviorSet ? _lmTypesetterBehavior : -1;
+}
+
+- (void) setUsesFontLeading: (BOOL) flag {
+    _lmUsesFontLeadingDisabled = !flag;
+    [_typesetter setUsesFontLeading: flag];
+}
+
+- (BOOL) usesFontLeading {
+    return !_lmUsesFontLeadingDisabled;
+}
+
+- (void) showAttachmentCell: (NSCell *) cell
+                     inRect: (NSRect) rect
+             characterIndex: (NSUInteger) attachmentIndex
+{
+    NSTextView *textView = [self textViewForBeginningOfSelection];
+
+    if ([cell respondsToSelector: @selector
+              (drawWithFrame:inView:characterIndex:layoutManager:)]) {
+        [(id<NSTextAttachmentCell>) cell drawWithFrame: rect
+                                                inView: textView
+                                        characterIndex: attachmentIndex
+                                         layoutManager: self];
+    } else {
+        [cell drawWithFrame: rect inView: textView];
+    }
+}
+
+- (NSRange) truncatedGlyphRangeInLineFragmentForGlyphAtIndex:
+        (NSUInteger) glyphIndex
+{
+    // Line fragments are never truncated by this layout manager
+    return NSMakeRange(NSNotFound, 0);
+}
+
 @end

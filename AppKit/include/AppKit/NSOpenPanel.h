@@ -25,6 +25,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     BOOL _canChooseDirectories;
     BOOL _canChooseFiles;
     BOOL _resolvesAliases;
+    BOOL _accessoryViewDisclosed;
 }
 
 + (NSOpenPanel *) openPanel;
@@ -46,6 +47,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) setCanChooseDirectories: (BOOL) flag;
 - (void) setCanChooseFiles: (BOOL) flag;
 - (void) setResolvesAliases: (BOOL) value;
+
+- (BOOL) isAccessoryViewDisclosed;
+- (void) setAccessoryViewDisclosed: (BOOL) flag;
 
 - (void) beginSheetForDirectory: (NSString *) path
                            file: (NSString *) name

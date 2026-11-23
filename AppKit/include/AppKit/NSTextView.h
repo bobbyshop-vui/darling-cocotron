@@ -147,7 +147,15 @@ APPKIT_EXPORT NSString *const NSAllRomanInputSourcesLocaleIdentifier;
     BOOL _automaticTextReplacementEnabled;
 
     BOOL _usesInspectorBar;
+
+    BOOL _usesFindPanel;
+    BOOL _allowsImageEditing;
+    BOOL _usesRolloverButtonForSelection;
+    BOOL _characterPickerTouchBarItemDisabled; // inverted: default is allowed
+    NSArray *_allowedInputSourceLocales;
 }
+
++ (instancetype) fieldEditor;
 
 - initWithFrame: (NSRect) frame textContainer: (NSTextContainer *) container;
 
@@ -298,6 +306,50 @@ APPKIT_EXPORT NSString *const NSAllRomanInputSourcesLocaleIdentifier;
 - (void) setAutomaticDataDetectionEnabled: (BOOL) value;
 - (void) setAutomaticTextReplacementEnabled: (BOOL) value;
 
+- (NSArray *) acceptableDragTypes;
+- (NSArray *) readablePasteboardTypes;
+- (NSString *) preferredPasteboardTypeFromArray: (NSArray *) availableTypes
+                     restrictedToTypesFromArray: (NSArray *) allowedTypes;
+- (BOOL) readSelectionFromPasteboard: (NSPasteboard *) pboard
+                                type: (NSString *) type;
+- (BOOL) readSelectionFromPasteboard: (NSPasteboard *) pboard;
+- (void) pasteAsPlainText: (id) sender;
+- (BOOL) dragSelectionWithEvent: (NSEvent *) event
+                         offset: (NSSize) mouseOffset
+                      slideBack: (BOOL) slideBack;
+
+- (NSSelectionAffinity) selectionAffinity;
+- (NSSelectionGranularity) selectionGranularity;
+- (void) setSelectionGranularity: (NSSelectionGranularity) granularity;
+
+- (void) setAlignment: (NSTextAlignment) alignment range: (NSRange) range;
+- (void) setBaseWritingDirection: (NSWritingDirection) writingDirection
+                           range: (NSRange) range;
+- (void) turnOffLigatures: (id) sender;
+- (void) changeColor: (id) sender;
+- (void) changeAttributes: (id) sender;
+- (void) orderFrontLinkPanel: (id) sender;
+- (void) performFindPanelAction: (id) sender;
+
+- (void) setNeedsDisplayInRect: (NSRect) rect avoidAdditionalLayout: (BOOL) flag;
+- (void) drawViewBackgroundInRect: (NSRect) rect;
+- (NSUInteger) characterIndexForInsertionAtPoint: (NSPoint) point;
+- (BOOL) shouldChangeTextInRanges: (NSArray *) affectedRanges
+               replacementStrings: (NSArray *) replacementStrings;
+- (void) showFindIndicatorForRange: (NSRange) charRange;
+
+- (BOOL) allowsImageEditing;
+- (void) setAllowsImageEditing: (BOOL) value;
+- (BOOL) usesRolloverButtonForSelection;
+- (void) setUsesRolloverButtonForSelection: (BOOL) value;
+- (NSArray *) allowedInputSourceLocales;
+- (void) setAllowedInputSourceLocales: (NSArray *) locales;
+- (BOOL) usesFindPanel;
+- (void) setUsesFindPanel: (BOOL) value;
+- (BOOL) allowsCharacterPickerTouchBarItem;
+- (void) setAllowsCharacterPickerTouchBarItem: (BOOL) value;
+- (void) updateTouchBarItemIdentifiers;
+
 @end
 
 @interface NSObject (NSTextView_undoManager)
@@ -326,6 +378,10 @@ APPKIT_EXPORT NSString *const NSAllRomanInputSourcesLocaleIdentifier;
 - (BOOL) textView: (NSTextView *) textView
         shouldChangeTextInRange: (NSRange) affectedCharRange
               replacementString: (NSString *) replacementString;
+
+- (BOOL) textView: (NSTextView *) textView
+        shouldChangeTextInRanges: (NSArray *) affectedRanges
+              replacementStrings: (NSArray *) replacementStrings;
 
 @end
 

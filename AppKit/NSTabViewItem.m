@@ -25,6 +25,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSStringDrawing.h>
 #import <AppKit/NSTabView.h>
 #import <AppKit/NSTabViewItem.h>
+#import <AppKit/NSImage.h>
+#import <AppKit/NSViewController.h>
 #import <AppKit/NSView.h>
 #import <Foundation/NSKeyedArchiver.h>
 
@@ -87,6 +89,9 @@ NSString *_NSTruncatedStringWithAttributesInRect(NSString *string,
     [_label release];
     [_view release];
     [_color release];
+    [_tabItemImage release];
+    [_tabItemToolTip release];
+    [_tabItemViewController release];
     [super dealloc];
 }
 
@@ -116,6 +121,59 @@ NSString *_NSTruncatedStringWithAttributesInRect(NSString *string,
 
 - initialFirstResponder {
     return _initialFirstResponder;
+}
+
+- (void) setIdentifier: identifier {
+    identifier = [identifier retain];
+    [_identifier release];
+    _identifier = identifier;
+}
+
+- (NSImage *) image {
+    return _tabItemImage;
+}
+
+- (void) setImage: (NSImage *) image {
+    image = [image retain];
+    [_tabItemImage release];
+    _tabItemImage = image;
+    [_tabView setNeedsDisplay: YES];
+}
+
+- (NSString *) toolTip {
+    return _tabItemToolTip;
+}
+
+- (void) setToolTip: (NSString *) toolTip {
+    toolTip = [toolTip copy];
+    [_tabItemToolTip release];
+    _tabItemToolTip = toolTip;
+}
+
+- (NSViewController *) viewController {
+    return _tabItemViewController;
+}
+
+// Setting a view controller also sets identifier, label, image and view.
+- (void) setViewController: (NSViewController *) viewController {
+    viewController = [viewController retain];
+    [_tabItemViewController release];
+    _tabItemViewController = viewController;
+
+    if (viewController == nil)
+        return;
+
+    [self setIdentifier: viewController];
+    [self setLabel: [viewController title] ? [viewController title] : @""];
+
+    NSString *className = NSStringFromClass([viewController class]);
+    NSImage *image = [NSImage imageNamed:
+                [className stringByAppendingString: @"-TabViewItem"]];
+    if (image == nil)
+        image = [NSImage imageNamed: className];
+    [self setImage: image];
+
+    [self setView: [viewController view]];
 }
 
 - (void) setLabel: (NSString *) label {

@@ -46,6 +46,7 @@ typedef enum {
     Class _cellClass;
     NSMatrixMode _mode;
     BOOL _selectionByRect;
+    BOOL _autorecalculatesCellSize;
     BOOL _allowsEmptySelection;
     BOOL _tabKeyTraversesCells;
     BOOL _isAutoscroll;
@@ -159,6 +160,16 @@ typedef enum {
                    anchor: (NSInteger) anchor
                 highlight: (BOOL) highlight;
 - (void) deselectAllCells;
+
+- (BOOL) autorecalculatesCellSize;
+- (void) setAutorecalculatesCellSize: (BOOL) flag;
+- (BOOL) isSelectionByRect;
+- (void) setSelectionByRect: (BOOL) flag;
+- (void) insertColumn: (NSInteger) column;
+- (void) selectText: (id) sender;
+- (void) sortUsingSelector: (SEL) comparator;
+- (BOOL) textShouldBeginEditing: (NSText *) textObject;
+- (BOOL) textShouldEndEditing: (NSText *) textObject;
 - (void) deselectSelectedCell;
 
 - (void) sizeToCells;

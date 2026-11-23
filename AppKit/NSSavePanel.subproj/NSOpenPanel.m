@@ -38,6 +38,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _canChooseDirectories = NO;
     _canChooseFiles = YES;
     _resolvesAliases = YES;
+    _accessoryViewDisclosed = NO;
     return self;
 }
 
@@ -131,6 +132,14 @@ static NSOpenPanel *_newPanel = nil;
         [self close];
     }
     return res;
+}
+
+- (BOOL) isAccessoryViewDisclosed {
+    return _accessoryViewDisclosed;
+}
+
+- (void) setAccessoryViewDisclosed: (BOOL) flag {
+    _accessoryViewDisclosed = flag;
 }
 
 - (BOOL) allowsMultipleSelection {

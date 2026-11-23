@@ -22,7 +22,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @interface NSMenuView : NSView {
     NSUInteger _selectedItemIndex;
     NSMutableArray *_visibleArray;
+    NSFont *_menuViewFont;
+    BOOL _needsSizing;
 }
+
++ (CGFloat) menuBarHeight;
+
+- (NSFont *) font;
+- (void) setFont: (NSFont *) font;
+- (BOOL) isHorizontal;
+- (NSRect) rectOfItemAtIndex: (NSInteger) index;
+- (void) setNeedsSizing: (BOOL) flag;
+- (void) sizeToFit;
+- (void) update;
+- (BOOL) trackWithEvent: (NSEvent *) event;
 
 - (NSUInteger) itemIndexAtPoint: (NSPoint) point;
 - (NSUInteger) selectedItemIndex;

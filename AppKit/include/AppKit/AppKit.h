@@ -211,3 +211,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWorkspace.h>
 
 #import <ApplicationServices/ApplicationServices.h>
+#import <AppKit/NSAccessibilityCustomAction.h>
+#import <AppKit/NSAccessibilityCustomRotor.h>
+#import <AppKit/NSAccessibilityCustomRotorItemResult.h>
+#import <AppKit/NSDictionaryControllerKeyValuePair.h>
+#import <AppKit/NSFilePromiseReceiver.h>
+#import <AppKit/NSMediaLibraryBrowserController.h>
+#import <AppKit/NSMenuItemCell+XcodeAdditions.h>
+#import <AppKit/NSObject+XcodeAdditions.h>
+#import <AppKit/NSPDFInfo.h>
+#import <AppKit/NSPDFPanel.h>
+#import <AppKit/NSPICTImageRep.h>
+#import <AppKit/NSPredicateEditor.h>
+#import <AppKit/NSPredicateEditorRowTemplate.h>
+#import <AppKit/NSScrubberImageItemView.h>
+#import <AppKit/NSScrubberLayoutAttributes.h>
+#import <AppKit/NSSimpleHorizontalTypesetter.h>
+#import <AppKit/NSStoryboardSegue.h>
+#import <AppKit/NSTouch.h>
+#import <AppKit/NSURL+XcodeAdditions.h>
+#import <AppKit/NSUserInterfaceCompressionOptions.h>
+#import <AppKit/NSWindowTab.h>
+#import <AppKit/NSWindowTabGroup.h>

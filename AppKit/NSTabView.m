@@ -380,6 +380,24 @@ id _NSTabViewFloatingCell = nil;
         [[_selectedItem view] setFrame: [self contentRect]];
 }
 
+- (NSControlSize) controlSize {
+    return _controlSize;
+}
+
+- (void) setControlSize: (NSControlSize) size {
+    _controlSize = size;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSControlTint) controlTint {
+    return _tabViewControlTint;
+}
+
+- (void) setControlTint: (NSControlTint) tint {
+    _tabViewControlTint = tint;
+    [self setNeedsDisplay: YES];
+}
+
 - (void) _itemViewDidChange: (NSTabViewItem *) item {
     if (item == _selectedItem) {
         NSView *itemView = [item view];

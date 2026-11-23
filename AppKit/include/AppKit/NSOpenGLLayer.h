@@ -19,6 +19,31 @@
 
 #import <AppKit/AppKitExport.h>
 #import <QuartzCore/CAOpenGLLayer.h>
+#import <CoreVideo/CVBase.h>
+#import <AppKit/NSOpenGLContext.h>
+#import <AppKit/NSOpenGLPixelFormat.h>
 
-@interface NSOpenGLLayer : CAOpenGLLayer
+@class NSView;
+
+@interface NSOpenGLLayer : CAOpenGLLayer {
+    NSView *_view;
+    NSOpenGLPixelFormat *_openGLPixelFormat;
+    NSOpenGLContext *_openGLContext;
+}
+
+@property (nullable, weak) NSView *view;
+@property (nullable, strong) NSOpenGLPixelFormat *openGLPixelFormat;
+@property (nullable, strong) NSOpenGLContext *openGLContext;
+
+- (NSOpenGLPixelFormat *) openGLPixelFormatForDisplayMask: (uint32_t) mask;
+- (NSOpenGLContext *) openGLContextForPixelFormat: (NSOpenGLPixelFormat *) pixelFormat;
+- (BOOL) canDrawInOpenGLContext: (NSOpenGLContext *) context
+                    pixelFormat: (NSOpenGLPixelFormat *) pixelFormat
+                   forLayerTime: (CFTimeInterval) t
+                    displayTime: (const CVTimeStamp *) ts;
+- (void) drawInOpenGLContext: (NSOpenGLContext *) context
+                 pixelFormat: (NSOpenGLPixelFormat *) pixelFormat
+                forLayerTime: (CFTimeInterval) t
+                 displayTime: (const CVTimeStamp *) ts;
+
 @end

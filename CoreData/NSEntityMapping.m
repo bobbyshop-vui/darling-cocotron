@@ -18,17 +18,134 @@
 */
 
 #include <CoreData/NSEntityMapping.h>
+#import <Foundation/Foundation.h>
 
 @implementation NSEntityMapping
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (void) dealloc {
+    [_name release];
+    [_sourceEntityName release];
+    [_sourceEntityVersionHash release];
+    [_destinationEntityName release];
+    [_destinationEntityVersionHash release];
+    [_attributeMappings release];
+    [_relationshipMappings release];
+    [_sourceExpression release];
+    [_userInfo release];
+    [_entityMigrationPolicyClassName release];
+    [super dealloc];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (NSString *) name {
+    if (_name != nil)
+        return _name;
+    return [NSString stringWithFormat: @"%@->%@",
+                                       _sourceEntityName ? _sourceEntityName : @"",
+                                       _destinationEntityName ? _destinationEntityName : @""];
+}
+
+- (void) setName: (NSString *) value {
+    value = [value copy];
+    [_name release];
+    _name = value;
+}
+
+- (NSString *) sourceEntityName {
+    return _sourceEntityName;
+}
+
+- (void) setSourceEntityName: (NSString *) value {
+    value = [value copy];
+    [_sourceEntityName release];
+    _sourceEntityName = value;
+}
+
+- (NSData *) sourceEntityVersionHash {
+    return _sourceEntityVersionHash;
+}
+
+- (void) setSourceEntityVersionHash: (NSData *) value {
+    value = [value copy];
+    [_sourceEntityVersionHash release];
+    _sourceEntityVersionHash = value;
+}
+
+- (NSString *) destinationEntityName {
+    return _destinationEntityName;
+}
+
+- (void) setDestinationEntityName: (NSString *) value {
+    value = [value copy];
+    [_destinationEntityName release];
+    _destinationEntityName = value;
+}
+
+- (NSData *) destinationEntityVersionHash {
+    return _destinationEntityVersionHash;
+}
+
+- (void) setDestinationEntityVersionHash: (NSData *) value {
+    value = [value copy];
+    [_destinationEntityVersionHash release];
+    _destinationEntityVersionHash = value;
+}
+
+- (NSArray *) attributeMappings {
+    return _attributeMappings;
+}
+
+- (void) setAttributeMappings: (NSArray *) value {
+    value = [value copy];
+    [_attributeMappings release];
+    _attributeMappings = value;
+}
+
+- (NSArray *) relationshipMappings {
+    return _relationshipMappings;
+}
+
+- (void) setRelationshipMappings: (NSArray *) value {
+    value = [value copy];
+    [_relationshipMappings release];
+    _relationshipMappings = value;
+}
+
+- (NSExpression *) sourceExpression {
+    return _sourceExpression;
+}
+
+- (void) setSourceExpression: (NSExpression *) value {
+    value = [value retain];
+    [_sourceExpression release];
+    _sourceExpression = value;
+}
+
+- (NSDictionary *) userInfo {
+    return _userInfo;
+}
+
+- (void) setUserInfo: (NSDictionary *) value {
+    value = [value copy];
+    [_userInfo release];
+    _userInfo = value;
+}
+
+- (NSString *) entityMigrationPolicyClassName {
+    return _entityMigrationPolicyClassName;
+}
+
+- (void) setEntityMigrationPolicyClassName: (NSString *) value {
+    value = [value copy];
+    [_entityMigrationPolicyClassName release];
+    _entityMigrationPolicyClassName = value;
+}
+
+- (NSEntityMappingType) mappingType {
+    return _mappingType;
+}
+
+- (void) setMappingType: (NSEntityMappingType) value {
+    _mappingType = value;
 }
 
 @end

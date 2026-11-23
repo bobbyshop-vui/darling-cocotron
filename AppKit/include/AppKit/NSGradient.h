@@ -27,7 +27,7 @@ typedef enum {
     NSGradientDrawsAfterEndingLocation = (1 << 1),
 } NSGradientDrawingOptions;
 
-@interface NSGradient : NSObject <NSCopying> {
+@interface NSGradient : NSObject <NSCopying, NSCoding> {
     NSColorSpace *_colorSpace;
     NSInteger _numberOfColors;
     NSInteger _numberOfComponents;
@@ -41,6 +41,7 @@ typedef enum {
 - initWithStartingColor: (NSColor *) startingColor
             endingColor: (NSColor *) endingColor;
 - initWithColors: (NSArray *) colors;
+- (instancetype) initWithCoder: (NSCoder *) coder;
 - initWithColorsAndLocations: (NSColor *) firstColor, ...;
 
 - (void) drawFromPoint: (NSPoint) startingPoint

@@ -19,5 +19,35 @@
 
 #import <AppKit/NSTouchBarItem.h>
 
-@interface NSPopoverTouchBarItem : NSTouchBarItem
+@class NSTouchBar, NSGestureRecognizer;
+
+@interface NSPopoverTouchBarItem : NSTouchBarItem {
+    NSTouchBar *_popoverTouchBar;
+    NSTouchBar *_pressAndHoldTouchBar;
+    NSString *_popoverCustomizationLabel;
+    NSView *_collapsedRepresentation;
+    NSImage *_collapsedRepresentationImage;
+    NSString *_collapsedRepresentationLabel;
+    BOOL _showsCloseButton;
+    BOOL _popoverShown;
+}
+
+- (NSTouchBar *) popoverTouchBar;
+- (void) setPopoverTouchBar: (NSTouchBar *) touchBar;
+- (NSTouchBar *) pressAndHoldTouchBar;
+- (void) setPressAndHoldTouchBar: (NSTouchBar *) touchBar;
+- (NSString *) customizationLabel;
+- (void) setCustomizationLabel: (NSString *) label;
+- (NSView *) collapsedRepresentation;
+- (void) setCollapsedRepresentation: (NSView *) view;
+- (NSImage *) collapsedRepresentationImage;
+- (void) setCollapsedRepresentationImage: (NSImage *) image;
+- (NSString *) collapsedRepresentationLabel;
+- (void) setCollapsedRepresentationLabel: (NSString *) label;
+- (BOOL) showsCloseButton;
+- (void) setShowsCloseButton: (BOOL) flag;
+- (void) showPopover: (id) sender;
+- (void) dismissPopover: (id) sender;
+- (NSGestureRecognizer *) makeStandardActivatePopoverGestureRecognizer;
+
 @end

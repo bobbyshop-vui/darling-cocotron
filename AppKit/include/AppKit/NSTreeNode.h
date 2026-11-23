@@ -18,6 +18,27 @@
 */
 
 #import <Foundation/NSObject.h>
+#import <Foundation/NSArray.h>
 
-@interface NSTreeNode : NSObject
+@class NSIndexPath, NSSortDescriptor;
+
+@interface NSTreeNode : NSObject {
+    id _tnRepresentedObject;
+    NSMutableArray *_tnChildNodes;
+    NSMutableArray *_tnChildNodesProxy;
+    NSTreeNode *_tnParentNode;
+}
+
++ (instancetype) treeNodeWithRepresentedObject: (id) modelObject;
+- (instancetype) initWithRepresentedObject: (id) modelObject;
+- (id) representedObject;
+- (NSIndexPath *) indexPath;
+- (BOOL) isLeaf;
+- (NSArray *) childNodes;
+- (NSMutableArray *) mutableChildNodes;
+- (NSTreeNode *) descendantNodeAtIndexPath: (NSIndexPath *) indexPath;
+- (NSTreeNode *) parentNode;
+- (void) sortWithSortDescriptors: (NSArray *) sortDescriptors
+                     recursively: (BOOL) recursively;
+
 @end

@@ -19,6 +19,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSBitmapImageRep.h>
 #import <AppKit/NSGraphicsContextFunctions.h>
+#import <AppKit/NSGraphicsContext.h>
 #import <AppKit/NSImageRep.h>
 #import <AppKit/NSPDFImageRep.h>
 #import <AppKit/NSPasteboard.h>
@@ -49,6 +50,26 @@ static NSMutableArray *_registeredClasses = nil;
 
 + (void) unregisterImageRepClass: (Class) class {
     [_registeredClasses removeObjectIdenticalTo: class];
+}
+
++ (NSArray *) imageTypes {
+    NSMutableArray *result = [NSMutableArray array];
+
+    for (NSString *type in [self imageFileTypes])
+        if (![result containsObject: type])
+            [result addObject: type];
+    for (NSString *type in [self imagePasteboardTypes])
+        if (![result containsObject: type])
+            [result addObject: type];
+    return result;
+}
+
++ (Class) imageRepClassForType: (NSString *) type {
+    Class result = [self imageRepClassForFileType: type];
+
+    if (result == Nil)
+        result = [self imageRepClassForPasteboardType: type];
+    return result;
 }
 
 + (NSArray *) imageFileTypes {
@@ -258,6 +279,7 @@ static NSMutableArray *_registeredClasses = nil;
 - copyWithZone: (NSZone *) zone {
     NSImageRep *result = NSCopyObject(self, 0, zone);
     result->_colorSpaceName = [_colorSpaceName copy];
+    result->_proposedCGImage = NULL;
     return result;
 }
 
@@ -349,6 +371,90 @@ static NSMutableArray *_registeredClasses = nil;
     CGContextRestoreGState(context);
 
     return result;
+}
+
+- (void) dealloc {
+    CGImageRelease(_proposedCGImage);
+    [super dealloc];
+}
+
+- (NSImageLayoutDirection) layoutDirection {
+    return _layoutDirection;
+}
+
+- (void) setLayoutDirection: (NSImageLayoutDirection) direction {
+    _layoutDirection = direction;
+}
+
+- (BOOL) drawInRect: (NSRect) dstRect
+              fromRect: (NSRect) srcRect
+             operation: (NSCompositingOperation) op
+              fraction: (CGFloat) alpha
+        respectFlipped: (BOOL) respectFlipped
+                 hints: (NSDictionary *) hints
+{
+    CGContextRef context = NSCurrentGraphicsPort();
+    NSSize size = [self size];
+    BOOL result;
+
+    if (NSIsEmptyRect(srcRect))
+        srcRect = NSMakeRect(0, 0, size.width, size.height);
+
+    CGContextSaveGState(context);
+    CGContextSetAlpha(context, alpha);
+    [[NSGraphicsContext currentContext] setCompositingOperation: op];
+    CGContextClipToRect(context, dstRect);
+    if (respectFlipped && [[NSGraphicsContext currentContext] isFlipped]) {
+        CGContextTranslateCTM(context, 0, dstRect.origin.y * 2 + dstRect.size.height);
+        CGContextScaleCTM(context, 1, -1);
+    }
+    CGContextTranslateCTM(
+            context,
+            dstRect.origin.x - srcRect.origin.x * dstRect.size.width /
+                                       srcRect.size.width,
+            dstRect.origin.y - srcRect.origin.y * dstRect.size.height /
+                                       srcRect.size.height);
+    CGContextScaleCTM(context, dstRect.size.width / srcRect.size.width,
+                      dstRect.size.height / srcRect.size.height);
+    result = [self draw];
+    CGContextRestoreGState(context);
+
+    return result;
+}
+
+- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
+                              context: (NSGraphicsContext *) context
+                                hints: (NSDictionary *) hints
+{
+    if ([self respondsToSelector: @selector(CGImage)])
+        return (CGImageRef) [self performSelector: @selector(CGImage)];
+
+    NSSize size = proposedDestRect != NULL ? proposedDestRect->size : [self size];
+    size_t width = (size_t) ceil(size.width), height = (size_t) ceil(size.height);
+
+    if (width == 0 || height == 0)
+        return NULL;
+
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    CGContextRef bitmap = CGBitmapContextCreate(
+            NULL, width, height, 8, 0, space,
+            kCGImageAlphaPremultipliedLast);
+    CGColorSpaceRelease(space);
+    if (bitmap == NULL)
+        return NULL;
+
+    [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext:
+                               [NSGraphicsContext
+                                       graphicsContextWithGraphicsPort: bitmap
+                                                               flipped: NO]];
+    [self drawInRect: NSMakeRect(0, 0, width, height)];
+    [NSGraphicsContext restoreGraphicsState];
+
+    CGImageRelease(_proposedCGImage);
+    _proposedCGImage = CGBitmapContextCreateImage(bitmap);
+    CGContextRelease(bitmap);
+    return _proposedCGImage;
 }
 
 - (NSString *) description {

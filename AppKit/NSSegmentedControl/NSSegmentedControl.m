@@ -29,6 +29,89 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return [NSSegmentedCell class];
 }
 
++ (instancetype) segmentedControlWithLabels: (NSArray *) labels
+                               trackingMode: (NSUInteger) trackingMode
+                                     target: (id) target
+                                     action: (SEL) action
+{
+    NSSegmentedControl *control =
+            [[[self alloc] initWithFrame: NSMakeRect(0, 0, 0, 24)] autorelease];
+    NSInteger i, count = [labels count];
+
+    [control setSegmentCount: count];
+    for (i = 0; i < count; i++)
+        [control setLabel: [labels objectAtIndex: i] forSegment: i];
+    [control setTrackingMode: trackingMode];
+    [control setTarget: target];
+    [control setAction: action];
+    [control sizeToFit];
+    return control;
+}
+
+- (void) dealloc {
+    [_selectedSegmentBezelColor release];
+    [_segmentAlignments release];
+    [super dealloc];
+}
+
+- (NSUInteger) trackingMode {
+    return [_cell trackingMode];
+}
+
+- (void) setTrackingMode: (NSUInteger) trackingMode {
+    [_cell setTrackingMode: (NSSegmentSwitchTracking) trackingMode];
+}
+
+- (NSInteger) indexOfSelectedItem {
+    return [_cell selectedSegment];
+}
+
+- (BOOL) isSpringLoaded {
+    return _springLoaded;
+}
+
+- (void) setSpringLoaded: (BOOL) flag {
+    _springLoaded = flag;
+}
+
+- (NSSegmentDistribution) segmentDistribution {
+    // Defaults to NSSegmentDistributionFill, which is not the zero value.
+    return _segmentDistribution == 0 && !_segmentDistributionSet
+                   ? NSSegmentDistributionFill
+                   : _segmentDistribution;
+}
+
+- (void) setSegmentDistribution: (NSSegmentDistribution) value {
+    _segmentDistribution = value;
+    _segmentDistributionSet = YES;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSColor *) selectedSegmentBezelColor {
+    return _selectedSegmentBezelColor;
+}
+
+- (void) setSelectedSegmentBezelColor: (NSColor *) color {
+    color = [color copy];
+    [_selectedSegmentBezelColor release];
+    _selectedSegmentBezelColor = color;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSTextAlignment) alignmentForSegment: (NSInteger) segment {
+    NSNumber *value = [_segmentAlignments
+            objectForKey: [NSNumber numberWithInteger: segment]];
+    return value ? (NSTextAlignment) [value integerValue] : NSCenterTextAlignment;
+}
+
+- (void) setAlignment: (NSTextAlignment) alignment forSegment: (NSInteger) segment {
+    if (_segmentAlignments == nil)
+        _segmentAlignments = [[NSMutableDictionary alloc] init];
+    [_segmentAlignments setObject: [NSNumber numberWithInteger: alignment]
+                           forKey: [NSNumber numberWithInteger: segment]];
+    [self setNeedsDisplay: YES];
+}
+
 - (NSInteger) segmentCount {
     return [_cell segmentCount];
 }

@@ -18,17 +18,78 @@
 */
 
 #import <AppKit/NSTableViewRowAction.h>
+#import <AppKit/NSColor.h>
+#import <AppKit/NSImage.h>
 
 @implementation NSTableViewRowAction
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
++ (instancetype) rowActionWithStyle: (NSTableViewRowActionStyle) style
+                              title: (NSString *) title
+                            handler: (void (^)(NSTableViewRowAction *action,
+                                      NSInteger row)) handler
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    NSTableViewRowAction *action = [[[self alloc] init] autorelease];
+    action->_darlingStyle = style;
+    action->_darlingTitle = [title copy];
+    action->_darlingHandler = [handler copy];
+    return action;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (void) dealloc {
+    [_darlingTitle release];
+    [_darlingHandler release];
+    [_darlingBackgroundColor release];
+    [_darlingImage release];
+    [super dealloc];
+}
+
+- (id) copyWithZone: (NSZone *) zone {
+    NSTableViewRowAction *copy = [[[self class] allocWithZone: zone] init];
+    copy->_darlingStyle = _darlingStyle;
+    copy->_darlingTitle = [_darlingTitle copy];
+    copy->_darlingHandler = [_darlingHandler copy];
+    copy->_darlingBackgroundColor = [_darlingBackgroundColor copy];
+    copy->_darlingImage = [_darlingImage retain];
+    return copy;
+}
+
+- (NSTableViewRowActionStyle) style {
+    return _darlingStyle;
+}
+
+- (NSString *) title {
+    return _darlingTitle;
+}
+
+- (void) setTitle: (NSString *) title {
+    title = [title copy];
+    [_darlingTitle release];
+    _darlingTitle = title;
+}
+
+- (NSColor *) backgroundColor {
+    if (_darlingBackgroundColor != nil)
+        return _darlingBackgroundColor;
+    // Documented defaults: red for destructive actions, blue otherwise.
+    if (_darlingStyle == NSTableViewRowActionStyleDestructive)
+        return [NSColor redColor];
+    return [NSColor blueColor];
+}
+
+- (void) setBackgroundColor: (NSColor *) color {
+    color = [color copy];
+    [_darlingBackgroundColor release];
+    _darlingBackgroundColor = color;
+}
+
+- (NSImage *) image {
+    return _darlingImage;
+}
+
+- (void) setImage: (NSImage *) image {
+    image = [image retain];
+    [_darlingImage release];
+    _darlingImage = image;
 }
 
 @end

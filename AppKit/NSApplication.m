@@ -18,6 +18,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSAlert.h>
+#import <AppKit/NSAppearance.h>
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSColorPanel.h>
 #import <AppKit/NSDisplay.h>
@@ -299,6 +300,88 @@ static BOOL reopenPending;
     }
 
     return result;
+}
+
+- (NSAppearance *) effectiveAppearance {
+    return [NSAppearance appearanceNamed: NSAppearanceNameAqua];
+}
+
+- (void) enumerateWindowsWithOptions: (NSWindowListOptions) options
+                          usingBlock: (void (^)(NSWindow *window, BOOL *stop))
+                                              block
+{
+    NSArray *list;
+
+    if (options & NSWindowListOrderedFrontToBack)
+        list = [self orderedWindows];
+    else
+        list = [[_windows copy] autorelease];
+
+    BOOL stop = NO;
+
+    for (NSWindow *window in list) {
+        block(window, &stop);
+        if (stop)
+            break;
+    }
+}
+
+- (BOOL) isAutomaticCustomizeTouchBarMenuItemEnabled {
+    return _automaticCustomizeTouchBarMenuItemEnabled;
+}
+
+- (void) setAutomaticCustomizeTouchBarMenuItemEnabled: (BOOL) flag {
+    _automaticCustomizeTouchBarMenuItemEnabled = flag;
+}
+
+- (BOOL) isFullKeyboardAccessEnabled {
+    // Bit 1 of AppleKeyboardUIMode is "all controls"
+    return ([[NSUserDefaults standardUserDefaults]
+                    integerForKey: @"AppleKeyboardUIMode"] &
+            2) != 0;
+}
+
+- (NSApplicationOcclusionState) occlusionState {
+    if (_isHidden)
+        return 0;
+
+    for (NSWindow *window in _windows) {
+        if ([window isVisible])
+            return NSApplicationOcclusionStateVisible;
+    }
+    return 0;
+}
+
+- (void) registerForRemoteNotificationTypes: (NSRemoteNotificationType) types {
+    // There is no push notification service to register with; keep the
+    // requested types.
+    _registeredRemoteNotificationTypes = types;
+}
+
+- (BOOL) restoreWindowWithIdentifier: (NSString *) identifier
+                               state: (NSCoder *) state
+                   completionHandler: (void (^)(NSWindow *window,
+                                                NSError *error)) completionHandler
+{
+    for (NSWindow *window in _windows) {
+        if ([[window identifier] isEqual: identifier]) {
+            if (completionHandler != nil)
+                completionHandler(window, nil);
+            return YES;
+        }
+    }
+    return NO;
+}
+
+- (NSUserInterfaceLayoutDirection) userInterfaceLayoutDirection {
+    NSString *language = [[NSLocale currentLocale]
+            objectForKey: NSLocaleLanguageCode];
+
+    if (language != nil &&
+        [NSLocale characterDirectionForLanguage: language] ==
+                NSLocaleLanguageDirectionRightToLeft)
+        return NSUserInterfaceLayoutDirectionRightToLeft;
+    return NSUserInterfaceLayoutDirectionLeftToRight;
 }
 
 - (NSArray *) orderedWindows {

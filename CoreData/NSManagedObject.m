@@ -25,6 +25,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreData/NSAtomicStoreCacheNode.h>
 #import <CoreData/NSAttributeDescription.h>
 #import <CoreData/NSManagedObject.h>
+#import <CoreData/NSManagedObjectContext.h>
+#import <CoreData/NSManagedObjectModel.h>
+#import <CoreData/NSFetchRequest.h>
+#import <CoreData/NSPersistentStoreCoordinator.h>
+#import <CoreData/NSEntityDescription.h>
 #import <CoreData/NSRelationshipDescription.h>
 #import <Foundation/NSRaise.h>
 
@@ -34,6 +39,59 @@ NSString *const NSValidationPredicateErrorKey = @"NSValidationErrorPredicate";
 NSString *const NSValidationValueErrorKey = @"NSValidationErrorValue";
 
 @implementation NSManagedObject
+
+static NSString *const NSManagedObjectContextThreadKey =
+        @"NSManagedObjectContextCurrentContext";
+
++ (NSEntityDescription *) entity {
+    NSValue *current = [[[NSThread currentThread] threadDictionary]
+            objectForKey: NSManagedObjectContextThreadKey];
+    NSManagedObjectContext *context = [current nonretainedObjectValue];
+    NSManagedObjectModel *model =
+            [[context persistentStoreCoordinator] managedObjectModel];
+    NSString *className = NSStringFromClass(self);
+
+    for (NSEntityDescription *entity in [model entities]) {
+        if ([[entity managedObjectClassName] isEqualToString: className])
+            return entity;
+    }
+
+    return [[model entitiesByName] objectForKey: className];
+}
+
++ (NSFetchRequest *) fetchRequest {
+    NSFetchRequest *request = [[[NSFetchRequest alloc] init] autorelease];
+    NSEntityDescription *entity = [self entity];
+
+    if (entity != nil)
+        [request setEntity: entity];
+    else
+        [request setEntityName: NSStringFromClass(self)];
+    return request;
+}
+
+- (instancetype) initWithContext: (NSManagedObjectContext *) moc {
+    NSEntityDescription *entity = [[self class] entity];
+
+    if (entity == nil) {
+        [self release];
+        [NSException raise: NSInvalidArgumentException
+                    format: @"+entity for class %@ not found",
+                            NSStringFromClass([self class])];
+        return nil;
+    }
+
+    return [self initWithEntity: entity insertIntoManagedObjectContext: moc];
+}
+
+- (NSUInteger) faultingState {
+    return _isFault ? 1 : 0;
+}
+
+- (BOOL) hasChanges {
+    return _isInserted || _isUpdated || _isDeleted ||
+           [_changedValues count] > 0;
+}
 
 - init {
     NSLog(@"Error - can't initialize an NSManagedObject with -init");

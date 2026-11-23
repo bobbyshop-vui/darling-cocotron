@@ -19,32 +19,138 @@
  SOFTWARE. */
 
 #import "NSAnimationContext.h"
-#import <AppKit/NSRaise.h>
+#import <Foundation/NSArray.h>
+#import <Foundation/NSThread.h>
+
+static NSString *const NSAnimationContextStackKey =
+        @"NSAnimationContextStack";
 
 @implementation NSAnimationContext
 
-- (id) copyWithZone: (NSZone *) zone {
+- init {
+    if ((self = [super init]) != nil) {
+        _duration = 0.25;
+    }
     return self;
 }
 
-+ (void) beginGrouping {
-    NSUnimplementedMethod();
+- (void) dealloc {
+    [_timingFunction release];
+    [_completionHandler release];
+    [super dealloc];
 }
+
+- (id) copyWithZone: (NSZone *) zone {
+    NSAnimationContext *copy = [[[self class] allocWithZone: zone] init];
+
+    copy->_duration = _duration;
+    copy->_timingFunction = [_timingFunction retain];
+    copy->_allowsImplicitAnimation = _allowsImplicitAnimation;
+    // the completion handler belongs to the grouping, it is not inherited
+    return copy;
+}
+
+// The per-thread stack of active groupings; the bottom entry is the implicit
+// context that is current outside any grouping.
++ (NSMutableArray *) _contextStack {
+    NSMutableDictionary *threadDictionary =
+            [[NSThread currentThread] threadDictionary];
+    NSMutableArray *stack =
+            [threadDictionary objectForKey: NSAnimationContextStackKey];
+
+    if (stack == nil) {
+        NSAnimationContext *root = [[[NSAnimationContext alloc] init] autorelease];
+
+        stack = [NSMutableArray arrayWithObject: root];
+        [threadDictionary setObject: stack forKey: NSAnimationContextStackKey];
+    }
+    return stack;
+}
+
++ (void) beginGrouping {
+    NSMutableArray *stack = [self _contextStack];
+    NSAnimationContext *context = [[[stack lastObject] copy] autorelease];
+
+    [stack addObject: context];
+}
+
 + (void) endGrouping {
-    NSUnimplementedMethod();
+    NSMutableArray *stack = [self _contextStack];
+
+    if ([stack count] <= 1)
+        return; // unbalanced, the root context is never popped
+
+    NSAnimationContext *context = [[[stack lastObject] retain] autorelease];
+
+    [stack removeLastObject];
+
+    void (^handler)(void) = context->_completionHandler;
+
+    if (handler != nil) {
+        // Without a Core Animation transaction to wait for, the changes have
+        // been applied by now.
+        handler();
+    }
+}
+
++ (void) runAnimationGroup: (void (^)(NSAnimationContext *context)) changes
+         completionHandler: (void (^)(void)) completionHandler
+{
+    [self beginGrouping];
+
+    NSAnimationContext *context = [self currentContext];
+
+    [context setCompletionHandler: completionHandler];
+    if (changes != nil)
+        changes(context);
+
+    [self endGrouping];
+}
+
++ (void) runAnimationGroup: (void (^)(NSAnimationContext *context)) changes {
+    [self runAnimationGroup: changes completionHandler: nil];
 }
 
 + (NSAnimationContext *) currentContext {
-    NSUnimplementedMethod();
-    return nil;
+    return [[self _contextStack] lastObject];
 }
 
 - (void) setDuration: (NSTimeInterval) duration {
-    NSUnimplementedMethod();
+    _duration = duration;
 }
+
 - (NSTimeInterval) duration {
-    NSUnimplementedMethod();
-    return 0;
+    return _duration;
+}
+
+- (void) setTimingFunction: (CAMediaTimingFunction *) timingFunction {
+    if (timingFunction != _timingFunction) {
+        [_timingFunction release];
+        _timingFunction = [timingFunction retain];
+    }
+}
+
+- (CAMediaTimingFunction *) timingFunction {
+    return _timingFunction;
+}
+
+- (void) setCompletionHandler: (void (^)(void)) handler {
+    if (handler != _completionHandler) {
+        [_completionHandler release];
+        _completionHandler = [handler copy];
+    }
+}
+
+- (void (^)(void)) completionHandler {
+    return _completionHandler;
+}
+
+- (BOOL) allowsImplicitAnimation {
+    return _allowsImplicitAnimation;
+}
+
+- (void) setAllowsImplicitAnimation: (BOOL) flag {
+    _allowsImplicitAnimation = flag;
 }
 
 @end

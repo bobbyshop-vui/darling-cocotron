@@ -20,6 +20,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSWorkspace.h>
 #import <Foundation/Foundation.h>
+#import <AppKit/NSRunningApplication.h>
+#include <LaunchServices/LaunchServices.h>
+
+/* NSWorkspaceLaunchOptions bits used below (see the SDK's NSWorkspace.h). */
+enum {
+    DarlingWorkspaceLaunchAndPrint = 0x00000002,
+    DarlingWorkspaceLaunchNewInstance = 0x00080000
+};
 
 NSString *const NSWorkspaceApplicationKey = @"NSWorkspaceApplicationKey";
 
@@ -306,6 +314,250 @@ NSNotificationName NSWorkspaceWillUnmountNotification = @"NSWorkspaceWillUnmount
 - (NSString *) fullPathForApplication: (NSString *) appName {
     NSInvalidAbstractInvocation();
     return nil;
+}
+
+- (NSURL *) URLForApplicationWithBundleIdentifier: (NSString *) bundleIdentifier
+{
+    if (bundleIdentifier == nil)
+        return nil;
+
+    CFURLRef url = NULL;
+    OSStatus status = LSFindApplicationForInfo(
+            kLSUnknownCreator, (CFStringRef) bundleIdentifier, NULL, NULL, &url);
+
+    if (status != noErr || url == NULL)
+        return nil;
+
+    return [(NSURL *) url autorelease];
+}
+
+- (NSURL *) URLForApplicationToOpenURL: (NSURL *) url {
+    if (url == nil)
+        return nil;
+
+    CFURLRef appURL = LSCopyDefaultApplicationURLForURL(
+            (CFURLRef) url, kLSRolesAll, NULL);
+
+    if (appURL == NULL)
+        return nil;
+
+    return [(NSURL *) appURL autorelease];
+}
+
+- (void) activateFileViewerSelectingURLs: (NSArray<NSURL *> *) fileURLs {
+    // Without a Finder, show each selected item's enclosing folder.
+    NSMutableSet *folders = [NSMutableSet set];
+
+    for (NSURL *fileURL in fileURLs) {
+        NSURL *folder = [fileURL URLByDeletingLastPathComponent];
+        if (folder != nil && ![folders containsObject: folder]) {
+            [folders addObject: folder];
+            [self openURL: folder];
+        }
+    }
+}
+
+- (BOOL) accessibilityDisplayShouldIncreaseContrast {
+    return NO;
+}
+
+- (BOOL) accessibilityDisplayShouldReduceMotion {
+    return NO;
+}
+
+- (BOOL) isVoiceOverEnabled {
+    return NO;
+}
+
+- (NSRunningApplication *) _darlingLaunchBundleAtURL: (NSURL *) applicationURL
+                                           arguments: (NSArray *) extraArguments
+                                             options: (NSWorkspaceLaunchOptions) options
+                                       configuration: (NSDictionary *) configuration
+                                               error: (NSError **) error
+{
+    NSBundle *bundle = [NSBundle bundleWithURL: applicationURL];
+    NSString *executable = [bundle executablePath];
+
+    if (executable == nil) {
+        if (error != NULL)
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                         code: NSFileNoSuchFileError
+                                     userInfo: nil];
+        return nil;
+    }
+
+    if (!(options & DarlingWorkspaceLaunchNewInstance)) {
+        NSString *identifier = [bundle bundleIdentifier];
+        if (identifier != nil) {
+            NSArray *running = [NSRunningApplication
+                    runningApplicationsWithBundleIdentifier: identifier];
+            if ([running count] > 0)
+                return [running objectAtIndex: 0];
+        }
+    }
+
+    NSMutableArray *arguments = [NSMutableArray array];
+    NSArray *configArguments =
+            [configuration objectForKey: NSWorkspaceLaunchConfigurationArguments];
+    if ([configArguments isKindOfClass: [NSArray class]])
+        [arguments addObjectsFromArray: configArguments];
+    if (extraArguments != nil)
+        [arguments addObjectsFromArray: extraArguments];
+
+    NSTask *task = [[[NSTask alloc] init] autorelease];
+    [task setLaunchPath: executable];
+    [task setArguments: arguments];
+
+    NSDictionary *configEnvironment =
+            [configuration objectForKey: NSWorkspaceLaunchConfigurationEnvironment];
+    if ([configEnvironment isKindOfClass: [NSDictionary class]]) {
+        NSMutableDictionary *environment = [[[[NSProcessInfo processInfo]
+                environment] mutableCopy] autorelease];
+        [environment addEntriesFromDictionary: configEnvironment];
+        [task setEnvironment: environment];
+    }
+
+    @try {
+        [task launch];
+    } @catch (NSException *exception) {
+        if (error != NULL)
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                         code: NSFileReadUnknownError
+                                     userInfo: nil];
+        return nil;
+    }
+
+    return [NSRunningApplication
+            runningApplicationWithProcessIdentifier: [task processIdentifier]];
+}
+
+- (NSRunningApplication *) launchApplicationAtURL: (NSURL *) url
+                                          options: (NSWorkspaceLaunchOptions) options
+                                    configuration: (NSDictionary *) configuration
+                                            error: (NSError **) error
+{
+    return [self _darlingLaunchBundleAtURL: url
+                                 arguments: nil
+                                   options: options
+                             configuration: configuration
+                                     error: error];
+}
+
+- (NSRunningApplication *) openURLs: (NSArray<NSURL *> *) urls
+               withApplicationAtURL: (NSURL *) applicationURL
+                            options: (NSWorkspaceLaunchOptions) options
+                      configuration: (NSDictionary *) configuration
+                              error: (NSError **) error
+{
+    NSMutableArray *arguments = [NSMutableArray array];
+
+    for (NSURL *url in urls)
+        [arguments addObject: [url isFileURL] ? [url path] : [url absoluteString]];
+
+    return [self _darlingLaunchBundleAtURL: applicationURL
+                                 arguments: arguments
+                                   options: options
+                             configuration: configuration
+                                     error: error];
+}
+
+- (BOOL) launchAppWithBundleIdentifier: (NSString *) bundleIdentifier
+                               options: (NSWorkspaceLaunchOptions) options
+        additionalEventParamDescriptor: (NSAppleEventDescriptor *) descriptor
+                      launchIdentifier: (NSNumber **) identifier
+{
+    NSURL *applicationURL = [self URLForApplicationWithBundleIdentifier: bundleIdentifier];
+
+    if (identifier != NULL)
+        *identifier = nil;
+    if (applicationURL == nil)
+        return NO;
+
+    NSRunningApplication *app = [self launchApplicationAtURL: applicationURL
+                                                     options: options
+                                               configuration: nil
+                                                       error: NULL];
+    if (app == nil)
+        return NO;
+
+    if (identifier != NULL)
+        *identifier = [NSNumber numberWithInt: [app processIdentifier]];
+    return YES;
+}
+
+- (BOOL) openURLs: (NSArray<NSURL *> *) urls
+        withAppBundleIdentifier: (NSString *) bundleIdentifier
+                        options: (NSWorkspaceLaunchOptions) options
+        additionalEventParamDescriptor: (NSAppleEventDescriptor *) descriptor
+              launchIdentifiers: (NSArray<NSNumber *> **) identifiers
+{
+    NSURL *applicationURL = nil;
+
+    if (identifiers != NULL)
+        *identifiers = nil;
+
+    if (bundleIdentifier != nil)
+        applicationURL = [self URLForApplicationWithBundleIdentifier: bundleIdentifier];
+    else if ([urls count] > 0)
+        applicationURL = [self URLForApplicationToOpenURL: [urls objectAtIndex: 0]];
+
+    if (applicationURL == nil)
+        return NO;
+
+    NSRunningApplication *app = [self openURLs: urls
+                          withApplicationAtURL: applicationURL
+                                       options: options
+                                 configuration: nil
+                                         error: NULL];
+    if (app == nil)
+        return NO;
+
+    if (identifiers != NULL)
+        *identifiers = [NSArray
+                arrayWithObject: [NSNumber numberWithInt: [app processIdentifier]]];
+    return YES;
+}
+
+- (void) recycleURLs: (NSArray<NSURL *> *) URLs
+        completionHandler: (void (^)(NSDictionary<NSURL *, NSURL *> *newURLs,
+                                     NSError *error)) handler
+{
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSString *trashPath = [NSHomeDirectory()
+            stringByAppendingPathComponent: @".local/share/Trash/files"];
+    NSMutableDictionary *newURLs = [NSMutableDictionary dictionary];
+    NSError *firstError = nil;
+
+    [fileManager createDirectoryAtPath: trashPath
+           withIntermediateDirectories: YES
+                            attributes: nil
+                                 error: NULL];
+
+    for (NSURL *url in URLs) {
+        NSString *name = [[url path] lastPathComponent];
+        NSString *destination = [trashPath stringByAppendingPathComponent: name];
+        unsigned suffix = 1;
+
+        while ([fileManager fileExistsAtPath: destination])
+            destination = [trashPath
+                    stringByAppendingPathComponent:
+                            [NSString stringWithFormat: @"%@ %u.%@",
+                                      [name stringByDeletingPathExtension],
+                                      ++suffix, [name pathExtension]]];
+
+        NSError *moveError = nil;
+        NSURL *destinationURL = [NSURL fileURLWithPath: destination];
+
+        if ([fileManager moveItemAtURL: url
+                                 toURL: destinationURL
+                                 error: &moveError])
+            [newURLs setObject: destinationURL forKey: url];
+        else if (firstError == nil)
+            firstError = moveError;
+    }
+
+    if (handler != NULL)
+        handler(newURLs, firstError);
 }
 
 @end

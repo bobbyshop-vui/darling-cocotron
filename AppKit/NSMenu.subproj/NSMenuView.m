@@ -31,9 +31,103 @@ enum {
     kNSMenuKeyboardNavigationLetter
 };
 
+@interface NSMenu (NSMenuView_private)
+- (void) _setHighlightedItem: (NSMenuItem *) item;
+- (void) _setTrackingView: (id) view;
+- (BOOL) _cancelTrackingRequested;
+@end
+
 @implementation NSMenuView
 
++ (CGFloat) menuBarHeight {
+    return [NSMainMenuView menuHeight];
+}
+
+- (NSFont *) font {
+    if (_menuViewFont == nil)
+        return [[self menu] font];
+
+    return _menuViewFont;
+}
+
+- (void) setFont: (NSFont *) font {
+    font = [font retain];
+    [_menuViewFont release];
+    _menuViewFont = font;
+    [self setNeedsSizing: YES];
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) isHorizontal {
+    return [self isKindOfClass: [NSMainMenuView class]];
+}
+
+- (NSRect) rectOfItemAtIndex: (NSInteger) index {
+    NSRect bounds = [self bounds];
+    BOOL horizontal = [self isHorizontal];
+    CGFloat position = horizontal ? NSMinX(bounds) : NSMinY(bounds);
+    CGFloat limit = horizontal ? NSMaxX(bounds) : NSMaxY(bounds);
+
+    if (index < 0)
+        return NSZeroRect;
+
+    // Items are laid out one after the other, so walk along the view asking
+    // which item (and rect) lives at each position.
+    while (position < limit) {
+        NSPoint point = horizontal
+                                ? NSMakePoint(position + 0.5, NSMidY(bounds))
+                                : NSMakePoint(NSMidX(bounds), position + 0.5);
+        NSRect rect = NSZeroRect;
+        NSUInteger found = [self itemIndexAtPoint: point rect: &rect];
+
+        if (found == NSNotFound) {
+            // gap (border); move on a little
+            position += 1;
+            continue;
+        }
+
+        if (found == (NSUInteger) index)
+            return rect;
+
+        CGFloat next = horizontal ? NSMaxX(rect) : NSMaxY(rect);
+        if (next <= position)
+            next = position + 1;
+        position = next;
+    }
+
+    return NSZeroRect;
+}
+
+- (void) setNeedsSizing: (BOOL) flag {
+    _needsSizing = flag;
+}
+
+- (void) sizeToFit {
+    _needsSizing = NO;
+    [self setNeedsDisplay: YES];
+}
+
+- (void) update {
+    [[self menu] update];
+
+    if (_needsSizing)
+        [self sizeToFit];
+
+    [self setNeedsDisplay: YES];
+}
+
+- (BOOL) trackWithEvent: (NSEvent *) event {
+    NSMenuItem *item = [self trackForEvent: event];
+
+    if (item == nil)
+        return NO;
+
+    [NSApp sendAction: [item action] to: [item target] from: item];
+    return YES;
+}
+
 - (void) dealloc {
+    [_menuViewFont release];
     [_visibleArray release];
     [super dealloc];
 }
@@ -55,6 +149,7 @@ enum {
 - (void) setSelectedItemIndex: (NSUInteger) itemIndex {
     if (_selectedItemIndex != itemIndex) {
         _selectedItemIndex = itemIndex;
+        [[self menu] _setHighlightedItem: [self itemAtSelectedIndex]];
         [self setNeedsDisplay: YES];
     }
 }
@@ -156,6 +251,7 @@ const NSTimeInterval kMouseMovementThreshold = .001f;
 
     // Make sure the menu contents are up to date
     [[self menu] update];
+    [[self menu] _setTrackingView: self];
 
     // And we, of course, are first on the stack
     [viewStack addObject: self];
@@ -532,6 +628,11 @@ const NSTimeInterval kMouseMovementThreshold = .001f;
             }
         }
 
+        // -[NSMenu cancelTracking]
+        if ([[self menu] _cancelTrackingRequested]) {
+            cancelled = YES;
+        }
+
         if (cancelled == NO && [event type] != NSAppKitDefined &&
             [event type] != NSKeyDown) {
 
@@ -611,7 +712,7 @@ const NSTimeInterval kMouseMovementThreshold = .001f;
     MENUDEBUG(@"done with the event loop");
 
     // If we've got a menu still visible
-    if (item == nil && [viewStack count] > 0) {
+    if (!cancelled && item == nil && [viewStack count] > 0) {
         // Get the selected item
         item = [[viewStack lastObject] itemAtSelectedIndex];
         MENUDEBUG(@"got the selected item at the top most menu view: %@", item);
@@ -624,7 +725,9 @@ const NSTimeInterval kMouseMovementThreshold = .001f;
     }
     [viewStack removeLastObject];
 
+    [[self menu] _setTrackingView: nil];
     _selectedItemIndex = NSNotFound;
+    [[self menu] _setHighlightedItem: nil];
     [[self window] setAcceptsMouseMovedEvents: oldAcceptsMouseMovedEvents];
     [self setNeedsDisplay: YES];
 

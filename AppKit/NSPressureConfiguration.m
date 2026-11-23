@@ -21,14 +21,22 @@
 
 @implementation NSPressureConfiguration
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (instancetype) init {
+    return [self initWithPressureBehavior: 0];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (instancetype) initWithPressureBehavior: (NSInteger) pressureBehavior {
+    if ((self = [super init]) != nil)
+        _pressureBehavior = pressureBehavior;
+    return self;
+}
+
+- (NSInteger) pressureBehavior {
+    return _pressureBehavior;
+}
+
+- (void) set {
+    // No pressure-sensitive hardware: the configuration has nothing to apply.
 }
 
 @end

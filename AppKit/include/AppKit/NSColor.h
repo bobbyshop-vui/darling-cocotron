@@ -29,6 +29,22 @@ typedef NSString *NSColorSpaceName;
 
 @class NSImage;
 @class NSPasteboard;
+@class NSColorSpace;
+@class CIColor;
+
+typedef NS_ENUM(NSInteger, NSColorType) {
+    NSColorTypeComponentBased,
+    NSColorTypePattern,
+    NSColorTypeCatalog
+};
+
+typedef NS_ENUM(NSInteger, NSColorSystemEffect) {
+    NSColorSystemEffectNone,
+    NSColorSystemEffectPressed,
+    NSColorSystemEffectDeepPressed,
+    NSColorSystemEffectDisabled,
+    NSColorSystemEffectRollover
+};
 
 @interface NSColor : NSObject <NSCopying, NSCoding> {
     NSColorListName _catalogName;
@@ -225,11 +241,54 @@ typedef NSString *NSColorSpaceName;
 + (NSColor *) colorWithCatalogName: (NSString *) catalogName
                          colorName: (NSString *) colorName;
 
++ (NSColor *) colorNamed: (NSColorName) name bundle: (NSBundle *) bundle;
++ (NSColor *) colorNamed: (NSColorName) name;
++ (NSColor *) colorWithCGColor: (CGColorRef) cgColor;
++ (NSColor *) colorWithCIColor: (CIColor *) color;
++ (NSColor *) colorWithColorSpace: (NSColorSpace *) space
+                       components: (const CGFloat *) components
+                            count: (NSInteger) numberOfComponents;
++ (NSColor *) colorWithHue: (CGFloat) hue
+                saturation: (CGFloat) saturation
+                brightness: (CGFloat) brightness
+                     alpha: (CGFloat) alpha;
+
++ (NSColor *) controlAccentColor;
++ (NSUInteger) currentControlTint;
++ (NSColor *) findHighlightColor;
++ (NSColor *) placeholderTextColor;
++ (NSColor *) secondaryLabelColor;
++ (NSColor *) tertiaryLabelColor;
++ (NSColor *) quaternaryLabelColor;
++ (NSColor *) separatorColor;
++ (NSColor *) scrubberTexturedBackgroundColor;
++ (NSColor *) underPageBackgroundColor;
++ (NSColor *) windowFrameTextColor;
++ (NSColor *) systemRedColor;
++ (NSColor *) systemOrangeColor;
++ (NSColor *) systemYellowColor;
++ (NSColor *) systemGreenColor;
++ (NSColor *) systemBlueColor;
++ (NSColor *) systemPurpleColor;
++ (NSColor *) systemPinkColor;
++ (NSColor *) systemBrownColor;
++ (NSColor *) systemGrayColor;
+
 + (NSColor *) colorFromPasteboard: (NSPasteboard *) pasteboard;
 
 + (NSColor *) colorWithPatternImage: (NSImage *) image;
 
 - (NSString *) colorSpaceName;
+
+- (NSColorType) type;
+- (NSColorSpace *) colorSpace;
+- (NSColor *) colorUsingType: (NSColorType) type;
+- (NSColor *) colorUsingColorSpace: (NSColorSpace *) space;
+- (NSColor *) colorWithSystemEffect: (NSColorSystemEffect) systemEffect;
+- (NSColor *) highlightWithLevel: (CGFloat) level;
+- (NSColor *) shadowWithLevel: (CGFloat) level;
+- (NSString *) localizedCatalogNameComponent;
+- (NSString *) localizedColorNameComponent;
 
 - (NSInteger) numberOfComponents;
 - (void) getComponents: (CGFloat *) components;

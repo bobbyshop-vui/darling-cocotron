@@ -18,10 +18,11 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSCell.h>
+#import <AppKit/NSFontDescriptor.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/Foundation.h>
 
-@class NSFontDescriptor;
+@class NSFontDescriptor, NSAffineTransform;
 
 #ifndef DARLING
 // Provides an extendable translation scheme for apps that use non-standard
@@ -79,6 +80,9 @@ typedef enum {
 + (NSFont *) messageFontOfSize: (CGFloat) size;
 + (NSFont *) paletteFontOfSize: (CGFloat) size;
 + (NSFont *) systemFontOfSize: (CGFloat) size;
++ (NSFont *) systemFontOfSize: (CGFloat) size weight: (NSFontWeight) weight;
++ (NSFont *) monospacedDigitSystemFontOfSize: (CGFloat) size
+                                      weight: (NSFontWeight) weight;
 + (NSFont *) titleBarFontOfSize: (CGFloat) size;
 + (NSFont *) toolTipsFontOfSize: (CGFloat) size;
 + (NSFont *) userFontOfSize: (CGFloat) size;
@@ -93,6 +97,9 @@ typedef enum {
                            size: (CGFloat) size;
 + (NSFont *) fontWithDescriptor: (NSFontDescriptor *) descriptor
                            size: (CGFloat) size
+                  textTransform: (NSAffineTransform *) transform;
+
++ (NSFont *) fontWithDescriptor: (NSFontDescriptor *) descriptor
                   textTransform: (NSAffineTransform *) transform;
 
 + (NSArray *) preferredFontNames;
@@ -130,6 +137,7 @@ typedef enum {
 - (CGFloat) leading;
 - (CGFloat) defaultLineHeightForFont;
 - (BOOL) isFixedPitch;
+- (BOOL) isVertical;
 - (CGFloat) italicAngle;
 - (CGFloat) leading;
 - (CGFloat) xHeight;

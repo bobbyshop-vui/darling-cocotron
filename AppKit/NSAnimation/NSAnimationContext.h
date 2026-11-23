@@ -20,15 +20,34 @@
 #import <Foundation/NSDate.h>
 #import <Foundation/NSObject.h>
 
+@class CAMediaTimingFunction;
+
 @interface NSAnimationContext : NSObject <NSCopying> {
+    NSTimeInterval _duration;
+    CAMediaTimingFunction *_timingFunction;
+    void (^_completionHandler)(void);
+    BOOL _allowsImplicitAnimation;
 }
 
 + (void) beginGrouping;
 + (void) endGrouping;
 
++ (void) runAnimationGroup: (void (^)(NSAnimationContext *context)) changes
+         completionHandler: (void (^)(void)) completionHandler;
++ (void) runAnimationGroup: (void (^)(NSAnimationContext *context)) changes;
+
 + (NSAnimationContext *) currentContext;
 
 - (void) setDuration: (NSTimeInterval) duration;
 - (NSTimeInterval) duration;
+
+- (void) setTimingFunction: (CAMediaTimingFunction *) timingFunction;
+- (CAMediaTimingFunction *) timingFunction;
+
+- (void) setCompletionHandler: (void (^)(void)) handler;
+- (void (^)(void)) completionHandler;
+
+- (BOOL) allowsImplicitAnimation;
+- (void) setAllowsImplicitAnimation: (BOOL) flag;
 
 @end

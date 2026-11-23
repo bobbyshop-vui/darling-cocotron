@@ -40,6 +40,10 @@ enum {
     NSString *_prompt;
 
     BOOL _showsHiddenFiles;
+    NSString *_nameFieldLabel;
+    BOOL _canSelectHiddenExtension;
+    BOOL _extensionHidden;
+    BOOL _showsTagField;
 
     BOOL _treatsFilePackagesAsDirectories;
     NSView *_accessoryView;
@@ -94,6 +98,18 @@ enum {
                   modalDelegate: (id) modalDelegate
                  didEndSelector: (SEL) didEndSelector
                     contextInfo: (void *) contextInfo;
+
+- (IBAction) cancel: (id) sender;
+- (void) selectText: (id) sender;
+
+- (NSString *) nameFieldLabel;
+- (void) setNameFieldLabel: (NSString *) label;
+- (BOOL) canSelectHiddenExtension;
+- (void) setCanSelectHiddenExtension: (BOOL) flag;
+- (BOOL) isExtensionHidden;
+- (void) setExtensionHidden: (BOOL) flag;
+- (BOOL) showsTagField;
+- (void) setShowsTagField: (BOOL) flag;
 
 - (IBAction) _selectFile: (id) sender;
 - (IBAction) _cancel: (id) sender;

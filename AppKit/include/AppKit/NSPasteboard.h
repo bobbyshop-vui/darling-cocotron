@@ -79,7 +79,10 @@ typedef NSString *NSPasteboardReadingOptionKey;
 APPKIT_EXPORT const NSPasteboardReadingOptionKey
         NSPasteboardURLReadingContentsConformToTypesKey;
 
-@class NSPasteboard;
+@class NSPasteboard, NSPasteboardItem;
+
+typedef NSUInteger NSPasteboardWritingOptions;
+typedef NSUInteger NSPasteboardReadingOptions;
 
 // @interface NSObject (NSPasteboard)
 @protocol NSPasteboardTypeOwner
@@ -92,6 +95,13 @@ APPKIT_EXPORT const NSPasteboardReadingOptionKey
 
 + (NSPasteboard *) generalPasteboard;
 + (NSPasteboard *) pasteboardWithName: (NSPasteboardName) name;
++ (NSPasteboard *) pasteboardWithUniqueName;
++ (NSArray<NSPasteboardType> *) typesFilterableTo: (NSPasteboardType) type;
++ (NSPasteboard *) pasteboardByFilteringFile: (NSString *) filename;
++ (NSPasteboard *) pasteboardByFilteringData: (NSData *) data
+                                      ofType: (NSPasteboardType) type;
++ (NSPasteboard *) pasteboardByFilteringTypesInPasteboard:
+        (NSPasteboard *) pboard;
 
 - (NSPasteboardName) name;
 - (NSInteger) changeCount;
@@ -116,18 +126,33 @@ APPKIT_EXPORT const NSPasteboardReadingOptionKey
 - (BOOL) setString: (NSString *) string forType: (NSPasteboardType) type;
 - (BOOL) setPropertyList: plist forType: (NSPasteboardType) type;
 - (BOOL) canReadItemWithDataConformingToTypes:(NSArray<NSString *> *) types;
+- (BOOL) canReadObjectForClasses: (NSArray<Class> *) classArray
+                         options: (NSDictionary<NSPasteboardReadingOptionKey, id> *) options;
+- (BOOL) writeObjects: (NSArray *) objects;
+- (NSArray<NSPasteboardItem *> *) pasteboardItems;
+- (NSUInteger) indexOfPasteboardItem: (NSPasteboardItem *) pasteboardItem;
 - (NSArray *)readObjectsForClasses:(NSArray<Class> *)classArray options:(NSDictionary<NSPasteboardReadingOptionKey, id> *) options;
 
 @end
 
 @protocol NSPasteboardReading <NSObject>
-
-// TODO
+@optional
++ (NSArray<NSPasteboardType> *) readableTypesForPasteboard:
+        (NSPasteboard *) pasteboard;
++ (NSPasteboardReadingOptions) readingOptionsForType: (NSPasteboardType) type
+                                          pasteboard: (NSPasteboard *) pasteboard;
+- (id) initWithPasteboardPropertyList: (id) propertyList
+                               ofType: (NSPasteboardType) type;
 
 @end
 
 @protocol NSPasteboardWriting <NSObject>
-
-// TODO
+@required
+- (NSArray<NSPasteboardType> *) writableTypesForPasteboard:
+        (NSPasteboard *) pasteboard;
+@optional
+- (NSPasteboardWritingOptions) writingOptionsForType: (NSPasteboardType) type
+                                          pasteboard: (NSPasteboard *) pasteboard;
+- (id) pasteboardPropertyListForType: (NSPasteboardType) type;
 
 @end

@@ -43,6 +43,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindow-Private.h>
 #import <AppKit/NSWindow.h>
 #import <AppKit/NSWindowAnimationContext.h>
+#import <AppKit/NSWindowTab.h>
+#import <AppKit/NSLayoutGuide.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreGraphics/CGWindow.h>
 
@@ -335,6 +337,7 @@ static BOOL _allowsAutomaticWindowTabbing;
     _firstResponder = self;
     _makeSureIsOnAScreen = YES;
     _releaseWhenClosed = YES;
+    _restorable = YES;
     _viewsNeedDisplay = YES;
     _flushNeeded = YES;
     _resizeIncrements = NSMakeSize(1, 1);
@@ -420,6 +423,11 @@ static BOOL _allowsAutomaticWindowTabbing;
     [_threadToContext release];
     [_undoManager release];
     [_identifier release];
+    [_contentLayoutGuide release];
+    [_tabbingIdentifier release];
+    [_tab setWindow: nil];
+    [_tab release];
+    [_queuedSheets release];
     [super dealloc];
 }
 
@@ -2889,6 +2897,7 @@ static BOOL _allowsAutomaticWindowTabbing;
 
     [_sheetContext autorelease];
     _sheetContext = [sheetContext retain];
+    sheet->_sheetParent = self;
 
     [(NSThemeFrame *) [sheet _backgroundView]
             setWindowBorderType: NSWindowSheetBorderType];
@@ -2920,6 +2929,7 @@ static BOOL _allowsAutomaticWindowTabbing;
     sheetFrame.size.height = 0;
 
     sheet->_isVisible = NO;
+    sheet->_sheetParent = nil;
     [[sheet platformWindow] sheetOrderOutToFrame: sheetFrame];
 
     [_sheetContext release];
@@ -3468,6 +3478,368 @@ static BOOL _allowsAutomaticWindowTabbing;
 
 + (void) setAllowsAutomaticWindowTabbing: (BOOL) allowsAutomaticWindowTabbing {
     _allowsAutomaticWindowTabbing = allowsAutomaticWindowTabbing;
+}
+
+#pragma mark - Screen and backing conversion
+
+- (NSRect) convertRectToScreen: (NSRect) rect {
+    rect.origin = [self convertPointToScreen: rect.origin];
+    return rect;
+}
+
+- (NSRect) convertRectFromScreen: (NSRect) rect {
+    rect.origin = [self convertPointFromScreen: rect.origin];
+    return rect;
+}
+
+- (NSPoint) convertPointToScreen: (NSPoint) point {
+    NSRect frame = [self frame];
+
+    point.x += frame.origin.x;
+    point.y += frame.origin.y;
+    return point;
+}
+
+- (NSPoint) convertPointFromScreen: (NSPoint) point {
+    NSRect frame = [self frame];
+
+    point.x -= frame.origin.x;
+    point.y -= frame.origin.y;
+    return point;
+}
+
+- (CGFloat) backingScaleFactor {
+    // No Retina backing stores are available.
+    return 1.0;
+}
+
+- (NSRect) convertRectToBacking: (NSRect) rect {
+    CGFloat scale = [self backingScaleFactor];
+
+    return NSMakeRect(rect.origin.x * scale, rect.origin.y * scale,
+                      rect.size.width * scale, rect.size.height * scale);
+}
+
+- (NSRect) convertRectFromBacking: (NSRect) rect {
+    CGFloat scale = [self backingScaleFactor];
+
+    return NSMakeRect(rect.origin.x / scale, rect.origin.y / scale,
+                      rect.size.width / scale, rect.size.height / scale);
+}
+
+- (NSPoint) convertPointToBacking: (NSPoint) point {
+    CGFloat scale = [self backingScaleFactor];
+
+    return NSMakePoint(point.x * scale, point.y * scale);
+}
+
+- (NSPoint) convertPointFromBacking: (NSPoint) point {
+    CGFloat scale = [self backingScaleFactor];
+
+    return NSMakePoint(point.x / scale, point.y / scale);
+}
+
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options {
+    NSRect backing = [self convertRectToBacking: rect];
+    backing = NSIntegralRectWithOptions(backing, options);
+    return [self convertRectFromBacking: backing];
+}
+
+- (BOOL) canRepresentDisplayGamut: (NSInteger) displayGamut {
+    // Only sRGB (NSDisplayGamutSRGB == 1) is available; P3 is not.
+    return displayGamut == 1;
+}
+
+#pragma mark - Window attributes
+
+- (BOOL) isResizable {
+    return (_styleMask & NSWindowStyleMaskResizable) != 0;
+}
+
+- (NSWindowAnimationBehavior) animationBehavior {
+    return _animationBehavior;
+}
+
+- (void) setAnimationBehavior: (NSWindowAnimationBehavior) behavior {
+    _animationBehavior = behavior;
+}
+
+- (NSWindowOcclusionState) occlusionState {
+    if ([self isVisible] && ![self isMiniaturized])
+        return NSWindowOcclusionStateVisible;
+    return 0;
+}
+
+- (NSWindowTitleVisibility) titleVisibility {
+    return _titleVisibility;
+}
+
+- (void) setTitleVisibility: (NSWindowTitleVisibility) visibility {
+    if (_titleVisibility == visibility)
+        return;
+    _titleVisibility = visibility;
+    [_backgroundView setNeedsDisplay: YES];
+}
+
+- (BOOL) titlebarAppearsTransparent {
+    return _titlebarAppearsTransparent;
+}
+
+- (void) setTitlebarAppearsTransparent: (BOOL) transparent {
+    if (_titlebarAppearsTransparent == transparent)
+        return;
+    _titlebarAppearsTransparent = transparent;
+    [_backgroundView setNeedsDisplay: YES];
+}
+
+- (NSRect) contentLayoutRect {
+    NSRect frame = [self frame];
+    NSRect content = frame;
+
+    if (_styleMask & NSWindowStyleMaskFullSizeContentView) {
+        // Region not obscured by the titlebar/toolbar.
+        content = [NSWindow contentRectForFrameRect: frame
+                                          styleMask: _styleMask & ~NSWindowStyleMaskFullSizeContentView];
+    } else if (_contentView != nil) {
+        return [_contentView frame];
+    } else {
+        content = [self contentRectForFrameRect: frame];
+    }
+    return NSMakeRect(0, 0, content.size.width, content.size.height);
+}
+
+- (id) contentLayoutGuide {
+    if (_contentLayoutGuide == nil)
+        _contentLayoutGuide = [[NSLayoutGuide alloc] init];
+    return _contentLayoutGuide;
+}
+
+- (NSSize) minFullScreenContentSize {
+    return _minFullScreenContentSize;
+}
+
+- (void) setMinFullScreenContentSize: (NSSize) size {
+    _minFullScreenContentSize = size;
+}
+
+- (NSSize) maxFullScreenContentSize {
+    return _maxFullScreenContentSize;
+}
+
+- (void) setMaxFullScreenContentSize: (NSSize) size {
+    _maxFullScreenContentSize = size;
+}
+
+- (void) layoutIfNeeded {
+    if ([_contentView respondsToSelector: @selector(layoutSubtreeIfNeeded)])
+        [_contentView performSelector: @selector(layoutSubtreeIfNeeded)];
+}
+
+- (void) updateConstraintsIfNeeded {
+    if ([_contentView respondsToSelector: @selector
+                      (updateConstraintsForSubtreeIfNeeded)])
+        [_contentView performSelector: @selector
+                      (updateConstraintsForSubtreeIfNeeded)];
+}
+
+- (id) handleCloseScriptCommand: (id) command {
+    [self performClose: nil];
+    return nil;
+}
+
+#pragma mark - Restoration
+
+- (BOOL) isRestorable {
+    return _restorable;
+}
+
+- (void) setRestorable: (BOOL) restorable {
+    _restorable = restorable;
+}
+
+- (Class) restorationClass {
+    return _restorationClass;
+}
+
+- (void) setRestorationClass: (Class) restorationClass {
+    _restorationClass = restorationClass;
+}
+
+- (void) disableSnapshotRestoration {
+    _snapshotRestorationDisabled = YES;
+}
+
+#pragma mark - Tabbing
+
+- (NSWindowTabbingMode) tabbingMode {
+    return _tabbingMode;
+}
+
+- (void) setTabbingMode: (NSWindowTabbingMode) mode {
+    _tabbingMode = mode;
+}
+
+- (NSString *) tabbingIdentifier {
+    if (_tabbingIdentifier == nil)
+        return NSStringFromClass([self class]);
+    return _tabbingIdentifier;
+}
+
+- (void) setTabbingIdentifier: (NSString *) identifier {
+    if (identifier == _tabbingIdentifier)
+        return;
+    [_tabbingIdentifier release];
+    _tabbingIdentifier = [identifier copy];
+}
+
+// There is no tab bar, so a window is never part of a tab group and there is
+// no tab to select or tab bar to toggle.
+- (void) selectNextTab: (id) sender {
+}
+
+- (void) selectPreviousTab: (id) sender {
+}
+
+- (void) toggleTabBar: (id) sender {
+}
+
+- (void) toggleTabOverview: (id) sender {
+}
+
+- (NSArray<NSWindow *> *) tabbedWindows {
+    // nil when the window is not showing a tab bar
+    return nil;
+}
+
+- (void) addTabbedWindow: (NSWindow *) window ordered: (NSWindowOrderingMode) ordered {
+    // Without tab support, the window is shown as a separate window
+    // positioned relative to this one.
+    [window orderWindow: ordered relativeTo: [self windowNumber]];
+}
+
+- (NSWindowTab *) tab {
+    if (_tab == nil)
+        _tab = [[NSWindowTab alloc] initWithWindow: self];
+    return _tab;
+}
+
+- (NSWindowTabGroup *) tabGroup {
+    return nil;
+}
+
+#pragma mark - Sheets
+
+- (void) _sheetDidEnd: (NSWindow *) sheet
+           returnCode: (NSModalResponse) returnCode
+          contextInfo: (void *) contextInfo
+{
+    void (^handler)(NSModalResponse) = (void (^)(NSModalResponse)) contextInfo;
+
+    sheet->_sheetParent = nil;
+    [sheet retain];
+    if (handler != nil) {
+        handler(returnCode);
+        [handler release];
+    }
+    [sheet release];
+
+    // Present the next queued sheet, if any.
+    if (_sheetContext == nil && [_queuedSheets count] > 0) {
+        NSDictionary *next = [[_queuedSheets objectAtIndex: 0] retain];
+        [_queuedSheets removeObjectAtIndex: 0];
+        [self _presentSheet: [next objectForKey: @"sheet"]
+                    handler: [next objectForKey: @"handler"]];
+        [next release];
+    }
+}
+
+- (void) _presentSheet: (NSWindow *) sheet handler: (id) handler {
+    id context = handler != nil ? [handler copy] : nil;
+
+    sheet->_sheetParent = self;
+    [NSApp beginSheet: sheet
+            modalForWindow: self
+             modalDelegate: self
+            didEndSelector: @selector(_sheetDidEnd:returnCode:contextInfo:)
+               contextInfo: context];
+}
+
+- (void) _enqueueSheet: (NSWindow *) sheet
+               handler: (id) handler
+               atFront: (BOOL) front
+{
+    NSDictionary *entry = [NSDictionary
+            dictionaryWithObjectsAndKeys: sheet, @"sheet",
+                                          [[handler copy] autorelease],
+                                          @"handler", nil];
+    if (handler == nil)
+        entry = [NSDictionary dictionaryWithObject: sheet forKey: @"sheet"];
+    if (_queuedSheets == nil)
+        _queuedSheets = [[NSMutableArray alloc] init];
+    if (front)
+        [_queuedSheets insertObject: entry atIndex: 0];
+    else
+        [_queuedSheets addObject: entry];
+}
+
+- (void) beginSheet: (NSWindow *) sheetWindow
+        completionHandler: (void (^)(NSModalResponse returnCode)) handler
+{
+    if (_sheetContext != nil) {
+        // Only one sheet is presented at a time; the rest are queued.
+        [self _enqueueSheet: sheetWindow handler: handler atFront: NO];
+        return;
+    }
+    [self _presentSheet: sheetWindow handler: handler];
+}
+
+- (void) beginCriticalSheet: (NSWindow *) sheetWindow
+          completionHandler: (void (^)(NSModalResponse returnCode)) handler
+{
+    if (_sheetContext != nil) {
+        // A single sheet can be presented at once, so a critical sheet goes to
+        // the head of the queue and is presented as soon as possible.
+        [self _enqueueSheet: sheetWindow handler: handler atFront: YES];
+        return;
+    }
+    [self _presentSheet: sheetWindow handler: handler];
+}
+
+- (void) endSheet: (NSWindow *) sheetWindow {
+    [self endSheet: sheetWindow returnCode: NSRunStoppedResponse];
+}
+
+- (void) endSheet: (NSWindow *) sheetWindow returnCode: (NSModalResponse) returnCode {
+    if ([_sheetContext sheet] == sheetWindow) {
+        [NSApp endSheet: sheetWindow returnCode: returnCode];
+        return;
+    }
+
+    // A queued sheet that was never presented is just dropped.
+    for (NSDictionary *entry in [[_queuedSheets copy] autorelease]) {
+        if ([entry objectForKey: @"sheet"] == sheetWindow) {
+            void (^handler)(NSModalResponse) = [entry objectForKey: @"handler"];
+            [[entry retain] autorelease];
+            [_queuedSheets removeObject: entry];
+            if (handler != nil)
+                handler(returnCode);
+            return;
+        }
+    }
+}
+
+- (NSArray<NSWindow *> *) sheets {
+    NSMutableArray *result = [NSMutableArray array];
+
+    if ([_sheetContext sheet] != nil)
+        [result addObject: [_sheetContext sheet]];
+    for (NSDictionary *entry in _queuedSheets)
+        [result addObject: [entry objectForKey: @"sheet"]];
+    return result;
+}
+
+- (NSWindow *) sheetParent {
+    return _sheetParent;
 }
 
 @end

@@ -460,4 +460,82 @@ static void appendMethodToList(Class class, NSString *selectorName, IMP imp,
     return NO;
 }
 
+- (void) _darlingReleaseExtraState {
+    [_darlingIndexes release];
+    _darlingIndexes = nil;
+    [_darlingCompoundIndexes release];
+    _darlingCompoundIndexes = nil;
+    [_darlingUniquenessConstraints release];
+    _darlingUniquenessConstraints = nil;
+    [_darlingCoreSpotlightDisplayNameExpression release];
+    _darlingCoreSpotlightDisplayNameExpression = nil;
+}
+
+- (void) dealloc {
+    [self _darlingReleaseExtraState];
+    [super dealloc];
+}
+
+- (NSString *) versionHashModifier {
+    return _versionHashModifier;
+}
+
+- (void) setVersionHashModifier: (NSString *) value {
+    if ([self _hasBeenInstantiated]) {
+        NSLog(@"Attempt to modify entity after instantiating it.");
+        return;
+    }
+
+    value = [value copy];
+    [_versionHashModifier release];
+    _versionHashModifier = value;
+}
+
+- (NSArray *) indexes {
+    return _darlingIndexes != nil ? _darlingIndexes : [NSArray array];
+}
+
+- (void) setIndexes: (NSArray *) value {
+    value = [value copy];
+    [_darlingIndexes release];
+    _darlingIndexes = value;
+}
+
+- (NSArray *) compoundIndexes {
+    return _darlingCompoundIndexes != nil ? _darlingCompoundIndexes
+                                          : [NSArray array];
+}
+
+- (void) setCompoundIndexes: (NSArray *) value {
+    value = [value retain];
+    [_darlingCompoundIndexes release];
+    _darlingCompoundIndexes = value;
+}
+
+- (NSArray *) uniquenessConstraints {
+    return _darlingUniquenessConstraints != nil ? _darlingUniquenessConstraints
+                                                : [NSArray array];
+}
+
+- (void) setUniquenessConstraints: (NSArray *) value {
+    if ([self _hasBeenInstantiated]) {
+        NSLog(@"Attempt to modify entity after instantiating it.");
+        return;
+    }
+
+    value = [value retain];
+    [_darlingUniquenessConstraints release];
+    _darlingUniquenessConstraints = value;
+}
+
+- (NSExpression *) coreSpotlightDisplayNameExpression {
+    return _darlingCoreSpotlightDisplayNameExpression;
+}
+
+- (void) setCoreSpotlightDisplayNameExpression: (NSExpression *) value {
+    value = [value retain];
+    [_darlingCoreSpotlightDisplayNameExpression release];
+    _darlingCoreSpotlightDisplayNameExpression = value;
+}
+
 @end

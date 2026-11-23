@@ -48,6 +48,49 @@ NSString *NSAnimationRunLoopMode = @"NSAnimationRunLoopMode";
     return self;
 }
 
+- initWithCoder: (NSCoder *) coder {
+    NSTimeInterval duration = 0.5;
+    NSAnimationCurve curve = NSAnimationEaseInOut;
+
+    if ([coder allowsKeyedCoding]) {
+        if ([coder containsValueForKey: @"NSDuration"])
+            duration = [coder decodeDoubleForKey: @"NSDuration"];
+        if ([coder containsValueForKey: @"NSAnimationCurve"])
+            curve = (NSAnimationCurve)[coder
+                    decodeIntegerForKey: @"NSAnimationCurve"];
+    }
+
+    self = [self initWithDuration: duration animationCurve: curve];
+    if (self == nil)
+        return nil;
+
+    if ([coder allowsKeyedCoding]) {
+        if ([coder containsValueForKey: @"NSFrameRate"])
+            _frameRate = [coder decodeFloatForKey: @"NSFrameRate"];
+        if ([coder containsValueForKey: @"NSAnimationBlockingMode"])
+            _blockingMode = (NSAnimationBlockingMode)[coder
+                    decodeIntegerForKey: @"NSAnimationBlockingMode"];
+        if ([coder containsValueForKey: @"NSProgressMarks"]) {
+            NSArray *marks = [coder decodeObjectForKey: @"NSProgressMarks"];
+            if (marks != nil) {
+                [_progressMarks release];
+                _progressMarks = [marks mutableCopy];
+            }
+        }
+    }
+    return self;
+}
+
+- (void) encodeWithCoder: (NSCoder *) coder {
+    if ([coder allowsKeyedCoding]) {
+        [coder encodeDouble: _duration forKey: @"NSDuration"];
+        [coder encodeInteger: _curve forKey: @"NSAnimationCurve"];
+        [coder encodeFloat: _frameRate forKey: @"NSFrameRate"];
+        [coder encodeInteger: _blockingMode forKey: @"NSAnimationBlockingMode"];
+        [coder encodeObject: _progressMarks forKey: @"NSProgressMarks"];
+    }
+}
+
 - (void) dealloc {
     [_progressMarks release];
     [_runLoopModes release];

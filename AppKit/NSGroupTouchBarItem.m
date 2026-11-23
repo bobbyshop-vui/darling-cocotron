@@ -18,17 +18,72 @@
 */
 
 #import <AppKit/NSGroupTouchBarItem.h>
+#import <AppKit/NSTouchBar.h>
 
 @implementation NSGroupTouchBarItem
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+
++ (instancetype)groupItemWithIdentifier:(NSTouchBarItemIdentifier)identifier items:(NSArray *)items
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    NSGroupTouchBarItem *item = [[[self alloc] initWithIdentifier:identifier] autorelease];
+    NSTouchBar *bar = [[[NSTouchBar alloc] init] autorelease];
+    item->_groupItems = [items copy];
+    [item setGroupTouchBar:bar];
+    return item;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (instancetype)initWithIdentifier:(NSTouchBarItemIdentifier)identifier
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    if ((self = [super initWithIdentifier:identifier])) {
+        _customizationLabel = [@"" copy];
+        _groupUserInterfaceLayoutDirection = NSUserInterfaceLayoutDirectionLeftToRight;
+        _groupTouchBar = [[NSTouchBar alloc] init];
+    }
+    return self;
 }
+
+- (void)dealloc
+{
+    [_groupItems release];
+    [_groupTouchBar release];
+    [_customizationLabel release];
+    [super dealloc];
+}
+
+- (NSTouchBar *)groupTouchBar
+{
+    return _groupTouchBar;
+}
+
+- (void)setGroupTouchBar:(NSTouchBar *)groupTouchBar
+{
+    if (_groupTouchBar != groupTouchBar) {
+        [_groupTouchBar release];
+        _groupTouchBar = [groupTouchBar retain];
+    }
+}
+
+- (NSString *)customizationLabel
+{
+    return _customizationLabel;
+}
+
+- (void)setCustomizationLabel:(NSString *)label
+{
+    NSString *newLabel = [(label ? label : @"") copy];
+    [_customizationLabel release];
+    _customizationLabel = newLabel;
+}
+
+- (NSUserInterfaceLayoutDirection)groupUserInterfaceLayoutDirection
+{
+    return _groupUserInterfaceLayoutDirection;
+}
+
+- (void)setGroupUserInterfaceLayoutDirection:(NSUserInterfaceLayoutDirection)direction
+{
+    _groupUserInterfaceLayoutDirection = direction;
+}
+
 
 @end

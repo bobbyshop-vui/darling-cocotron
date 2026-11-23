@@ -18,17 +18,59 @@
 */
 
 #import <AppKit/NSTableCellView.h>
+#import <AppKit/NSTextField.h>
+#import <AppKit/NSImageView.h>
 
 @implementation NSTableCellView
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (void) dealloc {
+    [_cellObjectValue release];
+    [super dealloc];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (id) objectValue {
+    return _cellObjectValue;
+}
+
+- (void) setObjectValue: (id) value {
+    value = [value retain];
+    [_cellObjectValue release];
+    _cellObjectValue = value;
+}
+
+// text field and image view are weak (assign) references
+- (NSTextField *) textField {
+    return _cellTextField;
+}
+
+- (void) setTextField: (NSTextField *) textField {
+    _cellTextField = textField;
+}
+
+- (NSImageView *) imageView {
+    return _cellImageView;
+}
+
+- (void) setImageView: (NSImageView *) imageView {
+    _cellImageView = imageView;
+}
+
+- (NSBackgroundStyle) backgroundStyle {
+    return _cellBackgroundStyle;
+}
+
+- (void) setBackgroundStyle: (NSBackgroundStyle) style {
+    _cellBackgroundStyle = style;
+    [[_cellTextField cell] setBackgroundStyle: style];
+    [self setNeedsDisplay: YES];
+}
+
+- (NSTableViewRowSizeStyle) rowSizeStyle {
+    return _cellRowSizeStyle;
+}
+
+- (void) setRowSizeStyle: (NSTableViewRowSizeStyle) style {
+    _cellRowSizeStyle = style;
 }
 
 @end

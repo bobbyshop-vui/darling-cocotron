@@ -357,7 +357,121 @@ static NSTimer *_periodicTimer = nil;
 }
 
 + (void) removeMonitor: (id) eventMonitor {
-    NSUnimplementedMethod();
+    // Monitors are only tokens; nothing delivers events to them, so there
+    // is nothing to unregister.
+}
+
++ (id) addGlobalMonitorForEventsMatchingMask: (NSEventMask) mask
+                                     handler: (void (^)(NSEvent *event)) block
+{
+    // Events for other applications are never delivered here; hand back a
+    // token that can be passed to +removeMonitor:.
+    return [[[NSObject alloc] init] autorelease];
+}
+
++ (NSTimeInterval) doubleClickInterval {
+    return 0.5;
+}
+
++ (BOOL) isSwipeTrackingFromScrollEventsEnabled {
+    return NO;
+}
+
++ (NSUInteger) pressedMouseButtons {
+    return 0;
+}
+
+- (CGEventRef) CGEvent {
+    return NULL;
+}
+
+- (NSEventButtonMask) buttonMask {
+    return 0;
+}
+
+- (NSGraphicsContext *) context {
+    return nil;
+}
+
+- (NSUInteger) deviceID {
+    return 0;
+}
+
+- (NSInteger) eventNumber {
+    return 0;
+}
+
+- (BOOL) hasPreciseScrollingDeltas {
+    return NO;
+}
+
+- (BOOL) isDirectionInvertedFromDevice {
+    return NO;
+}
+
+- (CGFloat) magnification {
+    return 0.0;
+}
+
+- (NSEventPhase) momentumPhase {
+    return NSEventPhaseNone;
+}
+
+- (NSEventPhase) phase {
+    return NSEventPhaseNone;
+}
+
+- (float) pressure {
+    switch (_type) {
+    case NSEventTypeLeftMouseDown:
+    case NSEventTypeRightMouseDown:
+    case NSEventTypeOtherMouseDown:
+    case NSEventTypeLeftMouseDragged:
+    case NSEventTypeRightMouseDragged:
+        return 1.0f;
+    default:
+        return 0.0f;
+    }
+}
+
+- (float) rotation {
+    return 0.0f;
+}
+
+- (CGFloat) scrollingDeltaX {
+    return [self deltaX];
+}
+
+- (CGFloat) scrollingDeltaY {
+    return [self deltaY];
+}
+
+- (NSInteger) stage {
+    return 0;
+}
+
+- (NSSet *) touchesMatchingPhase: (NSTouchPhase) phase inView: (NSView *) view {
+    // No touch hardware is available.
+    return [NSSet set];
+}
+
+- (void) trackSwipeEventWithOptions: (NSEventSwipeTrackingOptions) options
+           dampenAmountThresholdMin: (CGFloat) minDampenThreshold
+                                max: (CGFloat) maxDampenThreshold
+                       usingHandler: (void (^)(CGFloat gestureAmount,
+                                               NSEventPhase phase,
+                                               BOOL isComplete,
+                                               BOOL *stop)) trackingHandler
+{
+    // Without gesture hardware the swipe ends immediately.
+    if (trackingHandler != NULL) {
+        BOOL stop = NO;
+        trackingHandler(0.0, NSEventPhaseEnded, YES, &stop);
+    }
+}
+
+- (unsigned long long) uniqueID {
+    return 0;
 }
 
 @end

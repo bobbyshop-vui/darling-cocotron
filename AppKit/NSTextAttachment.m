@@ -33,6 +33,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) dealloc {
     [_fileWrapper release];
     [_cell release];
+    [_darlingImage release];
+    [_darlingFileType release];
     [super dealloc];
 }
 
@@ -54,6 +56,42 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     cell = [cell retain];
     [_cell release];
     _cell = cell;
+}
+
+- (NSRect) bounds {
+    return _darlingBounds;
+}
+
+- (void) setBounds: (NSRect) bounds {
+    _darlingBounds = bounds;
+}
+
+- (NSString *) fileType {
+    return _darlingFileType;
+}
+
+- (void) setFileType: (NSString *) fileType {
+    fileType = [fileType copy];
+    [_darlingFileType release];
+    _darlingFileType = fileType;
+}
+
+- (NSImage *) image {
+    return _darlingImage;
+}
+
+- (void) setImage: (NSImage *) image {
+    image = [image retain];
+    [_darlingImage release];
+    _darlingImage = image;
+
+    // Setting the image invalidates the file wrapper contents/type.
+    if (image != nil) {
+        [_darlingFileType release];
+        _darlingFileType = nil;
+        if ([(id) _cell respondsToSelector: @selector(setImage:)])
+            [(id) _cell setImage: image];
+    }
 }
 
 @end

@@ -19,7 +19,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <Foundation/Foundation.h>
 
-@class NSPrintInfo, NSPrintPanel, NSView, NSGraphicsContext;
+@class NSPrintInfo, NSPrintPanel, NSView, NSGraphicsContext, NSWindow;
 
 @interface NSPrintOperation : NSObject {
     NSView *_view;
@@ -33,6 +33,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSMutableData *_mutableData;
     int _type;
     BOOL _showsPrintProgressPanel;
+    NSString *_jobTitle;
 }
 
 + (NSPrintOperation *) currentOperation;
@@ -58,6 +59,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (BOOL) isCopyingOperation;
 
 - (void) setAccessoryView: (NSView *) view;
+- (NSView *) accessoryView;
+
+- (NSString *) jobTitle;
+- (void) setJobTitle: (NSString *) title;
+- (void) setPrintInfo: (NSPrintInfo *) printInfo;
+- (void) runOperationModalForWindow: (NSWindow *) window
+                           delegate: (id) delegate
+                     didRunSelector: (SEL) didRunSelector
+                        contextInfo: (void *) contextInfo;
 
 - (NSView *) view;
 - (NSPrintInfo *) printInfo;

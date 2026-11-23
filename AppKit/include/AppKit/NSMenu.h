@@ -21,9 +21,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/Foundation.h>
 #import <AppKit/NSUserInterfaceItemIdentification.h>
 
-@class NSScreen, NSMenu, NSMenuItem, NSWindow, NSEvent, NSView;
+@class NSScreen, NSMenu, NSMenuItem, NSWindow, NSEvent, NSView, NSFont;
 
 @protocol NSMenuDelegate;
+
+typedef NSUInteger NSMenuProperties;
+enum {
+    NSMenuPropertyItemTitle = 1 << 0,
+    NSMenuPropertyItemAttributedTitle = 1 << 1,
+    NSMenuPropertyItemKeyEquivalent = 1 << 2,
+    NSMenuPropertyItemImage = 1 << 3,
+    NSMenuPropertyItemEnabled = 1 << 4,
+    NSMenuPropertyItemAccessibilityDescription = 1 << 5
+};
 
 APPKIT_EXPORT const NSNotificationName NSMenuWillSendActionNotification;
 APPKIT_EXPORT const NSNotificationName NSMenuDidSendActionNotification;
@@ -39,6 +49,15 @@ APPKIT_EXPORT const NSNotificationName NSMenuDidEndTrackingNotification;
     id<NSMenuDelegate> _delegate;
     BOOL _showsStateColumn;
     NSUserInterfaceItemIdentifier _identifier;
+    NSFont *_font;
+    CGFloat _minimumWidth;
+    BOOL _allowsContextMenuPlugIns;
+    BOOL _hasLayoutDirection;
+    NSInteger _userInterfaceLayoutDirection;
+    NSMenuItem *_highlightedItem;
+    NSMenuProperties _propertiesToUpdate;
+    id _trackingView;
+    BOOL _cancelTrackingRequested;
 }
 
 @property BOOL showsStateColumn;
@@ -46,6 +65,11 @@ APPKIT_EXPORT const NSNotificationName NSMenuDidEndTrackingNotification;
 + (void) popUpContextMenu: (NSMenu *) menu
                 withEvent: (NSEvent *) event
                   forView: (NSView *) view;
+
++ (void) popUpContextMenu: (NSMenu *) menu
+                withEvent: (NSEvent *) event
+                  forView: (NSView *) view
+                 withFont: (NSFont *) font;
 
 + (NSZone *) menuZone;
 
@@ -95,6 +119,25 @@ APPKIT_EXPORT const NSNotificationName NSMenuDidEndTrackingNotification;
 - (void) itemChanged: (NSMenuItem *) item;
 
 - (BOOL) performKeyEquivalent: (NSEvent *) event;
+
+- (BOOL) popUpMenuPositioningItem: (NSMenuItem *) item
+                       atLocation: (NSPoint) location
+                           inView: (NSView *) view;
+- (void) performActionForItemAtIndex: (NSInteger) index;
+- (CGFloat) menuBarHeight;
+- (void) cancelTracking;
+- (NSMenuItem *) highlightedItem;
+- (CGFloat) minimumWidth;
+- (void) setMinimumWidth: (CGFloat) width;
+- (NSFont *) font;
+- (void) setFont: (NSFont *) font;
+- (BOOL) allowsContextMenuPlugIns;
+- (void) setAllowsContextMenuPlugIns: (BOOL) flag;
+- (NSInteger) userInterfaceLayoutDirection;
+- (void) setUserInterfaceLayoutDirection: (NSInteger) direction;
+- (NSMenuProperties) propertiesToUpdate;
+- (NSSize) size;
+- (void) sizeToFit;
 
 - (void) setDelegate: (id<NSMenuDelegate>) object;
 - (id<NSMenuDelegate>) delegate;

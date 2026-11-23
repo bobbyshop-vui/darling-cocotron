@@ -23,14 +23,36 @@
 
 @implementation NSFilePromiseProvider
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+
+- (void)dealloc
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    _delegate = nil;
+    [_userInfo release];
+    [super dealloc];
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (id)delegate
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    return _delegate;
 }
+
+- (void)setDelegate:(id)delegate
+{
+    _delegate = delegate;
+}
+
+- (id)userInfo
+{
+    return _userInfo;
+}
+
+- (void)setUserInfo:(id)userInfo
+{
+    if (_userInfo != userInfo) {
+        [_userInfo release];
+        _userInfo = [userInfo retain];
+    }
+}
+
 
 @end

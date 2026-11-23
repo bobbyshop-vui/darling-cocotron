@@ -18,11 +18,11 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSSlider.h>
+#import <AppKit/NSColor.h>
+#import <AppKit/NSFont.h>
 
-@interface NSSliderAccessory : NSObject
-@end
-
-@interface NSSliderAccessoryBehavior : NSObject
+@interface NSSliderAccessoryBehavior ()
+- (instancetype) _initWithKind: (NSInteger) kind;
 @end
 
 @implementation NSSlider
@@ -116,6 +116,59 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return YES;
 }
 
+- (void) setVertical: (BOOL) vertical {
+    [[self selectedCell] setVertical: vertical];
+    [self setNeedsDisplay: YES];
+}
+
+- (id) titleCell {
+    return [[self selectedCell] titleCell];
+}
+
+- (void) setTitle: (NSString *) title {
+    [[self selectedCell] setTitle: title];
+    [self setNeedsDisplay: YES];
+}
+
+- (NSString *) title {
+    return [[self selectedCell] title];
+}
+
+- (void) setTitleColor: (NSColor *) color {
+    [[self selectedCell] setTitleColor: color];
+    [self setNeedsDisplay: YES];
+}
+
+- (NSColor *) titleColor {
+    return [[self selectedCell] titleColor];
+}
+
+- (void) setTitleFont: (NSFont *) font {
+    [[self selectedCell] setTitleFont: font];
+    [self setNeedsDisplay: YES];
+}
+
+- (NSFont *) titleFont {
+    return [[self selectedCell] titleFont];
+}
+
+- (void) setTrackFillColor: (NSColor *) color {
+    if (_trackFillColor != color) {
+        [_trackFillColor release];
+        _trackFillColor = [color copy];
+        [self setNeedsDisplay: YES];
+    }
+}
+
+- (NSColor *) trackFillColor {
+    return _trackFillColor;
+}
+
+- (void) dealloc {
+    [_trackFillColor release];
+    [super dealloc];
+}
+
 - (void) keyDown: (NSEvent *) event {
     [self interpretKeyEvents: [NSArray arrayWithObject: event]];
 }
@@ -148,28 +201,58 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @implementation NSSliderAccessory
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (instancetype) init {
+    self = [super init];
+    if (self)
+        _enabled = YES;
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (void) dealloc {
+    [_behavior release];
+    [super dealloc];
+}
+
+- (NSSliderAccessoryBehavior *) behavior {
+    return _behavior;
+}
+
+- (void) setBehavior: (NSSliderAccessoryBehavior *) behavior {
+    if (_behavior != behavior) {
+        [_behavior release];
+        _behavior = [behavior copy];
+    }
+}
+
+- (BOOL) isEnabled {
+    return _enabled;
+}
+
+- (void) setEnabled: (BOOL) enabled {
+    _enabled = enabled;
 }
 
 @end
 
 @implementation NSSliderAccessoryBehavior
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (instancetype) _initWithKind: (NSInteger) kind {
+    self = [super init];
+    if (self)
+        _kind = kind;
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
++ (NSSliderAccessoryBehavior *) valueStepBehavior {
+    return [[[self alloc] _initWithKind: 1] autorelease];
+}
+
++ (NSSliderAccessoryBehavior *) valueResetBehavior {
+    return [[[self alloc] _initWithKind: 2] autorelease];
+}
+
+- (id) copyWithZone: (NSZone *) zone {
+    return [[[self class] allocWithZone: zone] _initWithKind: _kind];
 }
 
 @end

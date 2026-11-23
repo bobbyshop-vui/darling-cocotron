@@ -22,6 +22,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSDisplay.h>
 #import <AppKit/NSPageLayout.h>
 #import <AppKit/NSPrintInfo.h>
+#import <AppKit/NSView.h>
+#import <AppKit/NSViewController.h>
 #import <AppKit/NSWindow.h>
 
 @implementation NSPageLayout
@@ -30,7 +32,45 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return NSThreadSharedInstance(@"NSPageLayout");
 }
 
+- (void) dealloc {
+    [_accessoryControllers release];
+    [_printInfo release];
+    [super dealloc];
+}
+
+- (NSPrintInfo *) printInfo {
+    return _printInfo;
+}
+
+- (void) addAccessoryController: (NSViewController *) accessoryController {
+    if (accessoryController == nil)
+        return;
+    if (_accessoryControllers == nil)
+        _accessoryControllers = [[NSMutableArray alloc] init];
+    [_accessoryControllers addObject: accessoryController];
+}
+
+- (NSView *) accessoryView {
+    return [[_accessoryControllers firstObject] view];
+}
+
+- (void) setAccessoryView: (NSView *) accessoryView {
+    // Replaces all accessory controllers added so far.
+    [_accessoryControllers removeAllObjects];
+    if (accessoryView == nil)
+        return;
+    NSViewController *controller =
+            [[[NSViewController alloc] initWithNibName: nil bundle: nil]
+                    autorelease];
+    [controller setView: accessoryView];
+    [self addAccessoryController: controller];
+}
+
 - (int) runModalWithPrintInfo: (NSPrintInfo *) printInfo {
+    if (_printInfo != printInfo) {
+        [_printInfo release];
+        _printInfo = [printInfo retain];
+    }
     return [[NSDisplay currentDisplay]
             runModalPageLayoutWithPrintInfo: printInfo];
 }

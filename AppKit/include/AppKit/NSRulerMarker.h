@@ -22,7 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @class NSRulerView, NSImage, NSEvent;
 
-@interface NSRulerMarker : NSObject <NSCopying> //, NSCoding>
+@interface NSRulerMarker : NSObject <NSCopying, NSCoding>
 {
     NSRulerView *_ruler;
     CGFloat _markerLocation;
@@ -64,5 +64,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) drawRect: (NSRect) rect;
 - (BOOL) isDragging;
 - (BOOL) trackMouse: (NSEvent *) event adding: (BOOL) adding;
+
+- (instancetype) initWithCoder: (NSCoder *) coder;
 
 @end

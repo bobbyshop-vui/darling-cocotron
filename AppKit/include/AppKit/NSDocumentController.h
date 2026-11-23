@@ -72,6 +72,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                         display: (BOOL) display
                           error: (NSError **) error;
 
+- (void) openDocumentWithContentsOfURL: (NSURL *) url
+                               display: (BOOL) displayDocument
+                     completionHandler: (void (^)(NSDocument *document,
+                                                  BOOL documentWasAlreadyOpen,
+                                                  NSError *error)) completionHandler;
+- openDocumentWithContentsOfURL: (NSURL *) url display: (BOOL) display;
+- (void) beginOpenPanelWithCompletionHandler: (void (^)(NSArray *urls)) handler;
+
 - (BOOL) reopenDocumentForURL: (NSURL *) url
             withContentsOfURL: (NSURL *) contentsUL
                         error: (NSError **) error;
@@ -84,7 +92,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                                   cancellable: (BOOL) cancellable
                                      delegate: delegate
                          didReviewAllSelector: (SEL) selector
-                                         info: (void *) info;
+                                  contextInfo: (void *) info;
 
 - (NSError *) willPresentError: (NSError *) error;
 - (BOOL) presentError: (NSError *) error;

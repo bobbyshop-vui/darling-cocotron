@@ -23,6 +23,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreData/NSManagedObjectModel.h>
 #import <CoreData/NSPersistentStoreCoordinator.h>
 #import <Foundation/NSRaise.h>
+#import <dispatch/dispatch.h>
 
 NSString *const NSStoreTypeKey = @"NSStoreTypeKey";
 NSString *const NSStoreUUIDKey = @"NSStoreUUIDKey";
@@ -84,6 +85,7 @@ static NSMutableDictionary *_storeTypes = nil;
 
 - (void) dealloc {
     [_lock release];
+    [_coordinatorName release];
     [_model release];
     [_stores release];
     [super dealloc];
@@ -222,6 +224,61 @@ static NSMutableDictionary *_storeTypes = nil;
     Class check = [[self registeredStoreTypes] objectForKey: storeType];
 
     return [check metadataForPersistentStoreWithURL: url error: error];
+}
+
++ (NSDictionary *) metadataForPersistentStoreOfType: (NSString *) storeType
+                                                URL: (NSURL *) url
+                                            options: (NSDictionary *) options
+                                              error: (NSError **) error
+{
+    return [self metadataForPersistentStoreOfType: storeType
+                                              URL: url
+                                            error: error];
+}
+
++ (BOOL) setMetadata: (NSDictionary *) metadata
+        forPersistentStoreOfType: (NSString *) storeType
+                             URL: (NSURL *) url
+                         options: (NSDictionary *) options
+                           error: (NSError **) error
+{
+    return [self setMetadata: metadata
+            forPersistentStoreOfType: storeType
+                                 URL: url
+                               error: error];
+}
+
+- (NSString *) name {
+    return _coordinatorName;
+}
+
+- (void) setName: (NSString *) name {
+    name = [name copy];
+    [_coordinatorName release];
+    _coordinatorName = name;
+}
+
+- (void) performBlock: (void (^)(void)) block {
+    void (^copied)(void) = [block copy];
+
+    [self retain];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
+                   ^{
+                     [self lock];
+                     copied();
+                     [self unlock];
+                     [copied release];
+                     [self release];
+                   });
+}
+
+- (void) performBlockAndWait: (void (^)(void)) block {
+    [self lock];
+    @try {
+        block();
+    } @finally {
+        [self unlock];
+    }
 }
 
 - (NSPersistentStore *) _persistentStoreWithIdentifier: (NSString *) identifier

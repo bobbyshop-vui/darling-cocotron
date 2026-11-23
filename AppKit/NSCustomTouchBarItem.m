@@ -18,17 +18,86 @@
 */
 
 #import <AppKit/NSCustomTouchBarItem.h>
+#import <AppKit/NSView.h>
+#import <AppKit/NSViewController.h>
 
 @implementation NSCustomTouchBarItem
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+- (instancetype)initWithCoder:(NSCoder *)coder
 {
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+    if ((self = [super initWithCoder:coder])) {
+        if ([coder allowsKeyedCoding]) {
+            _view = [[coder decodeObjectForKey:@"NSTouchBarItemView"] retain];
+            _viewController = [[coder decodeObjectForKey:@"NSTouchBarItemViewController"] retain];
+            _customizationLabel = [[coder decodeObjectForKey:@"NSTouchBarItemCustomizationLabel"] copy];
+        }
+    }
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
+- (void)encodeWithCoder:(NSCoder *)coder
 {
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+    [super encodeWithCoder:coder];
+    if ([coder allowsKeyedCoding]) {
+        [coder encodeObject:_view forKey:@"NSTouchBarItemView"];
+        [coder encodeObject:_viewController forKey:@"NSTouchBarItemViewController"];
+        [coder encodeObject:_customizationLabel forKey:@"NSTouchBarItemCustomizationLabel"];
+    }
+}
+
+- (void)dealloc
+{
+    [_view release];
+    [_viewController release];
+    [_customizationLabel release];
+    [super dealloc];
+}
+
+- (NSView *)view
+{
+    if (_view == nil && _viewController != nil)
+        return [_viewController view];
+    return _view;
+}
+
+- (void)setView:(NSView *)view
+{
+    [self willChangeValueForKey:@"view"];
+    [view retain];
+    [_view release];
+    _view = view;
+    // Setting the view explicitly clears the view controller.
+    [_viewController release];
+    _viewController = nil;
+    [self didChangeValueForKey:@"view"];
+}
+
+- (NSViewController *)viewController
+{
+    return _viewController;
+}
+
+- (void)setViewController:(NSViewController *)viewController
+{
+    [self willChangeValueForKey:@"viewController"];
+    [viewController retain];
+    [_viewController release];
+    _viewController = viewController;
+    [_view release];
+    _view = nil;
+    [self didChangeValueForKey:@"viewController"];
+}
+
+- (NSString *)customizationLabel
+{
+    return _customizationLabel != nil ? _customizationLabel : @"";
+}
+
+- (void)setCustomizationLabel:(NSString *)label
+{
+    label = [label copy];
+    [_customizationLabel release];
+    _customizationLabel = label;
 }
 
 @end

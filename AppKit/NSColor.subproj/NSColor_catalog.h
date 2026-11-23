@@ -28,6 +28,5 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 + (NSColor *) colorWithCatalogName: (NSColorListName) catalogName
                          colorName: (NSColorName) colorName
                              color: (NSColor *) color;
-- (NSColor *) highlightWithLevel: (CGFloat) level;
 
 @end

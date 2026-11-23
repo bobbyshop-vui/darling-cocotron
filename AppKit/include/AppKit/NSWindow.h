@@ -32,7 +32,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         NSText, NSTextView, CGWindow, NSPasteboard, NSSheetContext,
         NSUndoManager, NSButton, NSButtonCell, NSDrawer, NSDockTile, NSToolbar,
         NSWindowAnimationContext, NSTrackingArea, NSThemeFrame,
-        NSWindowController, NSMenuItem, CARenderer;
+        NSWindowController, NSMenuItem, CARenderer, NSWindowTab, NSWindowTabGroup,
+        NSLayoutGuide;
 @protocol NSWindowDelegate;
 
 // Old NSWindowStyleMask constants
@@ -119,6 +120,30 @@ typedef NS_ENUM(NSUInteger, NSWindowSharingType) {
 };
 
 typedef int NSSelectionDirection;
+typedef NSInteger NSModalResponse;
+
+typedef NS_ENUM(NSInteger, NSWindowAnimationBehavior) {
+    NSWindowAnimationBehaviorDefault = 0,
+    NSWindowAnimationBehaviorNone = 2,
+    NSWindowAnimationBehaviorDocumentWindow = 3,
+    NSWindowAnimationBehaviorUtilityWindow = 4,
+    NSWindowAnimationBehaviorAlertPanel = 5
+};
+
+typedef NS_OPTIONS(NSUInteger, NSWindowOcclusionState) {
+    NSWindowOcclusionStateVisible = 1UL << 1,
+};
+
+typedef NS_ENUM(NSInteger, NSWindowTitleVisibility) {
+    NSWindowTitleVisible = 0,
+    NSWindowTitleHidden = 1,
+};
+
+typedef NS_ENUM(NSInteger, NSWindowTabbingMode) {
+    NSWindowTabbingModeAutomatic,
+    NSWindowTabbingModePreferred,
+    NSWindowTabbingModeDisallowed
+};
 
 APPKIT_EXPORT const NSNotificationName NSWindowDidBecomeKeyNotification;
 APPKIT_EXPORT const NSNotificationName NSWindowDidResignKeyNotification;
@@ -247,6 +272,21 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
     NSUserInterfaceItemIdentifier _identifier;
 
     BOOL _isAccessible;
+
+    NSWindowAnimationBehavior _animationBehavior;
+    NSWindowTitleVisibility _titleVisibility;
+    BOOL _titlebarAppearsTransparent;
+    NSSize _minFullScreenContentSize;
+    NSSize _maxFullScreenContentSize;
+    NSLayoutGuide *_contentLayoutGuide;
+    BOOL _restorable;
+    BOOL _snapshotRestorationDisabled;
+    Class _restorationClass;
+    NSWindowTabbingMode _tabbingMode;
+    NSString *_tabbingIdentifier;
+    NSWindowTab *_tab;
+    NSWindow *_sheetParent;
+    NSMutableArray *_queuedSheets;
 }
 
 @property(class) BOOL allowsAutomaticWindowTabbing;
@@ -581,6 +621,70 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 - (void) toggleToolbarShown: sender;
 - (void) runToolbarCustomizationPalette: sender;
 - (void) toggleFullScreen: (id) sender;
+
+- (NSRect) convertRectToScreen: (NSRect) rect;
+- (NSRect) convertRectFromScreen: (NSRect) rect;
+- (NSPoint) convertPointToScreen: (NSPoint) point;
+- (NSPoint) convertPointFromScreen: (NSPoint) point;
+
+- (CGFloat) backingScaleFactor;
+- (NSRect) convertRectToBacking: (NSRect) rect;
+- (NSRect) convertRectFromBacking: (NSRect) rect;
+- (NSPoint) convertPointToBacking: (NSPoint) point;
+- (NSPoint) convertPointFromBacking: (NSPoint) point;
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options;
+// displayGamut is an NSDisplayGamut
+- (BOOL) canRepresentDisplayGamut: (NSInteger) displayGamut;
+
+- (BOOL) isResizable;
+- (NSWindowAnimationBehavior) animationBehavior;
+- (void) setAnimationBehavior: (NSWindowAnimationBehavior) behavior;
+- (NSWindowOcclusionState) occlusionState;
+
+- (NSWindowTitleVisibility) titleVisibility;
+- (void) setTitleVisibility: (NSWindowTitleVisibility) visibility;
+- (BOOL) titlebarAppearsTransparent;
+- (void) setTitlebarAppearsTransparent: (BOOL) transparent;
+- (NSRect) contentLayoutRect;
+- (id) contentLayoutGuide;
+
+- (NSSize) minFullScreenContentSize;
+- (void) setMinFullScreenContentSize: (NSSize) size;
+- (NSSize) maxFullScreenContentSize;
+- (void) setMaxFullScreenContentSize: (NSSize) size;
+
+- (void) layoutIfNeeded;
+- (void) updateConstraintsIfNeeded;
+
+- (void) beginSheet: (NSWindow *) sheetWindow
+        completionHandler: (void (^)(NSModalResponse returnCode)) handler;
+- (void) beginCriticalSheet: (NSWindow *) sheetWindow
+          completionHandler: (void (^)(NSModalResponse returnCode)) handler;
+- (void) endSheet: (NSWindow *) sheetWindow;
+- (void) endSheet: (NSWindow *) sheetWindow returnCode: (NSModalResponse) returnCode;
+- (NSArray<NSWindow *> *) sheets;
+- (NSWindow *) sheetParent;
+
+- (BOOL) isRestorable;
+- (void) setRestorable: (BOOL) restorable;
+- (Class) restorationClass;
+- (void) setRestorationClass: (Class) restorationClass;
+- (void) disableSnapshotRestoration;
+
+- (NSWindowTabbingMode) tabbingMode;
+- (void) setTabbingMode: (NSWindowTabbingMode) mode;
+- (NSString *) tabbingIdentifier;
+- (void) setTabbingIdentifier: (NSString *) identifier;
+- (void) selectNextTab: (id) sender;
+- (void) selectPreviousTab: (id) sender;
+- (void) toggleTabBar: (id) sender;
+- (void) toggleTabOverview: (id) sender;
+- (NSArray<NSWindow *> *) tabbedWindows;
+- (void) addTabbedWindow: (NSWindow *) window ordered: (NSWindowOrderingMode) ordered;
+- (NSWindowTab *) tab;
+- (NSWindowTabGroup *) tabGroup;
+
+- (id) handleCloseScriptCommand: (id) command;
 
 @end
 

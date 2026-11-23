@@ -53,6 +53,7 @@ typedef enum {
     NSColorRenderingIntent _renderingIntent;
     NSCompositingOperation _compOperation;
     NSPoint _patternPhase;
+    NSDictionary *_attributes;
 }
 
 + (NSGraphicsContext *) graphicsContextWithWindow: (NSWindow *) window;
@@ -72,6 +73,8 @@ typedef enum {
 + (BOOL) currentContextDrawingToScreen;
 
 - (CGContextRef) graphicsPort;
+- (CGContextRef) CGContext;
+- (NSDictionary *) attributes;
 - (NSMutableArray *) focusStack;
 
 - (BOOL) isDrawingToScreen;

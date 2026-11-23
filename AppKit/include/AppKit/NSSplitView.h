@@ -18,6 +18,9 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSView.h>
+#import <AppKit/NSLayoutConstraint.h>
+
+@class NSColor;
 
 APPKIT_EXPORT NSString *const NSSplitViewDidResizeSubviewsNotification;
 APPKIT_EXPORT NSString *const NSSplitViewWillResizeSubviewsNotification;
@@ -32,6 +35,9 @@ typedef enum {
     id _delegate;
     BOOL _isVertical;
     NSSplitViewDividerStyle _dividerStyle;
+    BOOL _arrangesAllSubviews;
+    NSString *_autosaveName;
+    NSMutableArray *_holdingPriorities;
 }
 
 - (id) delegate;
@@ -50,6 +56,18 @@ typedef enum {
 - (void) setDividerStyle: (NSSplitViewDividerStyle) style;
 - (NSSplitViewDividerStyle) dividerStyle;
 
+- (NSColor *) dividerColor;
+- (NSString *) autosaveName;
+- (void) setAutosaveName: (NSString *) autosaveName;
+- (NSArray *) arrangedSubviews;
+- (void) addArrangedSubview: (NSView *) view;
+- (void) insertArrangedSubview: (NSView *) view atIndex: (NSInteger) index;
+- (void) removeArrangedSubview: (NSView *) view;
+- (void) setArrangesAllSubviews: (BOOL) flag;
+- (NSLayoutPriority) holdingPriorityForSubviewAtIndex: (NSInteger) subviewIndex;
+- (void) setHoldingPriority: (NSLayoutPriority) priority
+         forSubviewAtIndex: (NSInteger) subviewIndex;
+
 /* Get the minimum or maximum possible position of a divider */
 - (CGFloat) minPossiblePositionOfDividerAtIndex: (int) index;
 - (CGFloat) maxPossiblePositionOfDividerAtIndex: (int) index;
@@ -62,11 +80,12 @@ typedef enum {
 // nb. it looks like the API for this is changed in MacOS X, replacing
 // splitView:constrainMix:max:ofSubviewAt with two individual methods for each.
 @protocol NSSplitViewDelegate <NSObject>
+@optional
 - (BOOL) splitView: (NSSplitView *) splitView
         canCollapseSubview: (NSView *) subview;
 - (BOOL) splitView: (NSSplitView *) splitView
                  shouldCollapseSubview: (NSView *) subview
-        forDoubleClickOnDividerAtIndex: (int) index;
+        forDoubleClickOnDividerAtIndex: (NSInteger) index;
 - (CGFloat) splitView: (NSSplitView *) splitView
         constrainMinCoordinate: (CGFloat) proposedMinimumPosition
                    ofSubviewAt: (int) index;
@@ -87,12 +106,12 @@ typedef enum {
 - (BOOL) splitView: (NSSplitView *) splitView
         shouldAdjustSizeOfSubview: (NSView *) view;
 - (BOOL) splitView: (NSSplitView *) splitView
-        shouldHideDividerAtIndex: (int) index;
+        shouldHideDividerAtIndex: (NSInteger) index;
 
 - (NSRect) splitView: (NSSplitView *) splitView
            effectiveRect: (NSRect) proposedEffectiveRect
             forDrawnRect: (NSRect) drawnRect
-        ofDividerAtIndex: (int) index;
+        ofDividerAtIndex: (NSInteger) index;
 - (NSRect) splitView: (NSSplitView *) splitView
         additionalEffectiveRectOfDividerAtIndex: (NSInteger) index;
 

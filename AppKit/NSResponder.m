@@ -298,6 +298,116 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_nextResponder performSelector: _cmd withObject: event];
 }
 
+- (void) beginGestureWithEvent: (NSEvent *) event {
+    [_nextResponder beginGestureWithEvent: event];
+}
+
+- (void) endGestureWithEvent: (NSEvent *) event {
+    [_nextResponder endGestureWithEvent: event];
+}
+
+- (void) magnifyWithEvent: (NSEvent *) event {
+    [_nextResponder magnifyWithEvent: event];
+}
+
+- (void) pressureChangeWithEvent: (NSEvent *) event {
+    [_nextResponder pressureChangeWithEvent: event];
+}
+
+- (void) quickLookWithEvent: (NSEvent *) event {
+    [_nextResponder quickLookWithEvent: event];
+}
+
+- (void) rotateWithEvent: (NSEvent *) event {
+    [_nextResponder rotateWithEvent: event];
+}
+
+- (void) smartMagnifyWithEvent: (NSEvent *) event {
+    [_nextResponder smartMagnifyWithEvent: event];
+}
+
+- (void) swipeWithEvent: (NSEvent *) event {
+    [_nextResponder swipeWithEvent: event];
+}
+
+- (void) touchesBeganWithEvent: (NSEvent *) event {
+    [_nextResponder touchesBeganWithEvent: event];
+}
+
+- (void) touchesCancelledWithEvent: (NSEvent *) event {
+    [_nextResponder touchesCancelledWithEvent: event];
+}
+
+- (void) touchesEndedWithEvent: (NSEvent *) event {
+    [_nextResponder touchesEndedWithEvent: event];
+}
+
+- (void) touchesMovedWithEvent: (NSEvent *) event {
+    [_nextResponder touchesMovedWithEvent: event];
+}
+
+- (void) otherMouseDown: (NSEvent *) event {
+    [_nextResponder otherMouseDown: event];
+}
+
+- (void) otherMouseDragged: (NSEvent *) event {
+    [_nextResponder otherMouseDragged: event];
+}
+
+- (void) otherMouseUp: (NSEvent *) event {
+    [_nextResponder otherMouseUp: event];
+}
+
+- (void) tabletPoint: (NSEvent *) event {
+    [_nextResponder tabletPoint: event];
+}
+
+- (void) tabletProximity: (NSEvent *) event {
+    [_nextResponder tabletProximity: event];
+}
+
+- (BOOL) wantsScrollEventsForSwipeTrackingOnAxis: (NSInteger) axis {
+    return NO;
+}
+
+- (id) supplementalTargetForAction: (SEL) action sender: (id) sender {
+    return [_nextResponder supplementalTargetForAction: action sender: sender];
+}
+
+- (BOOL) validateProposedFirstResponder: (NSResponder *) responder
+                               forEvent: (NSEvent *) event {
+    return YES;
+}
+
+- (NSTouchBar *) makeTouchBar {
+    return nil;
+}
+
+- (void) performTextFinderAction: (id) sender {
+    [_nextResponder tryToPerform: _cmd with: sender];
+}
+
+- (void) newWindowForTab: (id) sender {
+    [_nextResponder tryToPerform: _cmd with: sender];
+}
+
+- (NSInterfaceStyle) interfaceStyle {
+    return _interfaceStyle;
+}
+
+- (void) setInterfaceStyle: (NSInterfaceStyle) style {
+    _interfaceStyle = style;
+}
+
+- (void) encodeRestorableStateWithCoder: (NSCoder *) coder {
+}
+
+- (void) restoreStateWithCoder: (NSCoder *) coder {
+}
+
+- (void) invalidateRestorableState {
+}
+
 - (void) noop: sender {
 }
 
