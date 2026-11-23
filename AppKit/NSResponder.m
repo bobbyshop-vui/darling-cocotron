@@ -412,3 +412,64 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 @end
+
+#import <AppKit/NSAppearance.h>
+#import <AppKit/NSTouchBar.h>
+#import <objc/runtime.h>
+
+// AppKit's NSResponder conforms to NSAppearanceCustomization and
+// NSTouchBarProvider; NSView, NSWindow and NSApplication inherit those
+// methods from here.  Xcode asks its windows and views for these properties
+// while setting up a window, and an unimplemented one aborts the process.
+static char DarlingResponderAppearanceKey;
+
+@implementation NSResponder (DarlingUIProtocols)
+
+- (NSAppearance *) appearance {
+    return objc_getAssociatedObject(self, &DarlingResponderAppearanceKey);
+}
+
+- (void) setAppearance: (NSAppearance *) appearance {
+    objc_setAssociatedObject(self, &DarlingResponderAppearanceKey, appearance,
+                             OBJC_ASSOCIATION_RETAIN);
+}
+
+- (NSAppearance *) effectiveAppearance {
+    NSAppearance *appearance = [self appearance];
+    if (appearance != nil)
+        return appearance;
+    return [NSAppearance currentAppearance];
+}
+
+- (NSTouchBar *) touchBar {
+    return nil;
+}
+
+// The responder chain is asked whether a menu or toolbar item is enabled.
+// Without this every such message raised NSInvalidArgumentException.
+- (BOOL) validateUserInterfaceItem: (id) item {
+    return YES;
+}
+
+// NSAnimatablePropertyContainer.  There is no core animation in Darling, so
+// the animator is the object itself and no implicit animations exist.
+- (id) animator {
+    return self;
+}
+
+- (id) animationForKey: (NSString *) key {
+    return nil;
+}
+
++ (id) defaultAnimationForKey: (NSString *) key {
+    return nil;
+}
+
+- (NSDictionary *) animations {
+    return [NSDictionary dictionary];
+}
+
+- (void) setAnimations: (NSDictionary *) animations {
+}
+
+@end

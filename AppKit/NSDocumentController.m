@@ -975,3 +975,18 @@ static BOOL actionIsDocumentController(SEL selector) {
 }
 
 @end
+
+// NSWindowRestoration.  Xcode asks the document controller to restore windows
+// saved from the previous session; Darling has no window restoration, so
+// report that no window could be restored instead of aborting.
+@implementation NSDocumentController (DarlingWindowRestoration)
+
++ (void) restoreWindowWithIdentifier: (NSString *) identifier
+                               state: (NSCoder *) state
+                   completionHandler: (void (^)(NSWindow *, NSError *)) completionHandler
+{
+    if (completionHandler != nil)
+        completionHandler(nil, nil);
+}
+
+@end
