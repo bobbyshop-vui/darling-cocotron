@@ -12,7 +12,22 @@ typedef NS_ENUM(uint32_t, CTFontManagerScope)
     kCTFontManagerScopeUser = 2,
 };
 
+typedef NS_ENUM(CFIndex, CTFontManagerError)
+{
+    kCTFontManagerErrorFileNotFound = 101,
+    kCTFontManagerErrorInsufficientPermissions = 102,
+    kCTFontManagerErrorUnrecognizedFormat = 103,
+    kCTFontManagerErrorInvalidFontData = 104,
+    kCTFontManagerErrorAlreadyRegistered = 105,
+    kCTFontManagerErrorExceededResourceLimit = 106,
+    kCTFontManagerErrorNotRegistered = 201,
+    kCTFontManagerErrorInUse = 202,
+    kCTFontManagerErrorSystemRequired = 203,
+};
+
 CORETEXT_EXPORT const CFStringRef kCTFontManagerRegisteredFontsChangedNotification;
+CORETEXT_EXPORT const CFStringRef kCTFontManagerErrorDomain;
+CORETEXT_EXPORT const CFStringRef kCTFontManagerErrorFontURLsKey;
 
 CORETEXT_EXPORT bool CTFontManagerRegisterGraphicsFont(CGFontRef font, CFErrorRef* error);
 CORETEXT_EXPORT bool CTFontManagerUnregisterGraphicsFont(CGFontRef font, CFErrorRef *error);
@@ -20,5 +35,8 @@ CORETEXT_EXPORT bool CTFontManagerUnregisterGraphicsFont(CGFontRef font, CFError
 CORETEXT_EXPORT CFArrayRef CTFontManagerCopyAvailableFontFamilyNames(void);
 
 CORETEXT_EXPORT bool CTFontManagerRegisterFontsForURL(CFURLRef fontURL, CTFontManagerScope scope, CFErrorRef * error);
+CORETEXT_EXPORT bool CTFontManagerUnregisterFontsForURL(CFURLRef fontURL, CTFontManagerScope scope, CFErrorRef * error);
+CORETEXT_EXPORT bool CTFontManagerRegisterFontsForURLs(CFArrayRef fontURLs, CTFontManagerScope scope, CFArrayRef * errors);
+CORETEXT_EXPORT bool CTFontManagerUnregisterFontsForURLs(CFArrayRef fontURLs, CTFontManagerScope scope, CFArrayRef * errors);
 
 CF_IMPLICIT_BRIDGING_DISABLED

@@ -34,6 +34,8 @@ FT_Face O2FontFreeTypeFace(O2Font_freetype *self);
 
 FT_Library O2FontSharedFreeTypeLibrary();
 FcConfig *O2FontSharedFontConfig();
+BOOL O2FontRegisterFontFile(NSString *path);
+NSArray *O2FontCopyAvailableFamilyNames(void);
 
 @end
 

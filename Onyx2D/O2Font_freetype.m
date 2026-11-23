@@ -64,6 +64,55 @@ FcConfig *O2FontSharedFontConfig() {
     return fontConfig;
 }
 
+/*
+ * Make the fonts in a file available to this process, the way
+ * CTFontManagerRegisterFontsForURL(kCTFontManagerScopeProcess) does.  The
+ * font becomes visible to every lookup that goes through the shared fontconfig
+ * configuration (Onyx2D, CoreText and the X11 AppKit backend).
+ */
+BOOL O2FontRegisterFontFile(NSString *path) {
+    FcConfig *config = O2FontSharedFontConfig();
+
+    if (config == NULL || path == nil)
+        return NO;
+
+    return FcConfigAppFontAddFile(config,
+                                  (const FcChar8 *) [path fileSystemRepresentation])
+                   ? YES
+                   : NO;
+}
+
+/*
+ * Sorted, de-duplicated family names of every font fontconfig can see,
+ * including ones registered with O2FontRegisterFontFile().
+ */
+NSArray *O2FontCopyAvailableFamilyNames(void) {
+    FcConfig *config = O2FontSharedFontConfig();
+    FcPattern *pat = FcPatternCreate();
+    FcObjectSet *props = FcObjectSetBuild(FC_FAMILY, NULL);
+    FcFontSet *set = FcFontList(config, pat, props);
+    NSMutableSet *names = [NSMutableSet set];
+
+    for (int i = 0; set != NULL && i < set->nfont; i++) {
+        FcChar8 *family = NULL;
+
+        if (FcPatternGetString(set->fonts[i], FC_FAMILY, 0, &family) ==
+                    FcResultMatch &&
+            family != NULL)
+        {
+            [names addObject: [NSString stringWithUTF8String: (char *) family]];
+        }
+    }
+
+    if (set != NULL)
+        FcFontSetDestroy(set);
+    FcObjectSetDestroy(props);
+    FcPatternDestroy(pat);
+
+    return [[[names allObjects]
+            sortedArrayUsingSelector: @selector(compare:)] retain];
+}
+
 + (NSString *) filenameForPattern: (NSString *) pattern {
     FcConfig *config = O2FontSharedFontConfig();
 
