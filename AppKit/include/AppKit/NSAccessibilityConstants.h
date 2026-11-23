@@ -4,6 +4,44 @@
 
 typedef NSString *NSAccessibilityActionName;
 
+typedef NSString *NSAccessibilitySubrole;
+
+#ifndef Darling_NSAccessibilityEnums_DEFINED
+#define Darling_NSAccessibilityEnums_DEFINED
+
+typedef NS_ENUM(NSInteger, NSAccessibilityOrientation) {
+    NSAccessibilityOrientationUnknown = 0,
+    NSAccessibilityOrientationVertical = 1,
+    NSAccessibilityOrientationHorizontal = 2,
+};
+
+typedef NS_ENUM(NSInteger, NSAccessibilitySortDirection) {
+    NSAccessibilitySortDirectionUnknown = 0,
+    NSAccessibilitySortDirectionAscending = 1,
+    NSAccessibilitySortDirectionDescending = 2,
+};
+
+typedef NS_ENUM(NSInteger, NSAccessibilityRulerMarkerType) {
+    NSAccessibilityRulerMarkerTypeUnknown = 0,
+    NSAccessibilityRulerMarkerTypeTabStopLeft = 1,
+    NSAccessibilityRulerMarkerTypeTabStopRight = 2,
+    NSAccessibilityRulerMarkerTypeTabStopCenter = 3,
+    NSAccessibilityRulerMarkerTypeTabStopDecimal = 4,
+    NSAccessibilityRulerMarkerTypeIndentHead = 5,
+    NSAccessibilityRulerMarkerTypeIndentTail = 6,
+    NSAccessibilityRulerMarkerTypeIndentFirstLine = 7,
+};
+
+typedef NS_ENUM(NSInteger, NSAccessibilityUnits) {
+    NSAccessibilityUnitsUnknown = 0,
+    NSAccessibilityUnitsInches = 1,
+    NSAccessibilityUnitsCentimeters = 2,
+    NSAccessibilityUnitsPoints = 3,
+    NSAccessibilityUnitsPicas = 4,
+};
+
+#endif
+
 APPKIT_EXPORT NSString *const NSAccessibilityChildrenAttribute;
 APPKIT_EXPORT NSString *const NSAccessibilityContentsAttribute;
 APPKIT_EXPORT NSString *const NSAccessibilityDescriptionAttribute;

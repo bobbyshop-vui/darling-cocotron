@@ -132,22 +132,64 @@ O2ColorSpaceRef O2ColorSpaceCreateDeviceN(const char **names,
                                                   tintTransform: tintTransform];
 }
 
+#define O2_COLOR_SPACE_NAME_IS(n) \
+    (CFStringCompare(name, (n), 0) == kCFCompareEqualTo)
+
 O2ColorSpaceRef O2ColorSpaceCreateWithName(CFStringRef name) {
-    printf("CALLED: O2ColorSpaceCreateWithName\n");
-    if (CFStringCompare(name, kO2ColorSpaceSRGB, 0) == kCFCompareEqualTo) {
+    if (name == NULL)
+        return NULL;
+
+    if (O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceSRGB)) {
         O2ColorSpaceRef cs = [[O2ColorSpace alloc] initWithDeviceRGB];
         cs->_name = kO2ColorSpaceSRGB;
         return cs;
     }
-    if (CFStringCompare(name, kO2ColorSpaceDisplayP3, 0) == kCFCompareEqualTo) {
-        O2ColorSpaceRef cs = [[O2ColorSpace alloc] init];
-        cs->_type = kO2ColorSpaceModelRGB;
+
+    // Every RGB-family space is served by the device RGB model: Darling has no
+    // colour management, so the components are used as they are.  Returning a
+    // space instead of NULL matters, because callers such as Xcode do not
+    // expect O2ColorSpaceCreateWithName() to fail for a standard name.
+    if (O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceDisplayP3) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceGenericRGB) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceGenericRGBLinear) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceAdobeRGB1998) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceITUR_709) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceITUR_2020) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceROMMRGB) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceDCIP3) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceExtendedSRGB) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceLinearSRGB) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceExtendedLinearSRGB) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceACESCGLinear) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceGenericXYZ) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceGenericLab)) {
+        O2ColorSpaceRef cs = [[O2ColorSpace alloc] initWithDeviceRGB];
+        cs->_name = name;
         return cs;
     }
+
+    if (O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceGenericGray) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceGenericGrayGamma2_2) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceExtendedGray) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceLinearGray) ||
+        O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceExtendedLinearGray)) {
+        O2ColorSpaceRef cs = [[O2ColorSpace alloc] initWithDeviceGray];
+        cs->_name = name;
+        return cs;
+    }
+
+    if (O2_COLOR_SPACE_NAME_IS(kO2ColorSpaceGenericCMYK)) {
+        O2ColorSpaceRef cs = [[O2ColorSpace alloc] initWithDeviceCMYK];
+        cs->_name = name;
+        return cs;
+    }
+
     printf("unknown color space name\n");
     CFShow(name);
     return NULL;
 }
+
+#undef O2_COLOR_SPACE_NAME_IS
 
 BOOL O2ColorSpaceIsPlatformRGB(O2ColorSpaceRef self) {
     return self->_isPlatformRGB;
