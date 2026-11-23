@@ -29,16 +29,103 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindow.h>
 #import <Foundation/NSKeyedArchiver.h>
 #import <Foundation/NSRaise.h>
+#import <Foundation/NSUserDefaults.h>
 
 NSString *const NSSplitViewDidResizeSubviewsNotification =
         @"NSSplitViewDidResizeSubviewsNotification";
 NSString *const NSSplitViewWillResizeSubviewsNotification =
         @"NSSplitViewWillResizeSubviewsNotification";
 
+static BOOL NSSplitViewRestoreAutosavedLayout(NSSplitView *splitView,
+                                              NSString *autosaveName) {
+    NSArray *subviews = [splitView subviews];
+    if ([autosaveName length] == 0 || [subviews count] < 2)
+        return NO;
+
+    NSString *key = [NSString stringWithFormat:
+                              @"NSSplitView Subview Frames %@", autosaveName];
+    NSArray *savedSizes = [[NSUserDefaults standardUserDefaults]
+            arrayForKey: key];
+    if ([savedSizes count] != [subviews count])
+        return NO;
+
+    BOOL vertical = [splitView isVertical];
+    NSRect bounds = [splitView bounds];
+    CGFloat available = vertical ? NSWidth(bounds) : NSHeight(bounds);
+    available -= [splitView dividerThickness] * ([subviews count] - 1);
+    if (available < 0)
+        available = 0;
+
+    CGFloat fractionSum = 0;
+    for (id value in savedSizes) {
+        if ([value respondsToSelector: @selector(doubleValue)]) {
+            double fraction = [value doubleValue];
+            if (fraction > 0)
+                fractionSum += fraction;
+        }
+    }
+    if (fractionSum <= 0)
+        return NO;
+
+    CGFloat position = vertical ? NSMinX(bounds) : NSMinY(bounds);
+    CGFloat remaining = available;
+    NSUInteger count = [subviews count];
+    for (NSUInteger index = 0; index < count; index++) {
+        NSView *subview = [subviews objectAtIndex: index];
+        id savedValue = [savedSizes objectAtIndex: index];
+        double fraction = [savedValue respondsToSelector:
+                                                  @selector(doubleValue)]
+                                  ? [savedValue doubleValue]
+                                  : 0;
+        CGFloat extent = 0;
+        if (fraction > 0) {
+            extent = (index == count - 1)
+                             ? remaining
+                             : available * fraction / fractionSum;
+            if (extent > remaining)
+                extent = remaining;
+            remaining -= extent;
+        }
+
+        NSRect frame = [subview frame];
+        if (vertical) {
+            frame.origin.x = position;
+            frame.origin.y = NSMinY(bounds);
+            frame.size.width = extent;
+            frame.size.height = NSHeight(bounds);
+        } else {
+            frame.origin.x = NSMinX(bounds);
+            frame.origin.y = position;
+            frame.size.width = NSWidth(bounds);
+            frame.size.height = extent;
+        }
+        [subview setHidden: (fraction <= 0)];
+        [subview setFrame: frame];
+
+        position += extent + [splitView dividerThickness];
+    }
+    [splitView setNeedsDisplay: YES];
+    return YES;
+}
+
 @implementation NSSplitView
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [super encodeWithCoder: coder];
+
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"TODO: support unkeyed encoding in NSSplitView"];
+        return;
+    }
+
+    [coder encodeBool: _isVertical forKey: @"NSIsVertical"];
+    [coder encodeInteger: _dividerStyle forKey: @"NSSplitViewDividerStyle"];
+    [coder encodeBool: _arrangesAllSubviews
+               forKey: @"NSArrangesAllSubviews"];
+    [coder encodeObject: _autosaveName forKey: @"NSSplitViewAutosaveName"];
+    [coder encodeObject: _holdingPriorities
+                 forKey: @"NSSplitViewHoldingPriorities"];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -48,8 +135,18 @@ NSString *const NSSplitViewWillResizeSubviewsNotification =
         NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
 
         _isVertical = [keyed decodeBoolForKey: @"NSIsVertical"];
+        if ([keyed containsValueForKey: @"NSSplitViewDividerStyle"])
+            _dividerStyle = (NSSplitViewDividerStyle)
+                    [keyed decodeIntegerForKey: @"NSSplitViewDividerStyle"];
+        _arrangesAllSubviews =
+                [keyed decodeBoolForKey: @"NSArrangesAllSubviews"];
+        _holdingPriorities =
+                [[keyed decodeObjectForKey: @"NSSplitViewHoldingPriorities"]
+                        mutableCopy];
         // The divider thickness in the nib may not be the same as ours
         [self resizeSubviewsWithOldSize: [self bounds].size];
+        [self setAutosaveName:
+                      [keyed decodeObjectForKey: @"NSSplitViewAutosaveName"]];
     } else {
         [NSException raise: NSInvalidArgumentException
                     format: @"-[%@ %s] is not implemented for coder %@",
@@ -136,6 +233,13 @@ NSString *const NSSplitViewWillResizeSubviewsNotification =
     if (autosaveName != _autosaveName) {
         [_autosaveName release];
         _autosaveName = [autosaveName copy];
+        _autosaveLayoutRestored = NO;
+    }
+
+    if (!_autosaveLayoutRestored && [_autosaveName length] > 0 &&
+        [_subviews count] >= 2) {
+        NSSplitViewRestoreAutosavedLayout(self, _autosaveName);
+        _autosaveLayoutRestored = YES;
     }
 }
 
@@ -323,6 +427,11 @@ NSString *const NSSplitViewWillResizeSubviewsNotification =
         return;
     }
 
+    if (!_autosaveLayoutRestored && [_autosaveName length] > 0) {
+        NSSplitViewRestoreAutosavedLayout(self, _autosaveName);
+        _autosaveLayoutRestored = YES;
+    }
+
     [self _postNoteWillResize];
 
     if ([self isVertical]) {
@@ -332,6 +441,7 @@ NSString *const NSSplitViewWillResizeSubviewsNotification =
     }
     [self setNeedsDisplay: YES];
     [self _postNoteDidResize];
+    [self _autosaveSubviewLayoutIfNecessary];
 }
 
 - (CGFloat) dividerThickness {
@@ -382,6 +492,12 @@ NSString *const NSSplitViewWillResizeSubviewsNotification =
 }
 
 - (void) resizeSubviewsWithOldSize: (NSSize) oldSize {
+    if (!_autosaveLayoutRestored && [_autosaveName length] > 0 &&
+        [_subviews count] >= 2) {
+        NSSplitViewRestoreAutosavedLayout(self, _autosaveName);
+        _autosaveLayoutRestored = YES;
+    }
+
     NSSize size = [self bounds].size;
     NSPoint origin = [self bounds].origin;
     int i, count = [_subviews count];
@@ -403,6 +519,7 @@ NSString *const NSSplitViewWillResizeSubviewsNotification =
         // Apple docs say just call adjustSubviews
         [self adjustSubviews];
     }
+    [self _autosaveSubviewLayoutIfNecessary];
 }
 
 - (NSRect) dividerRectAtIndex: (unsigned) index {
@@ -514,13 +631,61 @@ static CGFloat constrainTo(CGFloat value, CGFloat min, CGFloat max) {
 }
 
 - (CGFloat) minPossiblePositionOfDividerAtIndex: (int) index {
-    NSUnimplementedMethod();
-    return 0;
+    NSAssert(index >= 0 && index < (int) [_subviews count] - 1,
+             @"divider index out of range");
+
+    NSView *first = [_subviews objectAtIndex: index];
+    NSView *second = [_subviews objectAtIndex: index + 1];
+    NSView *leading = [self isSubviewCollapsed: first] ? second : first;
+    CGFloat minimum = [self isVertical] ? NSMinX([leading frame])
+                                        : NSMinY([leading frame]);
+
+    if ([_delegate respondsToSelector: @selector
+                   (splitView:constrainMinCoordinate:ofSubviewAt:)]) {
+        minimum = [_delegate splitView: self
+                constrainMinCoordinate: minimum
+                           ofSubviewAt: index];
+    } else if ([_delegate respondsToSelector: @selector
+                          (splitView:
+                                  constrainMinCoordinate:maxCoordinate
+                                                        :ofSubviewAt:)]) {
+        CGFloat maximum = [self isVertical] ? NSMaxX([second frame])
+                                           : NSMaxY([second frame]);
+        [_delegate splitView: self
+                constrainMinCoordinate: &minimum
+                         maxCoordinate: &maximum
+                           ofSubviewAt: index];
+    }
+    return minimum;
 }
 
 - (CGFloat) maxPossiblePositionOfDividerAtIndex: (int) index {
-    NSUnimplementedMethod();
-    return 0;
+    NSAssert(index >= 0 && index < (int) [_subviews count] - 1,
+             @"divider index out of range");
+
+    NSView *first = [_subviews objectAtIndex: index];
+    NSView *second = [_subviews objectAtIndex: index + 1];
+    NSView *trailing = [self isSubviewCollapsed: second] ? first : second;
+    CGFloat maximum = [self isVertical] ? NSMaxX([trailing frame])
+                                        : NSMaxY([trailing frame]);
+
+    if ([_delegate respondsToSelector: @selector
+                   (splitView:constrainMaxCoordinate:ofSubviewAt:)]) {
+        maximum = [_delegate splitView: self
+                constrainMaxCoordinate: maximum
+                           ofSubviewAt: index];
+    } else if ([_delegate respondsToSelector: @selector
+                          (splitView:
+                                  constrainMinCoordinate:maxCoordinate
+                                                        :ofSubviewAt:)]) {
+        CGFloat minimum = [self isVertical] ? NSMinX([first frame])
+                                            : NSMinY([first frame]);
+        [_delegate splitView: self
+                constrainMinCoordinate: &minimum
+                         maxCoordinate: &maximum
+                           ofSubviewAt: index];
+    }
+    return maximum;
 }
 
 /** adjusts the subviews on either side of the divider while
@@ -734,15 +899,59 @@ static CGFloat constrainTo(CGFloat value, CGFloat min, CGFloat max) {
     }
 
     [self setNeedsDisplay: YES];
+    [self _autosaveSubviewLayoutIfNecessary];
 }
 
 - (void) _autosaveSubviewLayoutIfNecessary {
-    NSUnimplementedMethod();
+    if ([_autosaveName length] == 0 || [_subviews count] < 2)
+        return;
+
+    if (!_autosaveLayoutRestored) {
+        NSSplitViewRestoreAutosavedLayout(self, _autosaveName);
+        _autosaveLayoutRestored = YES;
+    }
+
+    CGFloat total = 0;
+    for (NSView *subview in _subviews) {
+        if (![self isSubviewCollapsed: subview]) {
+            CGFloat extent = [self isVertical] ? NSWidth([subview frame])
+                                               : NSHeight([subview frame]);
+            if (extent > 0)
+                total += extent;
+        }
+    }
+    if (total <= 0)
+        return;
+
+    NSMutableArray *fractions = [NSMutableArray arrayWithCapacity:
+                                               [_subviews count]];
+    for (NSView *subview in _subviews) {
+        CGFloat extent = 0;
+        if (![self isSubviewCollapsed: subview])
+            extent = [self isVertical] ? NSWidth([subview frame])
+                                      : NSHeight([subview frame]);
+        double fraction = extent > 0 ? extent / total : 0;
+        [fractions addObject: [NSNumber numberWithDouble: fraction]];
+    }
+
+    NSString *key = [NSString stringWithFormat:
+                              @"NSSplitView Subview Frames %@", _autosaveName];
+    [[NSUserDefaults standardUserDefaults] setObject: fractions forKey: key];
 }
 
 - (BOOL) isOpaque {
-    NSUnimplementedMethod();
-    return YES;
+    if (_dividerStyle == NSSplitViewDividerStylePaneSplitter)
+        return NO;
+
+    BOOL hasVisibleSubview = NO;
+    for (NSView *subview in _subviews) {
+        if ([self isSubviewCollapsed: subview])
+            continue;
+        hasVisibleSubview = YES;
+        if (![subview isOpaque])
+            return NO;
+    }
+    return hasVisibleSubview;
 }
 
 @end

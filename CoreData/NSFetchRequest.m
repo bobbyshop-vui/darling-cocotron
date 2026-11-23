@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreData/NSManagedObject.h>
 #import <CoreData/NSManagedObjectContext.h>
 #import <Foundation/NSRaise.h>
+#import <Foundation/NSCoder.h>
 
 @implementation NSFetchRequest
 
@@ -83,7 +84,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding])
+        [NSException raise: NSInvalidArgumentException
+                    format: @"%@ requires a keyed coder",
+                            [self class]];
+
+    [coder encodeObject: [self entityName] forKey: @"NSEntityName"];
+    [coder encodeObject: _affectedStores forKey: @"NSAffectedStores"];
+    [coder encodeObject: _predicate forKey: @"NSPredicate"];
+    [coder encodeObject: _sortDescriptors forKey: @"NSSortDescriptors"];
+    [coder encodeObject: _propertiesToFetch forKey: @"NSPropertiesToFetch"];
+    [coder encodeObject: _relationshipKeyPathsForPrefetching
+                 forKey: @"NSRelationshipKeyPathsForPrefetching"];
+    [coder encodeInt: (int) _resultType forKey: @"NSResultType"];
+    [coder encodeInt64: (int64_t) _fetchLimit forKey: @"NSFetchLimit"];
+    [coder encodeInt64: (int64_t) _fetchBatchSize forKey: @"NSFetchBatchSize"];
+    [coder encodeInt64: (int64_t) _fetchOffset forKey: @"NSFetchOffset"];
+    [coder encodeBool: _includesPendingChanges
+               forKey: @"NSIncludesPendingChanges"];
+    [coder encodeBool: _includesPropertyValues
+               forKey: @"NSIncludesPropertyValues"];
+    [coder encodeBool: _includesSubentities
+               forKey: @"NSIncludesSubentities"];
+    [coder encodeBool: _returnsDistinctResults
+               forKey: @"NSReturnsDistinctResults"];
+    [coder encodeBool: _returnsObjectsAsFaults
+               forKey: @"NSReturnsObjectsAsFaults"];
 }
 
 - copyWithZone: (NSZone *) zone {

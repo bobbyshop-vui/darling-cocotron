@@ -28,33 +28,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                             pixelsWide: (GLsizei) pixelsWide
                             pixelsHigh: (GLsizei) pixelsHigh
 {
-    NSUnimplementedMethod();
+    self = [super init];
+    if (self != nil) {
+        _textureTarget = textureTarget;
+        _textureInternalFormat = textureFormat;
+        _textureMaxMipMapLevel = mipMapLevel;
+        _pixelsWide = pixelsWide;
+        _pixelsHigh = pixelsHigh;
+    }
     return self;
 }
 
 - (GLenum) textureTarget {
-    NSUnimplementedMethod();
-    return 0;
+    return _textureTarget;
 }
 
 - (GLenum) textureInternalFormat {
-    NSUnimplementedMethod();
-    return 0;
+    return _textureInternalFormat;
 }
 
 - (GLint) textureMaxMipMapLevel {
-    NSUnimplementedMethod();
-    return 0;
+    return _textureMaxMipMapLevel;
 }
 
 - (GLsizei) pixelsWide {
-    NSUnimplementedMethod();
-    return 0;
+    return _pixelsWide;
 }
 
 - (GLsizei) pixelsHigh {
-    NSUnimplementedMethod();
-    return 0;
+    return _pixelsHigh;
 }
 
 @end

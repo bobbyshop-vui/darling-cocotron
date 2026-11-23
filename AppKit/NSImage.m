@@ -312,6 +312,10 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 
 @end
 
+@interface NSImage (NSImagePrivateCaching)
+- (NSCachedImageRep *) _cachedImageRepCreateIfNeeded;
+@end
+
 @implementation NSImage
 
 + (NSArray *) imageTypes {
@@ -421,7 +425,36 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [self isValid];
+    if ([coder allowsKeyedCoding]) {
+        NSData *data = [self TIFFRepresentation];
+        if (data == nil) {
+            [NSException raise: NSInvalidArchiveOperationException
+                        format: @"%@ has no TIFF representation to archive",
+                                [self class]];
+            return;
+        }
+        [coder encodeBytes: [data bytes]
+                    length: [data length]
+                    forKey: @"NSTIFFRepresentation"];
+        return;
+    }
+
+    [coder encodeObject: _name];
+    uint8_t flags[14] = { 0 };
+    NSUInteger index;
+    for (index = 0; index < sizeof(flags); index++)
+        [coder encodeValueOfObjCType: "c" at: &flags[index]];
+    [coder encodeSize: _size];
+    short shortValue = 0;
+    [coder encodeValueOfObjCType: @encode(short) at: &shortValue];
+    uint8_t finalFlag = 0;
+    [coder encodeValueOfObjCType: "c" at: &finalFlag];
+    [coder encodeObject: [_representations count] != 0
+                             ? [_representations objectAtIndex: 0]
+                             : nil];
+    [coder encodeObject: _backgroundColor];
+    [coder encodeObject: _delegate];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -874,8 +907,11 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 }
 
 - (BOOL) isValid {
-    NSUnimplementedMethod();
-    return 0;
+    if ([_representations count] != 0)
+        return YES;
+    if (_representations == nil)
+        _representations = [NSMutableArray new];
+    return [self _cachedImageRepCreateIfNeeded] != nil;
 }
 
 - (NSArray *) representations {

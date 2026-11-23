@@ -44,6 +44,10 @@ enum {
     BOOL _canSelectHiddenExtension;
     BOOL _extensionHidden;
     BOOL _showsTagField;
+    BOOL _canCreateDirectories;
+    BOOL _allowsOtherFileTypes;
+    BOOL _usesModalCompletionHandler;
+    void (^_completionHandler)(NSModalResponse result);
 
     BOOL _treatsFilePackagesAsDirectories;
     NSView *_accessoryView;
@@ -53,6 +57,8 @@ enum {
 
 @property (copy) NSString *nameFieldStringValue;
 @property BOOL showsHiddenFiles;
+@property BOOL canCreateDirectories;
+@property BOOL allowsOtherFileTypes;
 
 + (NSSavePanel *) savePanel;
 

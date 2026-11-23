@@ -29,7 +29,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @implementation NSClipView
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [super encodeWithCoder: coder];
+
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"TODO: support unkeyed encoding in NSClipView"];
+        return;
+    }
+
+    unsigned flags = _drawsBackground ? 0x04 : 0;
+    [coder encodeInt: (int) flags forKey: @"NScvFlags"];
+    [coder encodeObject: _backgroundColor forKey: @"NSBGColor"];
+    [coder encodeObject: _docView forKey: @"NSDocView"];
+    [coder encodeObject: _documentCursor forKey: @"NSDocumentCursor"];
+    [coder encodeBool: _copiesOnScroll forKey: @"NSCopiesOnScroll"];
+    [coder encodeBool: _automaticallyAdjustsContentInsets
+               forKey: @"NSAutomaticallyAdjustsContentInsets"];
+    [coder encodeDouble: _contentInsets.top forKey: @"NSContentInsetTop"];
+    [coder encodeDouble: _contentInsets.left forKey: @"NSContentInsetLeft"];
+    [coder encodeDouble: _contentInsets.bottom
+                 forKey: @"NSContentInsetBottom"];
+    [coder encodeDouble: _contentInsets.right forKey: @"NSContentInsetRight"];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -42,7 +62,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         _drawsBackground = (flags & 0x04) ? YES : NO;
         _backgroundColor = [[keyed decodeObjectForKey: @"NSBGColor"] retain];
         _docView = [[keyed decodeObjectForKey: @"NSDocView"] retain];
-        _automaticallyAdjustsContentInsets = YES;
+        _documentCursor =
+                [[keyed decodeObjectForKey: @"NSDocumentCursor"] retain];
+        _copiesOnScroll = [keyed decodeBoolForKey: @"NSCopiesOnScroll"];
+        _automaticallyAdjustsContentInsets =
+                [keyed containsValueForKey: @"NSAutomaticallyAdjustsContentInsets"]
+                        ? [keyed decodeBoolForKey:
+                                      @"NSAutomaticallyAdjustsContentInsets"]
+                        : YES;
+        _contentInsets.top = [keyed decodeDoubleForKey: @"NSContentInsetTop"];
+        _contentInsets.left =
+                [keyed decodeDoubleForKey: @"NSContentInsetLeft"];
+        _contentInsets.bottom =
+                [keyed decodeDoubleForKey: @"NSContentInsetBottom"];
+        _contentInsets.right =
+                [keyed decodeDoubleForKey: @"NSContentInsetRight"];
 
         if (_docView != nil)
             [[NSNotificationCenter defaultCenter]
@@ -74,6 +108,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver: self];
     [_backgroundColor release];
+    [_documentCursor release];
     [_docView release];
     [super dealloc];
 }

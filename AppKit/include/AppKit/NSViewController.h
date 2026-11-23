@@ -1,7 +1,7 @@
 #import <AppKit/NSResponder.h>
 #import <AppKit/NSUserInterfaceItemIdentification.h>
 
-@class NSView, NSArray, NSStoryboard;
+@class NSView, NSArray, NSMutableArray, NSStoryboard;
 
 @interface NSViewController : NSResponder <NSUserInterfaceItemIdentification> {
     NSString *_nibName;
@@ -15,6 +15,7 @@
     NSMutableArray *_vcxChildViewControllers;
     NSViewController *_vcxPresentingViewController;
     NSMutableArray *_vcxPresentedViewControllers;
+    NSMutableArray *_editors;
     id _vcxPresentationObject;
     BOOL _vcxDidLoadView;
 }
@@ -37,6 +38,8 @@
 - (void) loadView;
 
 - (void) discardEditing;
+- (void) objectDidBeginEditing: (id) editor;
+- (void) objectDidEndEditing: (id) editor;
 
 - (BOOL) commitEditing;
 - (void) commitEditingWithDelegate: delegate

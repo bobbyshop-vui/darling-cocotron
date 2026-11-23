@@ -36,6 +36,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         NSLayoutAnchor, NSLayoutDimension, NSLayoutGuide, NSLayoutConstraint,
         NSGestureRecognizer, NSDraggingSession, NSDraggingItem;
 
+@class IBMetricsTable;
+
 // See Cocoa Event Handling Guide : Using Tracking-Area Objects : Compatibility
 // Issues
 typedef NSTrackingArea *NSTrackingRectTag;
@@ -113,10 +115,13 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     NSRect *_invalidRects;
     NSRect *_rectsBeingRedrawn;
     NSInteger _rectsBeingRedrawnCount;
+    NSRect _cacheDisplayRect;
+    BOOL _cacheDisplayInProgress;
     CGFloat _frameRotation;
     CGFloat _boundsRotation;
     BOOL _translatesAutoresizingMaskIntoConstraints;
     BOOL _canDrawConcurrently;
+    BOOL _usesPointIntegralizationForLayout;
 
     BOOL _validTrackingAreas;
     BOOL _validTransforms;
@@ -129,6 +134,8 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     BOOL _wantsLayer;
     CALayer *_layer;
     NSArray *_contentFilters;
+    NSArray *_backgroundFilters;
+    NSTextInputContext *_inputContext;
     CIFilter *_compositingFilter;
     NSViewLayerContentsPlacement _layerContentsPlacement;
     NSViewLayerContentsRedrawPolicy _layerContentsRedrawPolicy;
@@ -168,6 +175,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 + (NSView *) focusView;
 + (NSMenu *) defaultMenu;
 + (NSFocusRingType) defaultFocusRingType;
++ (IBMetricsTable *) ibLayoutMetrics;
 
 - (instancetype) initWithFrame: (NSRect) frame;
 
@@ -280,6 +288,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (BOOL) acceptsFirstMouse: (NSEvent *) event;
 - (BOOL) acceptsTouchEvents;
 - (void) setAcceptsTouchEvents: (BOOL) accepts;
+- (void) _nsib_setUsesPointIntegralizationForLayout: (BOOL) usesPointIntegralizationForLayout;
 - (BOOL) wantsRestingTouches;
 - (void) setWantsRestingTouches: (BOOL) wants;
 

@@ -83,6 +83,15 @@ const NSPasteboardReadingOptionKey
 - (NSUInteger) _index;
 @end
 
+@interface NSPasteboard ()
+- (void) _ensureBaseState;
+- (void) _setPasteboardName: (NSPasteboardName) name;
+@end
+
+@interface NSPasteboard (BackendRelease)
+- (void) giveUpSelectionOwner;
+@end
+
 static BOOL NSPasteboardWriteValue(NSPasteboard *pboard, id value,
                                    NSPasteboardType type) {
     if (value == nil) {
@@ -131,12 +140,47 @@ static NSArray *NSPasteboardTypesReadableByClass(Class cls) {
 }
 
 + (NSPasteboard *) pasteboardWithName: (NSPasteboardName) name {
-    return [[NSDisplay currentDisplay] pasteboardWithName: name];
+    NSPasteboard *pasteboard = [[NSDisplay currentDisplay]
+            pasteboardWithName: name];
+    [pasteboard _setPasteboardName: name];
+    return pasteboard;
 }
 
 + (NSPasteboard *) pasteboardWithUniqueName {
     NSString *name = [[NSProcessInfo processInfo] globallyUniqueString];
     return [self pasteboardWithName: name];
+}
+
+- (id) init {
+    self = [super init];
+    if (self != nil) {
+        [self _ensureBaseState];
+    }
+    return self;
+}
+
+- (void) _ensureBaseState {
+    if (_baseTypes == nil)
+        _baseTypes = [NSMutableArray new];
+    if (_baseData == nil)
+        _baseData = [NSMutableDictionary new];
+    if (_baseOwners == nil)
+        _baseOwners = [NSMutableDictionary new];
+}
+
+- (void) _setPasteboardName: (NSPasteboardName) name {
+    if (_baseName != name && ![_baseName isEqual: name]) {
+        [_baseName release];
+        _baseName = [name copy];
+    }
+}
+
+- (void) dealloc {
+    [_baseName release];
+    [_baseTypes release];
+    [_baseData release];
+    [_baseOwners release];
+    [super dealloc];
 }
 
 + (NSArray<NSPasteboardType> *) typesFilterableTo: (NSPasteboardType) type {
@@ -189,27 +233,30 @@ static NSArray *NSPasteboardTypesReadableByClass(Class cls) {
 }
 
 - (NSPasteboardName) name {
-    NSUnimplementedMethod();
-    return nil;
+    return [[(_baseName != nil ? _baseName : @"") copy] autorelease];
 }
 
 - (NSInteger) changeCount {
-    NSUnimplementedMethod();
-    return 0;
+    return _baseChangeCount;
 }
 
 - (NSInteger) clearContents {
-    NSUnimplementedMethod();
-    return 0;
+    [self declareTypes: [NSArray array] owner: nil];
+    return [self changeCount];
 }
 
 - (oneway void) releaseGlobally {
-    NSUnimplementedMethod();
+    SEL releaseSelector = @selector(giveUpSelectionOwner);
+    if ([self respondsToSelector: releaseSelector]) {
+        [self performSelector: releaseSelector];
+    } else {
+        [self clearContents];
+    }
 }
 
 - (NSArray<NSPasteboardType> *) types {
-    NSUnimplementedMethod();
-    return nil;
+    [self _ensureBaseState];
+    return [[_baseTypes copy] autorelease];
 }
 
 - (NSPasteboardType) availableTypeFromArray: (NSArray<NSPasteboardType> *) types
@@ -224,7 +271,18 @@ static NSArray *NSPasteboardTypesReadableByClass(Class cls) {
 }
 
 - (NSData *) dataForType: (NSPasteboardType) type {
-    NSUnimplementedMethod();
+    [self _ensureBaseState];
+    NSData *data = [_baseData objectForKey: type];
+    if (data != nil)
+        return data;
+
+    id<NSPasteboardTypeOwner> owner = [_baseOwners objectForKey: type];
+    if ([(id) owner respondsToSelector:
+                    @selector(pasteboard:provideDataForType:)]) {
+        [[(id) owner retain] autorelease];
+        [owner pasteboard: self provideDataForType: type];
+        return [_baseData objectForKey: type];
+    }
     return nil;
 }
 
@@ -254,20 +312,63 @@ static NSArray *NSPasteboardTypesReadableByClass(Class cls) {
 - (NSInteger) declareTypes: (NSArray<NSPasteboardType> *) types
                      owner: (id<NSPasteboardTypeOwner>) owner
 {
-    NSUnimplementedMethod();
-    return 0;
+    [self _ensureBaseState];
+
+    NSMutableArray *notifiedOwners = [NSMutableArray array];
+    for (id oldOwner in [_baseOwners allValues]) {
+        if (![notifiedOwners containsObject: oldOwner]) {
+            [notifiedOwners addObject: oldOwner];
+            if ([oldOwner respondsToSelector:
+                            @selector(pasteboardChangedOwner:)])
+                [oldOwner pasteboardChangedOwner: self];
+        }
+    }
+
+    [_baseTypes removeAllObjects];
+    [_baseData removeAllObjects];
+    [_baseOwners removeAllObjects];
+    _baseChangeCount++;
+
+    for (NSPasteboardType type in types) {
+        if (type == nil || [_baseTypes containsObject: type])
+            continue;
+        [_baseTypes addObject: type];
+        if (owner != nil)
+            [_baseOwners setObject: owner forKey: type];
+    }
+    return _baseChangeCount;
 }
 
 - (NSInteger) addTypes: (NSArray<NSPasteboardType> *) types
                  owner: (id<NSPasteboardTypeOwner>) owner
 {
-    NSUnimplementedMethod();
-    return 0;
+    [self _ensureBaseState];
+    for (NSPasteboardType type in types) {
+        if (type == nil)
+            continue;
+        if (![_baseTypes containsObject: type])
+            [_baseTypes addObject: type];
+        [_baseData removeObjectForKey: type];
+        if (owner != nil)
+            [_baseOwners setObject: owner forKey: type];
+        else
+            [_baseOwners removeObjectForKey: type];
+    }
+    _baseChangeCount++;
+    return _baseChangeCount;
 }
 
 - (BOOL) setData: (NSData *) data forType: (NSPasteboardType) type {
-    NSUnimplementedMethod();
-    return NO;
+    if (data == nil || type == nil)
+        return NO;
+
+    [self _ensureBaseState];
+    if (![_baseTypes containsObject: type])
+        return NO;
+
+    [_baseData setObject: [[data copy] autorelease] forKey: type];
+    [_baseOwners removeObjectForKey: type];
+    return YES;
 }
 
 - (BOOL) setString: (NSString *) string forType: (NSPasteboardType) type {

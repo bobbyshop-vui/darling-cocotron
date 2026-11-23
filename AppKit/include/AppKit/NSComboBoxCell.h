@@ -37,6 +37,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSMutableArray *_objectValues;
 }
 
+- (void) encodeWithCoder: (NSCoder *) coder;
+
 - dataSource;
 - (BOOL) usesDataSource;
 - (BOOL) isButtonBordered;

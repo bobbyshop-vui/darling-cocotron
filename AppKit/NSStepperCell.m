@@ -28,7 +28,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @implementation NSStepperCell
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [super encodeWithCoder: coder];
+
+    if ([coder allowsKeyedCoding]) {
+        [coder encodeDouble: _minValue forKey: @"NSMinValue"];
+        [coder encodeDouble: _maxValue forKey: @"NSMaxValue"];
+        [coder encodeDouble: _increment forKey: @"NSIncrement"];
+        [coder encodeBool: _autorepeat forKey: @"NSAutorepeat"];
+        [coder encodeBool: _valueWraps forKey: @"NSValueWraps"];
+        if (_objectValue != nil)
+            [coder encodeObject: _objectValue forKey: @"NSValue"];
+    } else {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"%@ does not support unkeyed encoding",
+                            [self class]];
+    }
 }
 
 - initWithCoder: (NSCoder *) coder {

@@ -52,7 +52,18 @@ NSNotificationName _NSColorWellDidBecomeExclusiveNotification =
         @"_NSColorWellDidBecomeExclusiveNotification";
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [super encodeWithCoder: coder];
+
+    if ([coder allowsKeyedCoding]) {
+        [coder encodeBool: _isEnabled forKey: @"NSEnabled"];
+        [coder encodeBool: !_isContinuous forKey: @"NSIsNotContinuous"];
+        [coder encodeBool: _isBordered forKey: @"NSIsBordered"];
+        [coder encodeObject: _color forKey: @"NSColor"];
+    } else {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"%@ does not support unkeyed encoding",
+                            [self class]];
+    }
 }
 
 - (instancetype) initWithCoder: (NSCoder *) coder {

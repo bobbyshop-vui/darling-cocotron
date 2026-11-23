@@ -499,7 +499,7 @@ static NSMutableDictionary *cellClassDictionary = nil;
 
 // Hmm, shouldn't this just noop?
 - (void) performClick: sender {
-    //   NSUnimplementedMethod();
+    [_cell performClick: sender];
 }
 
 - (BOOL) sendAction: (SEL) action to: target {

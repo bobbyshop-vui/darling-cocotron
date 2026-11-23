@@ -23,13 +23,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @implementation NSCollectionViewItem
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [super encodeWithCoder: coder];
+
+    if ([coder allowsKeyedCoding]) {
+        [coder encodeObject: [self nibName] forKey: @"NSNibName"];
+        [coder encodeObject: [self title] forKey: @"NSTitle"];
+        [coder encodeObject: [[self nibBundle] bundleIdentifier]
+                     forKey: @"NSNibBundleIdentifier"];
+        [coder encodeBool: _isSelected forKey: @"NSIsSelected"];
+    } else {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"%@ does not support unkeyed encoding",
+                            [self class]];
+    }
 }
 
 - initWithCoder: (NSCoder *) coder {
-    if ([coder allowsKeyedCoding]) {
-        NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
+    self = [super initWithCoder: coder];
+    if (self == nil)
+        return nil;
 
+    if ([coder allowsKeyedCoding]) {
+        _isSelected = [coder decodeBoolForKey: @"NSIsSelected"];
     } else {
         [NSException raise: NSInvalidArgumentException
                     format: @"-[%@ %s] is not implemented for coder %@",

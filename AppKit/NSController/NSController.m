@@ -63,7 +63,9 @@ BOOL NSIsControllerMarker(id object) {
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    // NSController's registered editors are transient UI state and are not
+    // part of an archive. The class has no other persistent instance state.
+    (void) coder;
 }
 
 - (BOOL) commitEditing {

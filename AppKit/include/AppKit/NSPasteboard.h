@@ -91,7 +91,14 @@ typedef NSUInteger NSPasteboardReadingOptions;
 - (void) pasteboardChangedOwner: (NSPasteboard *) sender;
 @end
 
-@interface NSPasteboard : NSObject
+@interface NSPasteboard : NSObject {
+@private
+    NSPasteboardName _baseName;
+    NSMutableArray *_baseTypes;
+    NSMutableDictionary *_baseData;
+    NSMutableDictionary *_baseOwners;
+    NSInteger _baseChangeCount;
+}
 
 + (NSPasteboard *) generalPasteboard;
 + (NSPasteboard *) pasteboardWithName: (NSPasteboardName) name;

@@ -147,6 +147,7 @@ APPKIT_EXPORT NSString *const NSAllRomanInputSourcesLocaleIdentifier;
     BOOL _automaticTextReplacementEnabled;
 
     BOOL _usesInspectorBar;
+    BOOL _importsGraphics;
 
     BOOL _usesFindPanel;
     BOOL _allowsImageEditing;
@@ -258,7 +259,12 @@ APPKIT_EXPORT NSString *const NSAllRomanInputSourcesLocaleIdentifier;
 
 - (NSDragOperation) dragOperationForDraggingInfo: (id<NSDraggingInfo>) info
                                             type: (NSString *) type;
+- (void) encodeWithCoder: (NSCoder *) coder;
 - (void) cleanUpAfterDragOperation;
+- (NSUInteger) characterIndexForPoint: (NSPoint) point;
+- (NSTextLayoutOrientation) layoutOrientation;
+- (BOOL) importsGraphics;
+- (void) setImportsGraphics: (BOOL) value;
 
 - (void) _setFieldEditorUndoManager: (NSUndoManager *) undoManager;
 - (void) breakUndoCoalescing;

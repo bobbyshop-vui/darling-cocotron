@@ -9,6 +9,7 @@
     NSDictionary *_options;
     BOOL _isReadOnly;
     NSString *_identifier;
+    NSDictionary *_persistentStoreMetadata;
 }
 
 + (NSDictionary *) metadataForPersistentStoreWithURL: (NSURL *) url

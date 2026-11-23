@@ -468,8 +468,21 @@ static NSString *const NSManagedObjectContextThreadKey =
                 forKey: (NSString *) key
                  error: (NSError **) error
 {
-    NSUnimplementedMethod();
-    return YES;
+    if ([key length] == 0)
+        return YES;
+
+    NSString *head = [[key substringToIndex: 1] uppercaseString];
+    NSString *selectorName = [NSString
+            stringWithFormat: @"validate%@%@:error:", head,
+                             [key substringFromIndex: 1]];
+    SEL validator = NSSelectorFromString(selectorName);
+    if (![self respondsToSelector: validator])
+        return YES;
+
+    BOOL (*sendValidator)(id, SEL, id *, NSError **) =
+            (BOOL (*)(id, SEL, id *, NSError **))
+                    [self methodForSelector: validator];
+    return sendValidator(self, validator, value, error);
 }
 
 - (BOOL) validateForDelete: (NSError **) error {

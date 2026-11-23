@@ -85,16 +85,60 @@ static NSAppleScrollBarVariant appleScrollBarVariant(NSScroller *self) {
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [super encodeWithCoder: coder];
+
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"TODO: support unkeyed encoding in NSScroller"];
+        return;
+    }
+
+    [coder encodeFloat: _floatValue forKey: @"NSScrollerFloatValue"];
+    [coder encodeDouble: _knobProportion forKey: @"NSScrollerKnobProportion"];
+    [coder encodeInteger: _arrowsPosition forKey: @"NSScrollerArrowsPosition"];
+    [coder encodeInteger: _controlSize forKey: @"NSScrollerControlSize"];
+    [coder encodeInteger: _scrollerStyle forKey: @"NSScrollerStyle"];
+    [coder encodeInteger: _knobStyle forKey: @"NSScrollerKnobStyle"];
+    [coder encodeInteger: _controlTint forKey: @"NSScrollerControlTint"];
+    [coder encodeInteger: _hitPart forKey: @"NSScrollerHitPart"];
+    [coder encodeBool: _isEnabled forKey: @"NSScrollerIsEnabled"];
+    [coder encodeBool: _isHighlighted forKey: @"NSScrollerIsHighlighted"];
 }
 
 - initWithCoder: (NSCoder *) coder {
     [super initWithCoder: coder];
 
     if ([coder allowsKeyedCoding]) {
+        NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
         sFlags.isHoriz = (_bounds.size.width < _bounds.size.height) ? NO : YES;
         _floatValue = 0;
         _knobProportion = 0;
+        if ([keyed containsValueForKey: @"NSScrollerFloatValue"])
+            _floatValue = [keyed decodeFloatForKey: @"NSScrollerFloatValue"];
+        if ([keyed containsValueForKey: @"NSScrollerKnobProportion"])
+            _knobProportion =
+                    [keyed decodeDoubleForKey: @"NSScrollerKnobProportion"];
+        if ([keyed containsValueForKey: @"NSScrollerArrowsPosition"])
+            _arrowsPosition = (NSScrollArrowPosition)
+                    [keyed decodeIntegerForKey: @"NSScrollerArrowsPosition"];
+        if ([keyed containsValueForKey: @"NSScrollerControlSize"])
+            _controlSize = (NSControlSize)
+                    [keyed decodeIntegerForKey: @"NSScrollerControlSize"];
+        if ([keyed containsValueForKey: @"NSScrollerStyle"])
+            _scrollerStyle = (NSScrollerStyle)
+                    [keyed decodeIntegerForKey: @"NSScrollerStyle"];
+        if ([keyed containsValueForKey: @"NSScrollerKnobStyle"])
+            _knobStyle = (NSScrollerKnobStyle)
+                    [keyed decodeIntegerForKey: @"NSScrollerKnobStyle"];
+        if ([keyed containsValueForKey: @"NSScrollerControlTint"])
+            _controlTint = (NSControlTint)
+                    [keyed decodeIntegerForKey: @"NSScrollerControlTint"];
+        if ([keyed containsValueForKey: @"NSScrollerHitPart"])
+            _hitPart = (NSScrollerPart)
+                    [keyed decodeIntegerForKey: @"NSScrollerHitPart"];
+        _isEnabled = [keyed decodeBoolForKey: @"NSScrollerIsEnabled"];
+        _isHighlighted =
+                [keyed decodeBoolForKey: @"NSScrollerIsHighlighted"];
         [self checkSpaceForParts];
     } else {
         [NSException raise: NSInvalidArgumentException

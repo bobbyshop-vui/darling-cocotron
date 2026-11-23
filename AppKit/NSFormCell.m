@@ -31,7 +31,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @implementation NSFormCell
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArgumentException
+                    format: @"-[%@ %s] requires a keyed coder", [self class],
+                            sel_getName(_cmd)];
+        return;
+    }
+
+    [super encodeWithCoder: coder];
+    [coder encodeFloat: (float) _titleWidth forKey: @"NSTitleWidth"];
+    [coder encodeObject: _titleCell forKey: @"NSTitleCell"];
 }
 
 - initWithCoder: (NSCoder *) coder {

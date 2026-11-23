@@ -1,5 +1,6 @@
 #import "MacWorkspace.h"
 #import <AppKit/NSApplication.h>
+#import <AppKit/NSRunningApplication.h>
 #import <AppKit/NSRaise.h>
 #include <LaunchServices/LaunchServices.h>
 
@@ -50,15 +51,47 @@
 }
 
 - (BOOL) type: (NSString *) type conformsToType: (NSString *) conformsToType {
-    // TODO: call UTTypeConformsTo()
-    NSUnimplementedMethod();
-    return NO;
+    if (type == nil || conformsToType == nil)
+        return NO;
+
+    return [type isEqualToString: conformsToType] ||
+           UTTypeConformsTo((CFStringRef) type,
+                            (CFStringRef) conformsToType);
 }
 
 - (NSString *) typeOfFile: (NSString *) path error: (NSError **) error {
-    // TODO: call LSCopyItemAttribute(kLSItemContentType)
-    NSUnimplementedMethod();
-    return NULL;
+    if (error != NULL)
+        *error = nil;
+
+    if (path == nil) {
+        if (error != NULL)
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                         code: NSFileNoSuchFileError
+                                     userInfo: nil];
+        return nil;
+    }
+
+    BOOL isDirectory = NO;
+    if (![[NSFileManager defaultManager] fileExistsAtPath: path
+                                               isDirectory: &isDirectory]) {
+        if (error != NULL)
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                         code: NSFileNoSuchFileError
+                                     userInfo: nil];
+        return nil;
+    }
+
+    NSString *extension = [path pathExtension];
+    CFStringRef type = NULL;
+    if ([extension length] > 0)
+        type = UTTypeCreatePreferredIdentifierForTag(
+                kUTTagClassFilenameExtension, (CFStringRef) extension, NULL);
+
+    if (type == NULL)
+        return isDirectory ? (NSString *) kUTTypeFolder
+                           : (NSString *) kUTTypeData;
+
+    return [(NSString *) type autorelease];
 }
 
 - (BOOL) openFile: (NSString *) path {
@@ -94,17 +127,36 @@
 }
 
 - (BOOL) openURL: (NSURL *) url {
-    // TODO: Call LSOpenFromURLSpec()
-    NSUnimplementedMethod();
-    return NO;
+    if (url == nil)
+        return NO;
+
+    NSArray *urls = [NSArray arrayWithObject: url];
+    return LSOpenURLsWithRole((CFArrayRef) urls, kLSRolesAll, NULL, NULL,
+                              NULL, 0) == noErr;
 }
 
 - (BOOL) selectFile: (NSString *) path
         inFileViewerRootedAtPath: (NSString *) rootedAtPath
 {
-    // TODO: call activateFileViewerSelectingURLs
-    NSUnimplementedMethod();
-    return NO;
+    if (path == nil || ![[NSFileManager defaultManager] fileExistsAtPath: path])
+        return NO;
+
+    NSString *directory = rootedAtPath;
+    if (directory != nil && [directory length] > 0) {
+        NSString *root = [directory stringByStandardizingPath];
+        NSString *file = [path stringByStandardizingPath];
+        NSString *prefix = [root hasSuffix: @"/"] ? root
+                                                    : [root stringByAppendingString: @"/"];
+        if (![file isEqualToString: root] &&
+            ![file hasPrefix: prefix])
+            return NO;
+    } else {
+        directory = [path stringByDeletingLastPathComponent];
+    }
+
+    if (directory == nil || [directory length] == 0)
+        directory = @"/";
+    return [self openURL: [NSURL fileURLWithPath: directory]];
 }
 
 - (void) slideImage: (NSImage *) image from: (NSPoint) from to: (NSPoint) to {
@@ -139,9 +191,24 @@
             application: (NSString **) application
                    type: (NSString **) type
 {
-    // TODO: call LSGetApplicationForURL()
-    NSUnimplementedMethod();
-    return NO;
+    if (application != NULL)
+        *application = nil;
+    if (type != NULL)
+        *type = nil;
+
+    NSError *error = nil;
+    NSString *fileType = [self typeOfFile: path error: &error];
+    if (fileType == nil)
+        return NO;
+
+    NSURL *url = [NSURL fileURLWithPath: path];
+    NSURL *applicationURL = [self URLForApplicationToOpenURL: url];
+    if (application != NULL && applicationURL != nil)
+        *application = [applicationURL path];
+    if (type != NULL)
+        *type = fileType;
+
+    return applicationURL != nil;
 }
 
 - (void) checkForRemovableMedia {
@@ -194,7 +261,28 @@
 }
 
 - (BOOL) isFilePackageAtPath: (NSString *) path {
-    NSUnimplementedMethod();
+    BOOL isDirectory = NO;
+    if (path == nil ||
+        ![[NSFileManager defaultManager] fileExistsAtPath: path
+                                               isDirectory: &isDirectory] ||
+        !isDirectory)
+        return NO;
+
+    NSString *type = [self typeOfFile: path error: NULL];
+    if (type != nil && UTTypeConformsTo((CFStringRef) type, kUTTypePackage))
+        return YES;
+
+    NSString *extension = [[path pathExtension] lowercaseString];
+    NSSet *packageExtensions = [NSSet setWithObjects:
+            @"app", @"bundle", @"framework", @"plugin", @"kext",
+            @"xcodeproj", @"playground", @"rtfd", @"pages", @"numbers",
+            @"key", nil];
+    if ([packageExtensions containsObject: extension])
+        return YES;
+
+    NSString *infoPath = [path stringByAppendingPathComponent:
+            @"Contents/Info.plist"];
+    return [[NSFileManager defaultManager] fileExistsAtPath: infoPath];
 }
 
 - (NSString *) absolutePathForAppBundleWithIdentifier: (NSString *) identifier {
@@ -216,8 +304,8 @@
 }
 
 - (NSArray *) runningApplications {
-    NSUnimplementedMethod();
-    return @[];
+    NSRunningApplication *current = [NSRunningApplication currentApplication];
+    return current != nil ? [NSArray arrayWithObject: current] : [NSArray array];
 }
 
 - (BOOL) launchApplication: (NSString *) application {
@@ -262,11 +350,7 @@
 }
 
 - (void) activateFileViewerSelectingURLs: (NSArray<NSURL *> *) fileURLs {
-    // TODO: Get the current file viewer app by calling [[NSUserDefaults
-    // standardUserDefaults] stringForKey: @"NSFileViewer"] Get its path via
-    // [[NSWorkspace sharedWorkspace] URLForApplicationWithBundleIdentifier]
-    // Call [self openFile:withApplication:]
-    NSUnimplementedMethod();
+    [super activateFileViewerSelectingURLs: fileURLs];
 }
 
 - (NSURL *) URLForApplicationWithBundleIdentifier: (NSString *) bundleIdentifier

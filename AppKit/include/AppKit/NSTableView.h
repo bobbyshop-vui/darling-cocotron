@@ -157,6 +157,8 @@ typedef NS_OPTIONS(NSUInteger, NSTableViewAnimationOptions) {
     NSTableViewDraggingDestinationFeedbackStyle _draggingDestinationFeedbackStyle;
     BOOL _floatsGroupRows;
     BOOL _usesAutomaticRowHeights;
+    NSString *_autosaveName;
+    BOOL _autosaveTableColumns;
     NSMutableDictionary *_registeredNibs;
     NSDragOperation _draggingSourceMaskLocal;
     NSDragOperation _draggingSourceMaskRemote;
@@ -335,6 +337,10 @@ typedef NS_OPTIONS(NSUInteger, NSTableViewAnimationOptions) {
 - (void) didRemoveRowView: (NSTableRowView *) rowView forRow: (NSInteger) row;
 - (BOOL) textShouldBeginEditing: (NSText *) textObject;
 - (BOOL) textShouldEndEditing: (NSText *) textObject;
+
+// Internal autosave helpers.
+- (void) _writePersistentTableColumns;
+- (void) _readPersistentTableColumns;
 @end
 
 @protocol NSTableViewDataSource <NSObject>

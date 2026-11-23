@@ -45,6 +45,7 @@ enum {
 }
 
 - (instancetype) initWithIdentifier: (NSUserInterfaceItemIdentifier) identifier;
+- (void) encodeWithCoder: (NSCoder *) coder;
 
 - (NSTableView *) tableView;
 - (id) headerCell;

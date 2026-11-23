@@ -42,7 +42,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @implementation NSSliderCell
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [super encodeWithCoder: coder];
+
+    if ([coder allowsKeyedCoding]) {
+        [coder encodeInt: _type forKey: @"NSSliderType"];
+        [coder encodeDouble: _minValue forKey: @"NSMinValue"];
+        [coder encodeDouble: _maxValue forKey: @"NSMaxValue"];
+        [coder encodeObject: [NSNumber numberWithDouble: [self doubleValue]]
+                     forKey: @"NSValue"];
+        [coder encodeDouble: _altIncrementValue
+                     forKey: @"NSAltIncrementValue"];
+        [coder encodeInt: _numberOfTickMarks
+                  forKey: @"NSNumberOfTickMarks"];
+        [coder encodeInt: _tickMarkPosition forKey: @"NSTickMarkPosition"];
+        [coder encodeBool: _allowsTickMarkValuesOnly
+                   forKey: @"NSAllowsTickMarkValuesOnly"];
+    } else {
+        int flags1 = 0;
+        int flags2 = 0;
+        double value = [self doubleValue];
+        [coder encodeValuesOfObjCTypes: "ddddiii", &_maxValue, &_minValue,
+                                    &value, &_altIncrementValue,
+                                    &_numberOfTickMarks, &flags1, &flags2];
+    }
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -54,6 +76,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         _type = [keyed decodeIntForKey: @"NSSliderType"];
         _minValue = [keyed decodeDoubleForKey: @"NSMinValue"];
         _maxValue = [keyed decodeDoubleForKey: @"NSMaxValue"];
+        _altIncrementValue =
+                [keyed decodeDoubleForKey: @"NSAltIncrementValue"];
         if ([keyed containsValueForKey: @"NSValue"]) {
             // This cell prefers NSValue to NSContents
             [_objectValue release];
@@ -282,8 +306,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSRect) trackRect {
-    NSUnimplementedMethod();
-    return NSZeroRect;
+    return [self _sliderRect];
 }
 
 - (NSRect) barRectFlipped: (BOOL) flipped {

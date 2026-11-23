@@ -47,7 +47,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding])
+        [NSException raise: NSInvalidArgumentException
+                    format: @"%@ can not encodeWithCoder:%@", [self class],
+                            [coder class]];
+
+    [coder encodeSize: _offset forKey: @"NSOffset"];
+    [coder encodeObject: _color forKey: @"NSColor"];
+    [coder encodeDouble: _blurRadius forKey: @"NSBlurRadius"];
 }
 
 - copyWithZone: (NSZone *) zone {

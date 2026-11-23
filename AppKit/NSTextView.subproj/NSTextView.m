@@ -66,6 +66,12 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 - (NSRange) _softLineRangeForCharacterAtIndex: (NSUInteger) location;
 @end
 
+@interface NSLayoutManager (NSTextInputClientCharacterIndex)
+- (NSUInteger) characterIndexForPoint: (NSPoint) point
+                       inTextContainer: (NSTextContainer *) container
+    fractionOfDistanceBetweenInsertionPoints: (CGFloat *) partialFraction;
+@end
+
 @interface NSTextView (NSTextView_textCompletion)
 - (void) endUserCompletion;
 @end
@@ -94,6 +100,54 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
 - (void) _continuousSpellCheckWithInvalidatedRange: (NSRange) range;
 - (void) _continuousSpellCheck;
+@end
+
+@interface NSTextViewArchiveSharedData : NSTextViewSharedData
+- (instancetype) initWithTextView: (NSTextView *) textView;
+@end
+
+@implementation NSTextViewArchiveSharedData
+
+- (instancetype) initWithTextView: (NSTextView *) textView {
+    self = [super init];
+    if (self != nil) {
+        _backgroundColor = [[textView backgroundColor] retain];
+        _defaultParagraphStyle = [[textView defaultParagraphStyle] retain];
+        _insertionColor = [[textView insertionPointColor] retain];
+        _selectedAttributes = [[textView selectedTextAttributes] copy];
+
+        if ([textView isSelectable])
+            _flags |= 0x00000001;
+        if ([textView isEditable])
+            _flags |= 0x00000002;
+        if ([textView isRichText])
+            _flags |= 0x00000004;
+        if ([textView drawsBackground])
+            _flags |= 0x00000100;
+        if ([textView allowsUndo])
+            _flags |= 0x00000400;
+    }
+    return self;
+}
+
+- (void) encodeWithCoder: (NSCoder *) coder {
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"%@ does not support unkeyed encoding",
+                            [self class]];
+    }
+
+    [coder encodeObject: _backgroundColor forKey: @"NSBackgroundColor"];
+    [coder encodeObject: _defaultParagraphStyle
+                 forKey: @"NSDefaultParagraphStyle"];
+    [coder encodeInt: _flags forKey: @"NSFlags"];
+    [coder encodeObject: _insertionColor forKey: @"NSInsertionColor"];
+    [coder encodeObject: _linkAttributes forKey: @"NSLinkAttributes"];
+    [coder encodeObject: _markedAttributes forKey: @"NSMarkedAttributes"];
+    [coder encodeObject: _selectedAttributes
+                 forKey: @"NSSelectedAttributes"];
+}
+
 @end
 
 @implementation NSTextView
@@ -140,7 +194,45 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"%@ does not support unkeyed encoding",
+                            [self class]];
+    }
+
+    [super encodeWithCoder: coder];
+
+    unsigned int flags = 0;
+    if (_isHorizontallyResizable)
+        flags |= 0x01;
+    if (_isVerticallyResizable)
+        flags |= 0x02;
+
+    NSTextViewArchiveSharedData *sharedData =
+            [[[NSTextViewArchiveSharedData alloc] initWithTextView: self]
+                    autorelease];
+    [coder encodeInt: flags forKey: @"NSTVFlags"];
+    [coder encodeObject: sharedData forKey: @"NSSharedData"];
+    [coder encodeObject: _textContainer forKey: @"NSTextContainer"];
+    [coder encodeObject: _delegate forKey: @"NSDelegate"];
+    [coder encodeBool: _importsGraphics forKey: @"NSImportsGraphics"];
+    [coder encodeInt: _layoutOrientation forKey: @"NSLayoutOrientation"];
+    [coder encodeBool: _incrementalSearchingEnabled
+               forKey: @"NSIncrementalSearchingEnabled"];
+    [coder encodeBool: _usesFindBar forKey: @"NSUsesFindBar"];
+    [coder encodeBool: _usesInspectorBar forKey: @"NSUsesInspectorBar"];
+    [coder encodeBool: _grammarCheckingEnabled
+               forKey: @"NSGrammarCheckingEnabled"];
+    [coder encodeBool: _automaticQuoteSubstitutionEnabled
+               forKey: @"NSAutomaticQuoteSubstitutionEnabled"];
+    [coder encodeBool: _automaticDashSubstitutionEnabled
+               forKey: @"NSAutomaticDashSubstitutionEnabled"];
+    [coder encodeBool: _automaticLinkDetectionEnabled
+               forKey: @"NSAutomaticLinkDetectionEnabled"];
+    [coder encodeBool: _automaticDataDetectionEnabled
+               forKey: @"NSAutomaticDataDetectionEnabled"];
+    [coder encodeBool: _automaticTextReplacementEnabled
+               forKey: @"NSAutomaticTextReplacementEnabled"];
 }
 
 - (void) _setTextStorage: (NSTextStorage *) storage {
@@ -197,6 +289,9 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
         _isSelectable = [sharedData isSelectable];
         _isRichText = [sharedData isRichText];
         _allowsUndo = [sharedData allowsUndo];
+        _importsGraphics = [keyed decodeBoolForKey: @"NSImportsGraphics"];
+        if (!_isRichText)
+            _importsGraphics = NO;
 
         _backgroundColor = [[sharedData backgroundColor] retain];
         _drawsBackground = [sharedData drawsBackground];
@@ -207,6 +302,23 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
         _insertionPointColor = [[sharedData insertionColor] retain];
 
         _usesFontPanel = YES;
+        _layoutOrientation = [keyed decodeIntForKey: @"NSLayoutOrientation"];
+        _incrementalSearchingEnabled =
+                [keyed decodeBoolForKey: @"NSIncrementalSearchingEnabled"];
+        _usesFindBar = [keyed decodeBoolForKey: @"NSUsesFindBar"];
+        _usesInspectorBar = [keyed decodeBoolForKey: @"NSUsesInspectorBar"];
+        _grammarCheckingEnabled =
+                [keyed decodeBoolForKey: @"NSGrammarCheckingEnabled"];
+        _automaticQuoteSubstitutionEnabled = [keyed
+                decodeBoolForKey: @"NSAutomaticQuoteSubstitutionEnabled"];
+        _automaticDashSubstitutionEnabled = [keyed
+                decodeBoolForKey: @"NSAutomaticDashSubstitutionEnabled"];
+        _automaticLinkDetectionEnabled = [keyed
+                decodeBoolForKey: @"NSAutomaticLinkDetectionEnabled"];
+        _automaticDataDetectionEnabled = [keyed
+                decodeBoolForKey: @"NSAutomaticDataDetectionEnabled"];
+        _automaticTextReplacementEnabled = [keyed
+                decodeBoolForKey: @"NSAutomaticTextReplacementEnabled"];
 
         _isFieldEditor = NO;
         _maxSize = [self bounds].size;
@@ -2608,6 +2720,8 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
 - (void) setRichText: (BOOL) flag {
     _isRichText = flag;
+    if (!flag)
+        _importsGraphics = NO;
 }
 
 - (void) setFieldEditor: (BOOL) flag {
@@ -3267,8 +3381,12 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 - (NSDragOperation) dragOperationForDraggingInfo: (id<NSDraggingInfo>) info
                                             type: (NSString *) type
 {
-    NSUnimplementedMethod();
-    return 0;
+    if (!_isEditable ||
+        ![[self acceptableDragTypes] containsObject: type] ||
+        ![[[info draggingPasteboard] types] containsObject: type])
+        return NSDragOperationNone;
+
+    return [self draggingUpdated: info];
 }
 
 - (void) cleanUpAfterDragOperation {
@@ -3276,8 +3394,24 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (NSUInteger) characterIndexForPoint: (NSPoint) point {
-    NSUnimplementedMethod();
-    return 0;
+    NSWindow *window = [self window];
+    if (window == nil || _textContainer == nil || _textStorage == nil)
+        return NSNotFound;
+
+    point = [window convertScreenToBase: point];
+    point = [self convertPoint: point fromView: nil];
+    point.x -= _textContainerInset.width;
+    point.y -= _textContainerInset.height;
+
+    NSUInteger index = [[self layoutManager]
+            characterIndexForPoint: point
+                    inTextContainer: _textContainer
+    fractionOfDistanceBetweenInsertionPoints: NULL];
+    NSUInteger length = [_textStorage length];
+
+    if (index == NSNotFound)
+        return NSNotFound;
+    return MIN(index, length);
 }
 
 - (void) _setFieldEditorUndoManager: (NSUndoManager *) undoManager {
@@ -3980,7 +4114,6 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
     return self;
 }
 - (NSTextLayoutOrientation) layoutOrientation {
-    NSUnimplementedMethod();
     return _layoutOrientation;
 }
 
@@ -3990,17 +4123,14 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (BOOL) isIncrementalSearchingEnabled {
-    NSUnimplementedMethod();
     return _incrementalSearchingEnabled;
 }
 
 - (BOOL) usesFindBar {
-    NSUnimplementedMethod();
     return _usesFindBar;
 }
 
 - (BOOL) usesInspectorBar {
-    NSUnimplementedMethod();
     return _usesInspectorBar;
 }
 
@@ -4020,32 +4150,26 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (BOOL) isGrammarCheckingEnabled {
-    NSUnimplementedMethod();
     return _grammarCheckingEnabled;
 }
 
 - (BOOL) isAutomaticQuoteSubstitutionEnabled {
-    NSUnimplementedMethod();
     return _automaticQuoteSubstitutionEnabled;
 }
 
 - (BOOL) isAutomaticDashSubstitutionEnabled {
-    NSUnimplementedMethod();
     return _automaticDashSubstitutionEnabled;
 }
 
 - (BOOL) isAutomaticLinkDetectionEnabled {
-    NSUnimplementedMethod();
     return _automaticLinkDetectionEnabled;
 }
 
 - (BOOL) isAutomaticDataDetectionEnabled {
-    NSUnimplementedMethod();
     return _automaticDataDetectionEnabled;
 }
 
 - (BOOL) isAutomaticTextReplacementEnabled {
-    NSUnimplementedMethod();
     return _automaticTextReplacementEnabled;
 }
 
@@ -4081,7 +4205,13 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
 // Is defined in NSText but throws an NSInvalidAbstractInvocation Exception
 - (void) setImportsGraphics: (BOOL) value {
-    NSUnimplementedMethod();
+    _importsGraphics = value;
+    if (value)
+        [self setRichText: YES];
+}
+
+- (BOOL) importsGraphics {
+    return _importsGraphics;
 }
 
 #pragma mark - Additional NSTextView API

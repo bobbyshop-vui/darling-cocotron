@@ -26,6 +26,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSScrollView.h>
 #import <AppKit/NSScroller.h>
 #import <AppKit/NSWindow.h>
+#import <Foundation/NSByteOrder.h>
 #import <Foundation/NSKeyedArchiver.h>
 
 NSString *const NSScrollViewDidEndLiveScrollNotification =
@@ -93,11 +94,30 @@ static Class _rulerViewClass = nil;
                        controlSize: (NSControlSize) controlSize
                      scrollerStyle: (NSScrollerStyle) scrollerStyle
 {
-    NSUnimplementedMethod();
-    return [self frameSizeForContentSize: cSize
-                   hasHorizontalScroller: YES
-                     hasVerticalScroller: YES
-                              borderType: type];
+    if (horizontalScrollerClass != Nil)
+        cSize.height += [horizontalScrollerClass
+                scrollerWidthForControlSize: controlSize
+                              scrollerStyle: scrollerStyle];
+    if (verticalScrollerClass != Nil)
+        cSize.width += [verticalScrollerClass
+                scrollerWidthForControlSize: controlSize
+                              scrollerStyle: scrollerStyle];
+
+    switch (type) {
+    case NSNoBorder:
+        break;
+    case NSLineBorder:
+        cSize.height += 1;
+        cSize.width += 1;
+        break;
+    case NSBezelBorder:
+    case NSGrooveBorder:
+        cSize.height += 2;
+        cSize.width += 2;
+        break;
+    }
+
+    return cSize;
 }
 
 + (NSSize) contentSizeForFrameSize: (NSSize) frameSize
@@ -141,7 +161,30 @@ static Class _rulerViewClass = nil;
                        controlSize: (NSControlSize) controlSize
                      scrollerStyle: (NSScrollerStyle) scrollerStyle
 {
-    NSUnimplementedMethod();
+    if (horizontalScrollerClass != Nil)
+        fSize.height -= [horizontalScrollerClass
+                scrollerWidthForControlSize: controlSize
+                              scrollerStyle: scrollerStyle];
+    if (verticalScrollerClass != Nil)
+        fSize.width -= [verticalScrollerClass
+                scrollerWidthForControlSize: controlSize
+                              scrollerStyle: scrollerStyle];
+
+    switch (type) {
+    case NSNoBorder:
+        break;
+    case NSLineBorder:
+        fSize.height -= 1;
+        fSize.width -= 1;
+        break;
+    case NSBezelBorder:
+    case NSGrooveBorder:
+        fSize.height -= 2;
+        fSize.width -= 2;
+        break;
+    }
+
+    return fSize;
 }
 
 + (void) setRulerViewClass: (Class) class {
@@ -153,7 +196,39 @@ static Class _rulerViewClass = nil;
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding])
+        [NSException raise: NSInvalidArgumentException
+                    format: @"%@ can not encodeWithCoder:%@", [self class],
+                            [coder class]];
+
+    [super encodeWithCoder: coder];
+
+    unsigned flags = ((unsigned) _borderType) & 0x03;
+    if (_hasVerticalScroller)
+        flags |= 0x10;
+    if (_hasHorizontalScroller)
+        flags |= 0x20;
+    if ([_clipView copiesOnScroll])
+        flags |= 0x80;
+    if (_autohidesScrollers)
+        flags |= 0x200;
+
+    [coder encodeInt: flags forKey: @"NSsFlags"];
+    [coder encodeObject: _clipView forKey: @"NSContentView"];
+    [coder encodeObject: _verticalScroller forKey: @"NSVScroller"];
+    [coder encodeObject: _horizontalScroller forKey: @"NSHScroller"];
+    [coder encodeObject: _headerClipView forKey: @"NSHeaderClipView"];
+    [coder encodeObject: _cornerView forKey: @"NSCornerView"];
+
+    NSSwappedFloat scrollAmounts[] = {
+            NSSwapHostFloatToBig((float) _horizontalPageScroll),
+            NSSwapHostFloatToBig((float) _verticalPageScroll),
+            NSSwapHostFloatToBig((float) _horizontalLineScroll),
+            NSSwapHostFloatToBig((float) _verticalLineScroll),
+    };
+    NSData *scrollData = [NSData dataWithBytes: scrollAmounts
+                                         length: sizeof(scrollAmounts)];
+    [coder encodeObject: scrollData forKey: @"NSScrollAmts"];
 }
 
 - initWithCoder: (NSCoder *) coder {

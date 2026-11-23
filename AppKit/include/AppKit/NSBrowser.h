@@ -75,6 +75,8 @@ typedef NS_ENUM(NSUInteger, NSBrowserColumnResizingType) {
     NSDragOperation _draggingSourceMaskRemote;
 }
 
+- (void) encodeWithCoder: (NSCoder *) coder;
+
 - delegate;
 - (NSColor *) backgroundColor;
 - (SEL) doubleAction;

@@ -30,7 +30,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @implementation NSProgressIndicator
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding])
+        [NSException raise: NSInvalidArgumentException
+                    format: @"%@ requires a keyed coder",
+                            [self class]];
+
+    [super encodeWithCoder: coder];
+
+    unsigned flags = 0;
+    if (_style == NSProgressIndicatorSpinningStyle)
+        flags |= 0x1000;
+    if (_size == NSSmallControlSize)
+        flags |= 0x100;
+    if (!_displayWhenStopped)
+        flags |= 0x2000;
+    if (_isIndeterminate)
+        flags |= 0x02;
+
+    [coder encodeInt: flags forKey: @"NSpiFlags"];
+    [coder encodeDouble: _minValue forKey: @"NSMinValue"];
+    [coder encodeDouble: _maxValue forKey: @"NSMaxValue"];
+    [coder encodeDouble: _value forKey: @"NSValue"];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -42,7 +62,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
         _minValue = [keyed decodeDoubleForKey: @"NSMinValue"];
         _maxValue = [keyed decodeDoubleForKey: @"NSMaxValue"];
-        _value = _minValue;
+        _value = [keyed containsValueForKey: @"NSValue"]
+                ? [keyed decodeDoubleForKey: @"NSValue"] : _minValue;
         _animationDelay = 5.0 / 60.0;
         _animationTimer = nil;
         _animationValue = 0;

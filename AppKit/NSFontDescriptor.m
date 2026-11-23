@@ -18,6 +18,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSFontDescriptor.h>
+#import <AppKit/NSFont.h>
+#import <AppKit/NSFontManager.h>
 #import <AppKit/NSRaise.h>
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSString.h>
@@ -53,6 +55,18 @@ const NSFontWeight NSFontWeightSemibold = 0x3fd3333340000000;
 const NSFontWeight NSFontWeightBold = 0x3fd99999a0000000;
 const NSFontWeight NSFontWeightMedium = 0x3fcd70a3e0000000;
 const NSFontWeight NSFontWeightRegular = 0x0000000000000000;
+
+static NSComparisonResult compareFontDescriptorMatches(id left, id right,
+                                                        void *context)
+{
+    NSInteger leftScore = [[left objectForKey: @"score"] integerValue];
+    NSInteger rightScore = [[right objectForKey: @"score"] integerValue];
+    if (leftScore > rightScore)
+        return NSOrderedAscending;
+    if (leftScore < rightScore)
+        return NSOrderedDescending;
+    return NSOrderedSame;
+}
 
 @implementation NSFontDescriptor : NSObject
 
@@ -187,8 +201,57 @@ const NSFontWeight NSFontWeightRegular = 0x0000000000000000;
 }
 
 - (NSArray *) matchingFontDescriptorsWithMandatoryKeys: (NSSet *) keys {
-    NSUnimplementedMethod();
-    return nil;
+    NSMutableArray *matches = [NSMutableArray array];
+    NSDictionary *requestedAttributes = _attributes;
+    CGFloat size = [self pointSize];
+
+    for (NSString *fontName in [[NSFontManager sharedFontManager]
+                 availableFonts]) {
+        NSFont *font = [NSFont fontWithName: fontName size: size];
+        if (font == nil)
+            continue;
+
+        NSFontDescriptor *candidate = [font fontDescriptor];
+        NSDictionary *candidateAttributes = [candidate fontAttributes];
+        BOOL satisfiesMandatoryKeys = YES;
+        for (id key in keys) {
+            id expected = [requestedAttributes objectForKey: key];
+            id actual = [candidateAttributes objectForKey: key];
+            if (expected == nil ? actual != nil : ![expected isEqual: actual]) {
+                satisfiesMandatoryKeys = NO;
+                break;
+            }
+        }
+        if (!satisfiesMandatoryKeys)
+            continue;
+
+        NSInteger score = 0;
+        for (id key in requestedAttributes) {
+            id expected = [requestedAttributes objectForKey: key];
+            id actual = [candidateAttributes objectForKey: key];
+            if (expected != nil && [expected isEqual: actual]) {
+                if ([key isEqual: NSFontNameAttribute])
+                    score += 1000;
+                else if ([key isEqual: NSFontFamilyAttribute])
+                    score += 100;
+                else if ([key isEqual: NSFontFaceAttribute])
+                    score += 50;
+                else
+                    score += 10;
+            }
+        }
+        [matches addObject: [NSDictionary
+                dictionaryWithObjectsAndKeys: candidate, @"descriptor",
+                                             [NSNumber numberWithInteger: score],
+                                             @"score", nil]];
+    }
+
+    [matches sortUsingFunction: compareFontDescriptorMatches context: NULL];
+    NSMutableArray *descriptors = [NSMutableArray
+            arrayWithCapacity: [matches count]];
+    for (NSDictionary *match in matches)
+        [descriptors addObject: [match objectForKey: @"descriptor"]];
+    return descriptors;
 }
 
 - (NSFontDescriptor *) matchingFontDescriptorWithMandatoryKeys: (NSSet *) keys {

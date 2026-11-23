@@ -25,6 +25,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSString *_propertyName;
     BOOL _propertyIndexed;
     NSString *_propertyVersionHashModifier;
+    BOOL _propertyOptional;
+    BOOL _propertyTransient;
+    NSDictionary *_propertyUserInfo;
+    NSArray *_propertyValidationPredicates;
 }
 
 - (NSEntityDescription *) entity;

@@ -103,13 +103,60 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (double) tickMarkValueAtIndex: (int) index {
-    NSUnimplementedMethod();
-    return 0;
+    if (_numberOfTickMarks <= 0)
+        return _minValue;
+    if (index < 0 || index >= _numberOfTickMarks)
+        [NSException raise: NSRangeException
+                    format: @"tick mark index out of range in %@",
+                            NSStringFromSelector(_cmd)];
+
+    double scale = _numberOfTickMarks == 1
+                           ? 0.5
+                           : (double) index / (_numberOfTickMarks - 1);
+    return _minValue + (_maxValue - _minValue) * scale;
 }
 
 - (NSRect) rectOfTickMarkAtIndex: (int) index {
-    NSUnimplementedMethod();
-    return NSZeroRect;
+    NSView *controlView = [self controlView];
+    if (_numberOfTickMarks <= 0 || index < 0 ||
+        index >= _numberOfTickMarks || controlView == nil)
+        return NSZeroRect;
+
+    NSRect bounds = [controlView bounds];
+    BOOL vertical = NSHeight(bounds) > NSWidth(bounds);
+    CGFloat inset = 2.0;
+    CGFloat length = (vertical ? NSHeight(bounds) : NSWidth(bounds)) -
+                     inset * 2;
+    if (length < 0)
+        length = 0;
+    CGFloat offset = _numberOfTickMarks == 1
+                             ? floor(length / 2.0)
+                             : floor(index * length /
+                                     (_numberOfTickMarks - 1));
+    NSRect tick = NSZeroRect;
+
+    if (vertical) {
+        tick.size = NSMakeSize(3.0, 1.0);
+        tick.origin.x = _tickMarkPosition == NSTickMarkAbove
+                                ? NSMinX(bounds)
+                                : NSMaxX(bounds) - tick.size.width;
+        if ([controlView isFlipped])
+            tick.origin.y = NSMaxY(bounds) - inset - offset - tick.size.height;
+        else
+            tick.origin.y = NSMinY(bounds) + inset + offset;
+    } else {
+        tick.size = NSMakeSize(1.0, 3.0);
+        tick.origin.x = NSMinX(bounds) + inset + offset;
+        BOOL above = _tickMarkPosition == NSTickMarkAbove;
+        if ([controlView isFlipped])
+            tick.origin.y = above ? NSMinY(bounds)
+                                  : NSMaxY(bounds) - tick.size.height;
+        else
+            tick.origin.y = above ? NSMaxY(bounds) - tick.size.height
+                                  : NSMinY(bounds);
+    }
+
+    return tick;
 }
 
 @end

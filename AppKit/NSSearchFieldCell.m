@@ -156,11 +156,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) resetCancelButtonCell {
-    NSUnimplementedMethod();
+    NSButtonCell *cell = [[NSButtonCell alloc]
+            initImageCell: [NSImage
+                                   imageNamed: @"NSStopProgressFreestandingTemplate"]];
+    [cell setImageScaling: NSImageScaleProportionallyUpOrDown];
+    [cell setTarget: [self target]];
+    [cell setAction: [self action]];
+    [self setCancelButtonCell: cell];
+    [cell release];
 }
 
 - (void) resetSearchButtonCell {
-    NSUnimplementedMethod();
+    NSButtonCell *cell = [[NSButtonCell alloc]
+            initImageCell: [NSImage imageNamed: @"NSSearchGlass"]];
+    [cell setImageScaling: NSImageScaleProportionallyUpOrDown];
+    [cell setTarget: [self target]];
+    [cell setAction: [self action]];
+    [self setSearchButtonCell: cell];
+    [cell release];
 }
 
 - (NSRect) titleRectForBounds: (NSRect) rect {

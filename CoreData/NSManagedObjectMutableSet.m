@@ -1,4 +1,5 @@
 #import "NSManagedObjectMutableSet.h"
+#import "NSManagedObjectSetEnumerator.h"
 #import <CoreData/NSManagedObject.h>
 #import <CoreData/NSManagedObjectContext.h>
 #import <Foundation/NSRaise.h>
@@ -26,8 +27,10 @@
 }
 
 - (NSEnumerator *) objectEnumerator {
-    NSUnimplementedMethod();
-    return nil;
+    NSEnumerator *enumerator = [[_object valueForKey: _key] objectEnumerator];
+    return [[[NSManagedObjectSetEnumerator alloc]
+            initWithManagedObjectContext: [_object managedObjectContext]
+                        objectEnumerator: enumerator] autorelease];
 }
 
 - (void) addObject: object {

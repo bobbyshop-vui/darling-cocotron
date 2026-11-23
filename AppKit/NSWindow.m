@@ -19,7 +19,9 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSApplication.h>
+#import <AppKit/NSButton.h>
 #import <AppKit/NSColor.h>
+#import <AppKit/NSColorSpace.h>
 #import <AppKit/NSCursor.h>
 #import <AppKit/NSDisplay.h>
 #import <AppKit/NSDraggingManager.h>
@@ -45,6 +47,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindowAnimationContext.h>
 #import <AppKit/NSWindowTab.h>
 #import <AppKit/NSLayoutGuide.h>
+#import <Foundation/NSURL.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreGraphics/CGWindow.h>
 
@@ -133,6 +136,10 @@ NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
 - (void) layoutFrameSizeWithWidth: (CGFloat) width;
 @end
 
+@interface NSDockTile (NSWindow_private)
+- initWithOwner: (id) owner;
+@end
+
 @interface NSWindow ()
 
 - (NSRect) zoomedFrame;
@@ -213,6 +220,21 @@ NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
 
 static BOOL _allowsAutomaticWindowTabbing;
 
+static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
+    switch (edge) {
+    case NSRectEdgeMinX:
+        return 0;
+    case NSRectEdgeMaxX:
+        return 1;
+    case NSRectEdgeMinY:
+        return 2;
+    case NSRectEdgeMaxY:
+        return 3;
+    default:
+        return -1;
+    }
+}
+
 + (NSWindowDepth) defaultDepthLimit {
     return 0;
 }
@@ -263,13 +285,59 @@ static BOOL _allowsAutomaticWindowTabbing;
 + (NSInteger) windowNumberAtPoint: (NSPoint) point
         belowWindowWithWindowNumber: (NSInteger) window
 {
-    NSUnimplementedMethod();
+    NSArray *windowNumbers = [self windowNumbersWithOptions: 0];
+    BOOL searchBelowWindow = (window == 0);
+
+    for (NSNumber *number in windowNumbers) {
+        NSInteger currentNumber = [number integerValue];
+        if (!searchBelowWindow) {
+            if (currentNumber == window)
+                searchBelowWindow = YES;
+            continue;
+        }
+
+        NSWindow *candidate = [NSApp windowWithWindowNumber: currentNumber];
+        if ([candidate isVisible] && ![candidate isMiniaturized] &&
+            NSPointInRect(point, [candidate frame]))
+            return currentNumber;
+    }
+
     return 0;
 }
 
 + (NSArray *) windowNumbersWithOptions: (NSWindowNumberListOptions) options {
-    NSUnimplementedMethod();
-    return nil;
+    if (NSApp == nil)
+        [NSApplication sharedApplication];
+
+    NSMutableArray *result = [NSMutableArray array];
+    NSMutableSet *seen = [NSMutableSet set];
+    NSArray *orderedNumbers = [[NSDisplay currentDisplay] orderedWindowNumbers];
+
+    // Cocotron's window server exposes ordering for this application only.
+    // AllSpaces has no effect because Darling does not implement Spaces.
+    (void) options;
+    for (NSNumber *number in orderedNumbers) {
+        NSInteger windowNumber = [number integerValue];
+        NSWindow *window = [NSApp windowWithWindowNumber: windowNumber];
+        if (windowNumber != 0 && [window isVisible] &&
+            ![window isMiniaturized] &&
+            ![seen containsObject: number]) {
+            [result addObject: number];
+            [seen addObject: number];
+        }
+    }
+
+    for (NSWindow *window in [NSApp windows]) {
+        NSInteger windowNumber = [window windowNumber];
+        NSNumber *number = [NSNumber numberWithInteger: windowNumber];
+        if (windowNumber != 0 && [window isVisible] &&
+            ![window isMiniaturized] && ![seen containsObject: number]) {
+            [result addObject: number];
+            [seen addObject: number];
+        }
+    }
+
+    return result;
 }
 
 + (void) removeFrameUsingName: (NSString *) name {
@@ -288,7 +356,50 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"%@ does not support unkeyed encoding",
+                            [self class]];
+        return;
+    }
+
+    [super encodeWithCoder: coder];
+
+    [coder encodeRect: _frame forKey: @"NSWindowRect"];
+    [coder encodeInteger: _styleMask forKey: @"NSWindowStyleMask"];
+    [coder encodeInteger: _backingType forKey: @"NSWindowBacking"];
+    [coder encodeInteger: _level forKey: @"NSWindowLevel"];
+    [coder encodeObject: _title forKey: @"NSWindowTitle"];
+    [coder encodeObject: _representedFilename
+                 forKey: @"NSWindowRepresentedFilename"];
+    [coder encodeObject: _representedURL forKey: @"NSWindowRepresentedURL"];
+    [coder encodeSize: _minSize forKey: @"NSMinSize"];
+    [coder encodeSize: _maxSize forKey: @"NSMaxSize"];
+    [coder encodeSize: _contentMinSize forKey: @"NSWindowContentMinSize"];
+    [coder encodeSize: _contentMaxSize forKey: @"NSWindowContentMaxSize"];
+    [coder encodeObject: _autosaveFrameName forKey: @"NSFrameAutosaveName"];
+    [coder encodeInteger: _collectionBehavior
+                  forKey: @"NSWindowCollectionBehavior"];
+    [coder encodeBool: _isMovable forKey: @"NSWindowIsMovable"];
+    [coder encodeInteger: _sharingType forKey: @"NSWindowSharingType"];
+    [coder encodeObject: _colorSpace forKey: @"NSWindowColorSpace"];
+
+    [coder encodeDouble: _contentBorderThickness[0]
+                 forKey: @"NSContentBorderThicknessMinX"];
+    [coder encodeDouble: _contentBorderThickness[1]
+                 forKey: @"NSContentBorderThicknessMaxX"];
+    [coder encodeDouble: _contentBorderThickness[2]
+                 forKey: @"NSContentBorderThicknessMinY"];
+    [coder encodeDouble: _contentBorderThickness[3]
+                 forKey: @"NSContentBorderThicknessMaxY"];
+    [coder encodeBool: _autorecalculatesContentBorderThickness[0]
+               forKey: @"NSAutorecalculatesContentBorderThicknessMinX"];
+    [coder encodeBool: _autorecalculatesContentBorderThickness[1]
+               forKey: @"NSAutorecalculatesContentBorderThicknessMaxX"];
+    [coder encodeBool: _autorecalculatesContentBorderThickness[2]
+               forKey: @"NSAutorecalculatesContentBorderThicknessMinY"];
+    [coder encodeBool: _autorecalculatesContentBorderThickness[3]
+               forKey: @"NSAutorecalculatesContentBorderThicknessMaxY"];
 }
 
 // This is Apple private API
@@ -342,6 +453,12 @@ static BOOL _allowsAutomaticWindowTabbing;
     _flushNeeded = YES;
     _resizeIncrements = NSMakeSize(1, 1);
     _contentResizeIncrements = NSMakeSize(1, 1);
+    _isMovable = YES;
+    _sharingType = NSWindowSharingReadOnly;
+    _autorecalculatesContentBorderThickness[0] = YES;
+    _autorecalculatesContentBorderThickness[1] = YES;
+    _autorecalculatesContentBorderThickness[2] = YES;
+    _autorecalculatesContentBorderThickness[3] = YES;
 
     _threadToContext = [[NSMutableDictionary alloc] init];
 
@@ -423,6 +540,10 @@ static BOOL _allowsAutomaticWindowTabbing;
     [_threadToContext release];
     [_undoManager release];
     [_identifier release];
+    [_representedURL release];
+    [_dockTile release];
+    [_standardWindowButtons release];
+    [_colorSpace release];
     [_contentLayoutGuide release];
     [_tabbingIdentifier release];
     [_tab setWindow: nil];
@@ -535,7 +656,10 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSURL *) representedURL {
-    NSUnimplementedMethod();
+    if (_representedURL != nil)
+        return _representedURL;
+    if (_representedFilename != nil)
+        return [NSURL fileURLWithPath: _representedFilename];
     return nil;
 }
 
@@ -565,8 +689,8 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSWindowBackingLocation) backingLocation {
-    NSUnimplementedMethod();
-    return 0;
+    // Cocotron uses its default backing store and does not expose its location.
+    return NSWindowBackingLocationDefault;
 }
 
 - (NSSize) minSize {
@@ -701,8 +825,9 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSDockTile *) dockTile {
-    NSUnimplementedMethod();
-    return nil;
+    if (_dockTile == nil)
+        _dockTile = [[NSDockTile alloc] initWithOwner: self];
+    return _dockTile;
 }
 
 - (NSColor *) backgroundColor {
@@ -1027,13 +1152,13 @@ static BOOL _allowsAutomaticWindowTabbing;
 - (void) setContentBorderThickness: (CGFloat) thickness
                            forEdge: (NSRectEdge) edge
 {
-    // FIXME: should warn, but low priority cosmetic, so we dont, still needs to
-    // be implemented
-    //   NSUnimplementedMethod();
+    NSInteger index = NSWindowIndexForEdge(edge);
+    if (index >= 0)
+        _contentBorderThickness[index] = thickness;
 }
 
 - (void) setMovable: (BOOL) movable {
-    NSUnimplementedMethod();
+    _isMovable = movable;
 }
 
 - (void) setBackingType: (NSBackingStoreType) value {
@@ -1073,9 +1198,9 @@ static BOOL _allowsAutomaticWindowTabbing;
 - (void) setAutorecalculatesContentBorderThickness: (BOOL) automatic
                                            forEdge: (NSRectEdge) edge
 {
-    // FIXME: should warn, but low priority cosmetic, so we dont, still needs to
-    // be implemented
-    //   NSUnimplementedMethod();
+    NSInteger index = NSWindowIndexForEdge(edge);
+    if (index >= 0)
+        _autorecalculatesContentBorderThickness[index] = automatic;
 }
 
 - (BOOL) _isApplicationWindow {
@@ -1262,7 +1387,7 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) setCollectionBehavior: (NSWindowCollectionBehavior) behavior {
-    NSUnimplementedMethod();
+    _collectionBehavior = behavior;
 }
 
 - (void) setLevel: (NSInteger) value {
@@ -1290,7 +1415,11 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) setRepresentedURL: (NSURL *) newURL {
-    NSUnimplementedMethod();
+    NSURL *value = [newURL copy];
+    [_representedURL release];
+    _representedURL = value;
+
+    [self setRepresentedFilename: [newURL path]];
 }
 
 - (void) setResizeIncrements: (NSSize) value {
@@ -1328,13 +1457,13 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (BOOL) autorecalculatesContentBorderThicknessForEdge: (NSRectEdge) edge {
-    NSUnimplementedMethod();
-    return NO;
+    NSInteger index = NSWindowIndexForEdge(edge);
+    return index >= 0 ? _autorecalculatesContentBorderThickness[index] : NO;
 }
 
 - (CGFloat) contentBorderThicknessForEdge: (NSRectEdge) edge {
-    NSUnimplementedMethod();
-    return 0.;
+    NSInteger index = NSWindowIndexForEdge(edge);
+    return index >= 0 ? _contentBorderThickness[index] : 0.;
 }
 
 - (NSString *) _autosaveFrameKeyWithName: (NSString *) name {
@@ -1421,8 +1550,51 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSButton *) standardWindowButton: (NSWindowButton) value {
-    NSUnimplementedMethod();
-    return nil;
+    NSNumber *key = [NSNumber numberWithInteger: value];
+    NSButton *button = [_standardWindowButtons objectForKey: key];
+    if (button != nil)
+        return button;
+
+    NSString *title = nil;
+    NSString *toolTip = nil;
+    SEL action = NULL;
+    switch (value) {
+    case NSWindowCloseButton:
+        if (!(_styleMask & NSClosableWindowMask))
+            return nil;
+        title = @"×";
+        toolTip = @"Close";
+        action = @selector(performClose:);
+        break;
+    case NSWindowMiniaturizeButton:
+        if (!(_styleMask & NSMiniaturizableWindowMask))
+            return nil;
+        title = @"−";
+        toolTip = @"Minimize";
+        action = @selector(performMiniaturize:);
+        break;
+    case NSWindowZoomButton:
+        if (!(_styleMask & NSResizableWindowMask))
+            return nil;
+        title = @"+";
+        toolTip = @"Zoom";
+        action = @selector(performZoom:);
+        break;
+    default:
+        // Cocotron's frame view does not provide toolbar or document buttons.
+        return nil;
+    }
+
+    button = [[[NSButton alloc] initWithFrame: NSMakeRect(0, 0, 16, 16)]
+            autorelease];
+    [button setTitle: title];
+    [button setToolTip: toolTip];
+    [button setTarget: self];
+    [button setAction: action];
+    if (_standardWindowButtons == nil)
+        _standardWindowButtons = [[NSMutableDictionary alloc] init];
+    [_standardWindowButtons setObject: button forKey: key];
+    return button;
 }
 
 - (NSButtonCell *) defaultButtonCell {
@@ -1467,31 +1639,53 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSScreen *) deepestScreen {
-    NSUnimplementedMethod();
-    return 0;
+    NSScreen *deepest = nil;
+    CGFloat deepestArea = 0;
+
+    for (NSScreen *screen in [NSScreen screens]) {
+        NSRect intersection = NSIntersectionRect([screen frame], _frame);
+        CGFloat area = intersection.size.width * intersection.size.height;
+        if (area > 0 &&
+            (deepest == nil || [screen depth] > [deepest depth] ||
+             ([screen depth] == [deepest depth] && area > deepestArea))) {
+            deepest = screen;
+            deepestArea = area;
+        }
+    }
+
+    return deepest != nil ? deepest : [NSScreen deepestScreen];
 }
 
 - (NSColorSpace *) colorSpace {
-    NSUnimplementedMethod();
-    return nil;
+    if (_colorSpace != nil)
+        return _colorSpace;
+
+    NSColorSpace *screenColorSpace = [[self screen] colorSpace];
+    if (screenColorSpace != nil)
+        return screenColorSpace;
+
+    return [NSColorSpace genericRGBColorSpace];
 }
 
 - (void) setColorSpace: (NSColorSpace *) newColorSpace {
-    NSUnimplementedMethod();
+    newColorSpace = [newColorSpace retain];
+    [_colorSpace release];
+    _colorSpace = newColorSpace;
 }
 
 - (BOOL) isOnActiveSpace {
-    NSUnimplementedMethod();
+    // Darling has one desktop space, so every window belongs to it.
     return YES;
 }
 
 - (NSWindowSharingType) sharingType {
-    NSUnimplementedMethod();
-    return 0;
+    return _sharingType;
 }
 
 - (void) setSharingType: (NSWindowSharingType) type {
-    NSUnimplementedMethod();
+    // The window server does not implement cross-process sharing, but retain
+    // the requested value so callers can query it again.
+    _sharingType = type;
 }
 
 - (BOOL) isDocumentEdited {
@@ -1520,8 +1714,7 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (BOOL) isMovable {
-    NSUnimplementedMethod();
-    return NO;
+    return _isMovable;
 }
 
 - (BOOL) inLiveResize {
@@ -1547,8 +1740,7 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSWindowCollectionBehavior) collectionBehavior {
-    NSUnimplementedMethod();
-    return 0;
+    return _collectionBehavior;
 }
 
 - (NSPoint) convertBaseToScreen: (NSPoint) point {
@@ -1878,7 +2070,10 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) disableScreenUpdatesUntilFlush {
-    NSUnimplementedMethod();
+    if (!_screenUpdatesDisabledUntilFlush) {
+        [_platformWindow disableFlushWindow];
+        _screenUpdatesDisabledUntilFlush = YES;
+    }
 }
 
 - (void) useOptimizedDrawing: (BOOL) flag {
@@ -1936,6 +2131,11 @@ static BOOL _allowsAutomaticWindowTabbing;
     if (_flushDisabled > 0) {
         _flushNeeded = YES;
         return;
+    }
+
+    if (_screenUpdatesDisabledUntilFlush) {
+        _screenUpdatesDisabledUntilFlush = NO;
+        [_platformWindow enableFlushWindow];
     }
 
     _flushNeeded = NO;

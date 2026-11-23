@@ -111,8 +111,79 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
                                     usingType: (NSBitmapImageFileType) type
                                    properties: (NSDictionary *) properties
 {
-    NSUnimplementedMethod();
-    return nil;
+    CFStringRef uti = NULL;
+    switch (type) {
+    case NSTIFFFileType:
+        uti = (CFStringRef) @"public.tiff";
+        break;
+    case NSBMPFileType:
+        uti = (CFStringRef) @"com.microsoft.bmp";
+        break;
+    case NSGIFFileType:
+        uti = (CFStringRef) @"com.compuserve.gif";
+        break;
+    case NSJPEGFileType:
+        uti = (CFStringRef) @"public.jpeg";
+        break;
+    case NSPNGFileType:
+        uti = (CFStringRef) @"public.png";
+        break;
+    case NSJPEG2000FileType:
+        uti = (CFStringRef) @"public.jpeg-2000";
+        break;
+    default:
+        return nil;
+    }
+
+    if ([array count] == 0)
+        return nil;
+
+    NSMutableDictionary *imageProperties =
+            [NSMutableDictionary dictionaryWithDictionary:
+                                              (properties != nil
+                                                       ? properties
+                                                       : [NSDictionary dictionary])];
+    id compressionFactor =
+            [properties objectForKey: NSImageCompressionFactor];
+    if (compressionFactor != nil) {
+        [imageProperties setObject: compressionFactor
+                            forKey: (id) kCGImageDestinationLossyCompressionQuality];
+        [imageProperties removeObjectForKey: NSImageCompressionFactor];
+    }
+
+    NSMutableData *data = [NSMutableData data];
+    CGImageDestinationRef destination = CGImageDestinationCreateWithData(
+            (CFMutableDataRef) data, uti, [array count], NULL);
+    if (destination == NULL)
+        return nil;
+
+    BOOL valid = YES;
+    for (NSImageRep *imageRep in array) {
+        NSRect proposedRect = NSMakeRect(0, 0, [imageRep size].width,
+                                        [imageRep size].height);
+        CGImageRef image = [imageRep CGImageForProposedRect: &proposedRect
+                                                    context: nil
+                                                      hints: nil];
+        if (image == NULL) {
+            valid = NO;
+            break;
+        }
+
+        NSMutableDictionary *perImageProperties =
+                [NSMutableDictionary dictionaryWithDictionary: imageProperties];
+        NSSize size = [imageRep size];
+        int dpi = size.width > 0
+                          ? (int) ceilf(72 * [imageRep pixelsWide] / size.width)
+                          : 72;
+        [perImageProperties setObject: [NSNumber numberWithInt: dpi]
+                               forKey: (id) kCGImageDestinationDPI];
+        CGImageDestinationAddImage(destination, image,
+                                  (CFDictionaryRef) perImageProperties);
+    }
+
+    BOOL finalized = valid && CGImageDestinationFinalize(destination);
+    CFRelease(destination);
+    return finalized ? data : nil;
 }
 
 + (NSArray *) imageUnfilteredPasteboardTypes {
@@ -534,7 +605,35 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
 }
 
 - (void) getPixel: (NSUInteger[]) pixel atX: (NSInteger) x y: (NSInteger) y {
-    NSUnimplementedMethod();
+    NSAssert(pixel != NULL, @"pixel must not be NULL");
+    NSAssert(x >= 0 && x < [self pixelsWide], @"x out of bounds");
+    NSAssert(y >= 0 && y < [self pixelsHigh], @"y out of bounds");
+    if (pixel == NULL || x < 0 || x >= [self pixelsWide] || y < 0 ||
+        y >= [self pixelsHigh])
+        return;
+
+    [self createBitmapIfNeeded];
+    NSUInteger sampleBits = (NSUInteger) [self bitsPerSample];
+    if (sampleBits == 0 || sampleBits > sizeof(NSUInteger) * 8)
+        return;
+
+    for (NSUInteger sample = 0; sample < (NSUInteger) _samplesPerPixel;
+         sample++) {
+        unsigned char *plane = _bitmapPlanes[_isPlanar ? sample : 0];
+        NSUInteger startBit = _isPlanar
+                                      ? (NSUInteger) x * sampleBits
+                                      : (NSUInteger) x * _bitsPerPixel +
+                                                sample * sampleBits;
+        plane += (NSUInteger) y * _bytesPerRow;
+
+        NSUInteger value = 0;
+        for (NSUInteger bit = 0; bit < sampleBits; bit++) {
+            NSUInteger bitOffset = startBit + bit;
+            value = (value << 1) |
+                    ((plane[bitOffset / 8] >> (7 - (bitOffset % 8))) & 1);
+        }
+        pixel[sample] = value;
+    }
 }
 
 - (void) setPixel: (NSUInteger[]) pixel atX: (NSInteger) x y: (NSInteger) y {
@@ -640,7 +739,120 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
                   blackMapping: (NSColor *) blackMapping
                   whiteMapping: (NSColor *) whiteMapping
 {
-    NSUnimplementedMethod();
+    if ([self bitsPerSample] != 8 ||
+        (_samplesPerPixel != 1 && _samplesPerPixel != 2 &&
+         _samplesPerPixel != 3 && _samplesPerPixel != 4))
+        return;
+    if ((_hasAlpha && _samplesPerPixel != 2 && _samplesPerPixel != 4) ||
+        (!_hasAlpha && _samplesPerPixel != 1 && _samplesPerPixel != 3))
+        return;
+
+    gray = MAX(0.0, MIN(1.0, gray));
+    NSColor *middle = color != nil
+                              ? [color colorUsingColorSpaceName:
+                                                   NSCalibratedRGBColorSpace]
+                              : [NSColor colorWithCalibratedWhite: gray alpha: 1];
+    NSColor *shadow = blackMapping != nil
+                              ? [blackMapping colorUsingColorSpaceName:
+                                                       NSCalibratedRGBColorSpace]
+                              : [NSColor blackColor];
+    NSColor *light = whiteMapping != nil
+                             ? [whiteMapping colorUsingColorSpaceName:
+                                                      NSCalibratedRGBColorSpace]
+                             : [NSColor whiteColor];
+    if (middle == nil)
+        middle = [NSColor colorWithCalibratedWhite: gray alpha: 1];
+    if (shadow == nil)
+        shadow = [NSColor blackColor];
+    if (light == nil)
+        light = [NSColor whiteColor];
+
+    CGFloat middleComponents[4], shadowComponents[4], lightComponents[4];
+    [middle getRed: &middleComponents[0]
+              green: &middleComponents[1]
+               blue: &middleComponents[2]
+              alpha: &middleComponents[3]];
+    [shadow getRed: &shadowComponents[0]
+              green: &shadowComponents[1]
+               blue: &shadowComponents[2]
+              alpha: &shadowComponents[3]];
+    [light getRed: &lightComponents[0]
+             green: &lightComponents[1]
+              blue: &lightComponents[2]
+             alpha: &lightComponents[3]];
+
+    [self createBitmapIfNeeded];
+    NSInteger alphaIndex = -1;
+    if (_hasAlpha)
+        alphaIndex = (_bitmapFormat & NSAlphaFirstBitmapFormat)
+                             ? 0
+                             : _samplesPerPixel - 1;
+    NSInteger firstColorIndex =
+            (alphaIndex == 0) ? 1 : 0;
+    NSInteger colorCount = _samplesPerPixel - (_hasAlpha ? 1 : 0);
+    NSInteger storedColorCount = (colorCount == 1) ? 1 : 3;
+
+    for (NSInteger y = 0; y < [self pixelsHigh]; y++) {
+        for (NSInteger x = 0; x < [self pixelsWide]; x++) {
+            unsigned char values[4] = {0, 0, 0, 0};
+            for (NSInteger component = 0; component < colorCount; component++) {
+                NSUInteger sample = (NSUInteger) (firstColorIndex + component);
+                unsigned char *plane = _bitmapPlanes[_isPlanar ? sample : 0];
+                NSUInteger offset = _isPlanar
+                                            ? (NSUInteger) y * _bytesPerRow + x
+                                            : (NSUInteger) y * _bytesPerRow +
+                                                      (NSUInteger) x * _samplesPerPixel +
+                                                      sample;
+                values[component] = plane[offset];
+            }
+
+            for (NSInteger component = 0; component < storedColorCount;
+                 component++) {
+                CGFloat input = values[component] / 255.0;
+                CGFloat black, midpoint, white;
+                if (colorCount == 1) {
+                    black = 0.2126 * shadowComponents[0] +
+                            0.7152 * shadowComponents[1] +
+                            0.0722 * shadowComponents[2];
+                    midpoint = 0.2126 * middleComponents[0] +
+                               0.7152 * middleComponents[1] +
+                               0.0722 * middleComponents[2];
+                    white = 0.2126 * lightComponents[0] +
+                            0.7152 * lightComponents[1] +
+                            0.0722 * lightComponents[2];
+                } else {
+                    black = shadowComponents[component];
+                    midpoint = middleComponents[component];
+                    white = lightComponents[component];
+                }
+
+                CGFloat mapped;
+                if (input <= gray) {
+                    CGFloat fraction = gray > 0 ? input / gray : 0;
+                    mapped = black + (midpoint - black) * fraction;
+                } else {
+                    CGFloat fraction = gray < 1 ? (input - gray) / (1 - gray) : 0;
+                    mapped = midpoint + (white - midpoint) * fraction;
+                }
+                values[component] = (unsigned char) floor(
+                        MAX(0.0, MIN(1.0, mapped)) * 255.0 + 0.5);
+            }
+
+            for (NSInteger component = 0; component < colorCount; component++) {
+                NSUInteger sample = (NSUInteger) (firstColorIndex + component);
+                unsigned char *plane = _bitmapPlanes[_isPlanar ? sample : 0];
+                NSUInteger offset = _isPlanar
+                                            ? (NSUInteger) y * _bytesPerRow + x
+                                            : (NSUInteger) y * _bytesPerRow +
+                                                      (NSUInteger) x * _samplesPerPixel +
+                                                      sample;
+                plane[offset] = values[component];
+            }
+        }
+    }
+    if (_cgImage != NULL)
+        CGImageRelease(_cgImage);
+    _cgImage = NULL;
 }
 
 - (void) getCompression: (NSTIFFCompression *) compression

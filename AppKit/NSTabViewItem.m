@@ -53,7 +53,16 @@ NSString *_NSTruncatedStringWithAttributesInRect(NSString *string,
 @implementation NSTabViewItem
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding])
+        [NSException raise: NSInvalidArgumentException
+                    format: @"-[%@ %s] requires a keyed coder",
+                            [self class], sel_getName(_cmd)];
+
+    [coder encodeObject: _identifier forKey: @"NSIdentifier"];
+    [coder encodeObject: _label forKey: @"NSLabel"];
+    [coder encodeObject: _view forKey: @"NSView"];
+    [coder encodeObject: _tabView forKey: @"NSTabView"];
+    [coder encodeObject: _color forKey: @"NSColor"];
 }
 
 - initWithCoder: (NSCoder *) coder {

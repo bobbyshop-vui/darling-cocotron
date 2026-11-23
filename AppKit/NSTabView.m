@@ -99,7 +99,22 @@ id _NSTabViewFloatingCell = nil;
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [super encodeWithCoder: coder];
+
+    if ([coder allowsKeyedCoding]) {
+        unsigned flags = ((unsigned) _type & 0x7) |
+                         (((unsigned) _controlSize << 27) & 0x18000000);
+        [coder encodeInt: (int) flags forKey: @"NSTvFlags"];
+        [coder encodeObject: _items forKey: @"NSTabViewItems"];
+        [coder encodeObject: _selectedItem forKey: @"NSSelectedTabViewItem"];
+        [coder encodeBool: _allowsTruncatedLabels
+                   forKey: @"NSAllowTruncatedLabels"];
+        [coder encodeBool: _drawsBackground forKey: @"NSDrawsBackground"];
+    } else {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"Unkeyed encoding is not supported for %@",
+                            [self class]];
+    }
 }
 
 - initWithFrame: (NSRect) frame {

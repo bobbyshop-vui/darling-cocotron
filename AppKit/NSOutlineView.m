@@ -123,7 +123,23 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding])
+        [NSException raise: NSInvalidArgumentException
+                    format: @"%@ can not encodeWithCoder:%@", [self class],
+                            [coder class]];
+
+    [super encodeWithCoder: coder];
+
+    unsigned flags = 0;
+    if (_indentationMarkerFollowsCell)
+        flags |= 0x01;
+    if (_autoresizesOutlineColumn)
+        flags |= 0x02;
+    if (_autosaveExpandedItems)
+        flags |= 0x04;
+    [coder encodeObject: _outlineTableColumn forKey: @"NSOutlineTableColumn"];
+    [coder encodeFloat: _indentationPerLevel forKey: @"NSIndentationPerLevel"];
+    [coder encodeInt: flags forKey: @"NSOutlineFlags"];
 }
 
 - (void) invalidateRowCache {
@@ -481,7 +497,54 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
 }
 
 - (void) setDropItem: (id) item dropChildIndex: (NSInteger) index {
-    NSUnimplementedMethod();
+    NSInteger row = -1;
+    NSTableViewDropOperation operation = NSTableViewDropAbove;
+    NSInteger numberOfRows = [self numberOfRows];
+
+    if (index == -1) {
+        if (item != nil) {
+            NSInteger itemRow = [self rowForItem: item];
+            if (itemRow >= 0 && itemRow < numberOfRows &&
+                [self itemAtRow: itemRow] == item) {
+                row = itemRow;
+                operation = NSTableViewDropOn;
+            }
+        }
+    } else if (index >= 0) {
+        NSInteger childCount = numberOfChildrenOfItemAndReload(self, item, YES);
+        if (index > childCount)
+            index = childCount;
+
+        if (index < childCount) {
+            id child = childOfItemAtIndex(self, item, index);
+            NSInteger childRow = [self rowForItem: child];
+            if (child != nil && childRow >= 0 && childRow < numberOfRows &&
+                [self itemAtRow: childRow] == child) {
+                row = childRow;
+            } else if (item != nil) {
+                NSInteger itemRow = [self rowForItem: item];
+                if (itemRow >= 0 && itemRow < numberOfRows &&
+                    [self itemAtRow: itemRow] == item)
+                    row = itemRow + 1;
+            }
+        } else if (item == nil) {
+            row = numberOfRows;
+        } else {
+            NSInteger itemRow = [self rowForItem: item];
+            if (itemRow >= 0 && itemRow < numberOfRows &&
+                [self itemAtRow: itemRow] == item) {
+                NSInteger level = [self levelForRow: itemRow];
+                row = itemRow + 1;
+                if ([self isItemExpanded: item]) {
+                    while (row < numberOfRows &&
+                           [self levelForRow: row] > level)
+                        row++;
+                }
+            }
+        }
+    }
+
+    [self setDropRow: row dropOperation: operation];
 }
 
 - (BOOL) shouldCollapseAutoExpandedItemsForDeposited: (BOOL) collapse {

@@ -27,6 +27,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     id _placeholder;
 }
 
+- (void) encodeWithCoder: (NSCoder *) coder;
 - initTextCell: (NSString *) value;
 
 - (BOOL) isOpaque;

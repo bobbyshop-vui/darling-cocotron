@@ -100,6 +100,13 @@ static BOOL reopenPending;
 
 @interface NSMenu (private)
 - (NSMenu *) _menuWithName: (NSString *) name;
+- (NSString *) _name;
+- (void) _setMenuName: (NSString *) name;
+@end
+
+@interface NSWindow (NSApplicationActivation)
+- (void) platformWindowDeactivated: (CGWindow *) window
+           checkForAppDeactivation: (BOOL) checkForAppDeactivation;
 @end
 
 @interface NSDockTile (private)
@@ -188,7 +195,7 @@ static BOOL reopenPending;
 }
 
 - (NSGraphicsContext *) context {
-    NSUnimplementedMethod();
+    // AppKit deprecated this property and documents that it always returns nil.
     return nil;
 }
 
@@ -1013,11 +1020,31 @@ static BOOL reopenPending;
 }
 
 - (void) activateIgnoringOtherApps: (BOOL) flag {
-    NSUnimplementedMethod();
+    (void) flag;
+    [self unhide: nil];
+
+    for (NSWindow *window in [self orderedWindows]) {
+        if ([window isVisible]) {
+            [window makeKeyAndOrderFront: self];
+            return;
+        }
+    }
+
+    // Panels and utility windows are not included in orderedWindows.
+    for (NSWindow *window in _windows) {
+        if ([window isVisible]) {
+            [window makeKeyAndOrderFront: self];
+            return;
+        }
+    }
 }
 
 - (void) deactivate {
-    NSUnimplementedMethod();
+    for (NSWindow *window in [[_windows copy] autorelease]) {
+        if ([window _isActive])
+            [window platformWindowDeactivated: [window platformWindow]
+                   checkForAppDeactivation: NO];
+    }
 }
 
 - (NSWindow *) modalWindow {
@@ -1260,7 +1287,10 @@ static BOOL reopenPending;
 }
 
 - (void) cancelUserAttentionRequest: (int) requestNumber {
-    NSUnimplementedMethod();
+    if (requestNumber == 0) {
+        [_attentionTimer invalidate];
+        _attentionTimer = nil;
+    }
 }
 
 - (void) runPageLayout: sender {

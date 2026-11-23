@@ -47,6 +47,7 @@
 
 - (void) dealloc {
     [_identifier release];
+    [_editors release];
     [_vcxChildViewControllers makeObjectsPerformSelector: @selector(_vcxClearParent)];
     [_vcxChildViewControllers release];
     [_vcxPresentedViewControllers makeObjectsPerformSelector: @selector(_vcxClearPresenter)];
@@ -128,12 +129,35 @@
 }
 
 - (void) discardEditing {
-    NSUnimplementedMethod();
+    NSArray *editors = [[_editors copy] autorelease];
+    for (id editor in editors) {
+        if ([editor respondsToSelector: @selector(discardEditing)])
+            [editor discardEditing];
+    }
 }
 
 - (BOOL) commitEditing {
-    NSUnimplementedMethod();
-    return NO;
+    NSArray *editors = [[_editors copy] autorelease];
+    for (id editor in editors) {
+        if ([editor respondsToSelector: @selector(commitEditing)] &&
+            ![editor commitEditing])
+            return NO;
+    }
+    return YES;
+}
+
+- (void) objectDidBeginEditing: (id) editor {
+    if (editor == nil)
+        return;
+    if (_editors == nil)
+        _editors = [[NSMutableArray alloc] init];
+    if (![_editors containsObject: editor])
+        [_editors addObject: editor];
+}
+
+- (void) objectDidEndEditing: (id) editor {
+    if (editor != nil)
+        [_editors removeObject: editor];
 }
 
 - (void) commitEditingWithDelegate: delegate

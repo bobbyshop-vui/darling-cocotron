@@ -19,11 +19,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreData/NSPropertyDescription.h>
 #import <Foundation/NSCoder.h>
 #import <Foundation/NSRaise.h>
+#import <objc/runtime.h>
+
+static BOOL *propertyDescriptionBoolIvar(NSPropertyDescription *property,
+                                         const char *name)
+{
+    Ivar ivar = class_getInstanceVariable([property class], name);
+    if (ivar == NULL)
+        return NULL;
+    return (BOOL *) ((char *) property + ivar_getOffset(ivar));
+}
 
 @implementation NSPropertyDescription
 
 - (void) dealloc {
     [_propertyVersionHashModifier release];
+    [_propertyUserInfo release];
+    [_propertyValidationPredicates release];
     [super dealloc];
 }
 
@@ -90,23 +102,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (BOOL) isOptional {
-    NSUnimplementedMethod();
-    return NO;
+    BOOL *subclassValue = propertyDescriptionBoolIvar(self, "_optional");
+    return subclassValue != NULL ? *subclassValue : _propertyOptional;
 }
 
 - (BOOL) isTransient {
-    NSUnimplementedMethod();
-    return NO;
+    BOOL *subclassValue = propertyDescriptionBoolIvar(self, "_transient");
+    return subclassValue != NULL ? *subclassValue : _propertyTransient;
 }
 
 - (NSDictionary *) userInfo {
-    NSUnimplementedMethod();
-    return nil;
+    return _propertyUserInfo;
 }
 
 - (NSArray *) validationPredicates {
-    NSUnimplementedMethod();
-    return nil;
+    return _propertyValidationPredicates != nil
+                   ? _propertyValidationPredicates
+                   : [NSArray array];
 }
 
 - (NSArray *) validationWarnings {
@@ -115,19 +127,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setName: (NSString *) value {
-    NSUnimplementedMethod();
+    if (_propertyName != value) {
+        [_propertyName release];
+        _propertyName = [value copy];
+    }
 }
 
 - (void) setOptional: (BOOL) value {
-    NSUnimplementedMethod();
+    BOOL *subclassValue = propertyDescriptionBoolIvar(self, "_optional");
+    if (subclassValue != NULL)
+        *subclassValue = value;
+    else
+        _propertyOptional = value;
 }
 
 - (void) setTransient: (BOOL) value {
-    NSUnimplementedMethod();
+    BOOL *subclassValue = propertyDescriptionBoolIvar(self, "_transient");
+    if (subclassValue != NULL)
+        *subclassValue = value;
+    else
+        _propertyTransient = value;
 }
 
 - (void) setUserInfo: (NSDictionary *) value {
-    NSUnimplementedMethod();
+    if (_propertyUserInfo != value) {
+        [value retain];
+        [_propertyUserInfo release];
+        _propertyUserInfo = value;
+    }
 }
 
 - (void) setValidationPredicates: (NSArray *) predicates

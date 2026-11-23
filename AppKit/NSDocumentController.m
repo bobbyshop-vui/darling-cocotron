@@ -130,7 +130,14 @@ static NSDocumentController *shared = nil;
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding])
+        [NSException raise: NSInvalidArgumentException
+                    format: @"%@ requires a keyed coder",
+                            [self class]];
+
+    [coder encodeObject: _documents forKey: @"NSDocuments"];
+    [coder encodeObject: _fileTypes forKey: @"NSFileTypes"];
+    [coder encodeDouble: _autosavingDelay forKey: @"NSAutosavingDelay"];
 }
 
 - (NSString *) defaultType {

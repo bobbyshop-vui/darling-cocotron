@@ -37,6 +37,7 @@ typedef enum {
     NSSplitViewDividerStyle _dividerStyle;
     BOOL _arrangesAllSubviews;
     NSString *_autosaveName;
+    BOOL _autosaveLayoutRestored;
     NSMutableArray *_holdingPriorities;
 }
 
@@ -67,6 +68,9 @@ typedef enum {
 - (NSLayoutPriority) holdingPriorityForSubviewAtIndex: (NSInteger) subviewIndex;
 - (void) setHoldingPriority: (NSLayoutPriority) priority
          forSubviewAtIndex: (NSInteger) subviewIndex;
+
+// Internal layout persistence helper.
+- (void) _autosaveSubviewLayoutIfNecessary;
 
 /* Get the minimum or maximum possible position of a divider */
 - (CGFloat) minPossiblePositionOfDividerAtIndex: (int) index;

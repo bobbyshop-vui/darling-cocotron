@@ -19,7 +19,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSMenuItemCell.h>
 
-@class NSMenuItem;
+@class NSMenuItem, NSCoder;
 
 typedef enum {
     NSPopUpNoArrow = 0,
@@ -40,6 +40,8 @@ typedef enum {
 }
 
 - initTextCell: (NSString *) string pullsDown: (BOOL) pullDown;
+
+- (void) encodeWithCoder: (NSCoder *) coder;
 
 - (NSPopUpArrowPosition) arrowPosition;
 - (BOOL) pullsDown;

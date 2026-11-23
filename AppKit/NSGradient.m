@@ -244,7 +244,29 @@ static void evaluate(void *info, CGFloat const *input, CGFloat *output) {
                  radius: (CGFloat) endRadius
                 options: (NSGradientDrawingOptions) options
 {
-    NSUnimplementedMethod();
+    if (_numberOfColors < 2 || startRadius < 0 || endRadius < 0)
+        return;
+
+    CGContextRef context = [[NSGraphicsContext currentContext] graphicsPort];
+    if (context == NULL)
+        return;
+
+    CGFunctionCallbacks callbacks = {0, evaluate, NULL};
+    CGFunctionRef function = CGFunctionCreate(
+            self, 1, NULL, _numberOfComponents, NULL, &callbacks);
+    if (function == NULL)
+        return;
+
+    CGShadingRef shading = CGShadingCreateRadial(
+            [_colorSpace CGColorSpace], startCenter, startRadius, endCenter,
+            endRadius, function,
+            (options & NSGradientDrawsBeforeStartingLocation) != 0,
+            (options & NSGradientDrawsAfterEndingLocation) != 0);
+    if (shading != NULL) {
+        CGContextDrawShading(context, shading);
+        CGShadingRelease(shading);
+    }
+    CGFunctionRelease(function);
 }
 
 - (void) drawInRect: (NSRect) rect angle: (CGFloat) angle {

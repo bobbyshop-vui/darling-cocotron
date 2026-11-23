@@ -33,7 +33,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         NSUndoManager, NSButton, NSButtonCell, NSDrawer, NSDockTile, NSToolbar,
         NSWindowAnimationContext, NSTrackingArea, NSThemeFrame,
         NSWindowController, NSMenuItem, CARenderer, NSWindowTab, NSWindowTabGroup,
-        NSLayoutGuide;
+        NSLayoutGuide, NSURL, NSCoder;
 @protocol NSWindowDelegate;
 
 // Old NSWindowStyleMask constants
@@ -271,6 +271,17 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 
     NSUserInterfaceItemIdentifier _identifier;
 
+    NSURL *_representedURL;
+    NSDockTile *_dockTile;
+    NSMutableDictionary *_standardWindowButtons;
+    NSColorSpace *_colorSpace;
+    CGFloat _contentBorderThickness[4];
+    BOOL _autorecalculatesContentBorderThickness[4];
+    BOOL _isMovable;
+    BOOL _screenUpdatesDisabledUntilFlush;
+    NSWindowCollectionBehavior _collectionBehavior;
+    NSWindowSharingType _sharingType;
+
     BOOL _isAccessible;
 
     NSWindowAnimationBehavior _animationBehavior;
@@ -290,6 +301,8 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 }
 
 @property(class) BOOL allowsAutomaticWindowTabbing;
+
+- (void) encodeWithCoder: (NSCoder *) coder;
 
 + (NSWindowDepth) defaultDepthLimit;
 

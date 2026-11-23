@@ -31,6 +31,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindowController.h>
 #import <objc/runtime.h>
 
+@interface NSFileWrapper (NSDocumentLegacyWriting)
+- (BOOL) writeToFile: (NSString *) path
+           atomically: (BOOL) atomicFlag
+     updateFilenames: (BOOL) updateFilenamesFlag;
+@end
+
 @implementation NSDocument
 
 static int untitled_document_number = 0;
@@ -312,8 +318,7 @@ static int untitled_document_number = 0;
 }
 
 - (BOOL) hasUnautosavedChanges {
-    NSUnimplementedMethod();
-    return 0;
+    return _changeCount != 0;
 }
 
 - (NSString *) autosavingFileType {

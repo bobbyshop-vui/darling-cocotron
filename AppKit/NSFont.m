@@ -30,6 +30,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <Onyx2D/O2Font.h>
 
+@interface NSCoder (NSFontPropertyListCoding)
+- (id) decodePropertyList;
+@end
+
 NSNotificationName NSFontSetChangedNotification =
         @"NSFontSetChangedNotification";
 NSNotificationName NSAntialiasThresholdChangedNotification =
@@ -184,11 +188,12 @@ static NSLock *_cacheLock = nil;
 
 + (void) removeFontFromCache: (NSFont *) font {
     [_cacheLock lock];
-    NSUInteger i = [self _cacheIndexOfFontWithName: [font fontName]
-                                              size: [font pointSize]];
-
-    if (i != NSNotFound)
-        _fontCache[i] = nil;
+    for (NSUInteger i = 0; i < _fontCacheSize; i++) {
+        if (_fontCache[i] == font) {
+            _fontCache[i] = nil;
+            break;
+        }
+    }
     [_cacheLock unlock];
 }
 
@@ -464,6 +469,7 @@ static NSLock *_cacheLock = nil;
 - initWithName: (NSString *) name size: (CGFloat) size {
     _name = [name copy];
     _pointSize = size;
+    _renderingMode = NSFontDefaultRenderingMode;
     _matrix[0] = _pointSize;
     _matrix[1] = 0;
     _matrix[2] = 0;
@@ -622,8 +628,7 @@ static NSLock *_cacheLock = nil;
 }
 
 - (NSFontRenderingMode) renderingMode {
-    NSUnimplementedMethod();
-    return 0;
+    return _renderingMode;
 }
 
 - (NSCharacterSet *) coveredCharacterSet {
@@ -722,8 +727,19 @@ static NSLock *_cacheLock = nil;
 }
 
 - (NSFont *) screenFontWithRenderingMode: (NSFontRenderingMode) mode {
-    NSUnimplementedMethod();
-    return [[self copy] autorelease];
+    if (mode < NSFontDefaultRenderingMode ||
+        mode > NSFontAntialiasedIntegerAdvancementsRenderingMode)
+        [NSException raise: NSInvalidArgumentException
+                    format: @"Invalid font rendering mode: %ld", (long) mode];
+    if (mode == _renderingMode)
+        return self;
+
+    NSFont *copy = NSCopyObject(self, 0, NULL);
+    copy->_name = [_name copy];
+    copy->_cgFont = CGFontRetain(_cgFont);
+    copy->_ctFont = (CTFontRef) CFRetain(_ctFont);
+    copy->_renderingMode = mode;
+    return [copy autorelease];
 }
 
 - (NSRect) boundingRectForFont {
@@ -731,8 +747,13 @@ static NSLock *_cacheLock = nil;
 }
 
 - (NSRect) boundingRectForGlyph: (NSGlyph) glyph {
-    NSUnimplementedMethod();
-    return NSMakeRect(0, 0, 0, 0);
+    if (glyph == NSControlGlyph || glyph >= [self numberOfGlyphs])
+        return NSZeroRect;
+
+    NSRect fontBounds = [self boundingRectForFont];
+    NSSize advance = [self advancementForGlyph: glyph];
+    fontBounds.size.width = advance.width;
+    return fontBounds;
 }
 
 - (NSMultibyteGlyphPacking) glyphPacking {
@@ -744,8 +765,9 @@ static NSLock *_cacheLock = nil;
 }
 
 - (NSGlyph) glyphWithName: (NSString *) name {
-    NSUnimplementedMethod();
-    return 0;
+    if (name == nil)
+        return NSNullGlyph;
+    return CGFontGetGlyphWithGlyphName(_cgFont, (CFStringRef) name);
 }
 
 - (BOOL) glyphIsEncoded: (NSGlyph) glyph {
@@ -930,8 +952,7 @@ static NSLock *_cacheLock = nil;
 }
 
 - (id) _metaType {
-    NSUnimplementedMethod();
-    return nil;
+    return object_getClass(self);
 }
 
 NSInteger NSConvertGlyphsToPackedGlyphs(NSGlyph *glyphs, NSInteger length,

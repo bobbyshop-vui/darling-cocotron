@@ -37,6 +37,12 @@ NSString *const NSColorPanelColorDidChangeNotification =
 static NSColorPanel *_colorPanel = nil;
 static NSUInteger _pickerMask = 0;
 
+- (void) dealloc {
+    [_accessoryView removeFromSuperview];
+    [_accessoryView release];
+    [super dealloc];
+}
+
 + (void) setColorPanel: (NSColorPanel *) colorPanel {
     [_colorPanel release];
     _colorPanel = [colorPanel retain];
@@ -190,8 +196,7 @@ static NSUInteger _pickerMask = 0;
 }
 
 - (NSView *) accessoryView {
-    NSUnimplementedMethod();
-    return nil;
+    return _accessoryView;
 }
 
 - (void) setColorButtonClicked: sender {
@@ -252,7 +257,13 @@ static NSUInteger _pickerMask = 0;
 }
 
 - (void) setAccessoryView: (NSView *) view {
-    NSUnimplementedMethod();
+    if (_accessoryView == view)
+        return;
+
+    [view retain];
+    [_accessoryView removeFromSuperview];
+    [_accessoryView release];
+    _accessoryView = view;
 }
 
 - (void) setAction: (SEL) action {
@@ -264,11 +275,13 @@ static NSUInteger _pickerMask = 0;
 }
 
 - (void) attachColorList: (NSColorList *) colorList {
-    NSUnimplementedMethod();
+    for (NSColorPicker *picker in _colorPickers)
+        [picker attachColorList: colorList];
 }
 
 - (void) detachColorList: (NSColorList *) colorList {
-    NSUnimplementedMethod();
+    for (NSColorPicker *picker in _colorPickers)
+        [picker detachColorList: colorList];
 }
 
 - (void) _alphaChanged: sender {

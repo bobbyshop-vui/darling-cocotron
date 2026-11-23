@@ -21,8 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSPasteboard.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSWindow.h>
-#import <AppKit/Win32DragSession.h>
-#import <AppKit/Win32Window.h>
+#import "Win32DragSession.h"
 
 @implementation Win32DragSession
 
@@ -65,7 +64,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSWindow *) draggingDestinationWindow {
-    return [_window delegate];
+    return [(NSWindow *) _window delegate];
 }
 
 - (unsigned) draggingSourceOperationMask {
@@ -98,11 +97,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) slideDraggedImageTo: (NSPoint) screenPoint {
-    NSUnimplementedMethod();
+    // The session has no handle to the native OLE drag-image window, so keep
+    // its public location in sync with the requested destination.
+    _imageLocation = screenPoint;
 }
 
 - (NSArray *) namesOfPromisedFilesDroppedAtDestination: (NSURL *) destination {
-    NSUnimplementedMethod();
+    if ([_source respondsToSelector: @selector
+                  (namesOfPromisedFilesDroppedAtDestination:)])
+        return [_source namesOfPromisedFilesDroppedAtDestination: destination];
     return nil;
 }
 

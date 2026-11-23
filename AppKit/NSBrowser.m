@@ -42,7 +42,30 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArgumentException
+                    format: @"-[%@ %s] requires a keyed coder", [self class],
+                            sel_getName(_cmd)];
+        return;
+    }
+
+    [super encodeWithCoder: coder];
+
+    unsigned flags = 0;
+    flags |= _allowsMultipleSelection ? 0x80000000 : 0;
+    flags |= _allowsEmptySelection ? 0 : 0x00020000;
+    flags |= _allowsBranchSelection ? 0x40000000 : 0;
+    flags |= _separatesColumns ? 0x04000000 : 0;
+    flags |= _isTitled ? 0x10000000 : 0;
+    flags |= _hasHorizontalScroller ? 0x00010000 : 0;
+    flags |= _acceptsArrowKeys ? 0x00100000 : 0;
+    flags |= _sendsActionOnArrowKeys ? 0x00040000 : 0;
+
+    [coder encodeInt: (int) flags forKey: @"NSBrFlags"];
+    [coder encodeObject: [_explicitTitles firstObject]
+                 forKey: @"NSFirstColumnTitle"];
+    [coder encodeInt: _numberOfVisibleColumns
+              forKey: @"NSNumberOfVisibleColumns"];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -1008,7 +1031,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) addColumn {
-    NSUnimplementedMethod();
+    [self setLastColumn: [self lastColumn] + 1];
+    [self tile];
 }
 
 - (void) setLastColumn: (NSInteger) column {

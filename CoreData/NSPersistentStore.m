@@ -45,6 +45,7 @@
 
 - (void) dealloc {
     [_identifier release];
+    [_persistentStoreMetadata release];
     [super dealloc];
 }
 
@@ -78,6 +79,8 @@
 }
 
 - (NSDictionary *) metadata {
+    if (_persistentStoreMetadata != nil)
+        return _persistentStoreMetadata;
     return [NSDictionary
             dictionaryWithObjectsAndKeys: [self identifier], NSStoreUUIDKey,
                                           [self type], NSStoreTypeKey, nil];
@@ -90,7 +93,7 @@
 }
 
 - (void) setReadOnly: (BOOL) value {
-    NSUnimplementedMethod();
+    _isReadOnly = value;
 }
 
 - (void) setIdentifier: (NSString *) value {
@@ -100,7 +103,13 @@
 }
 
 - (void) setMetadata: (NSDictionary *) value {
-    NSUnimplementedMethod();
+    value = [value copy];
+    [_persistentStoreMetadata release];
+    _persistentStoreMetadata = value;
+
+    NSString *identifier = [_persistentStoreMetadata objectForKey: NSStoreUUIDKey];
+    if ([identifier isKindOfClass: [NSString class]])
+        [self setIdentifier: identifier];
 }
 
 - (BOOL) loadMetadata: (NSError **) error {

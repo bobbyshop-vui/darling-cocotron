@@ -20,6 +20,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSApplication.h>
+#import <AppKit/NSBitmapImageRep.h>
 #import <AppKit/NSClipView.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSCursor.h>
@@ -29,13 +30,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSEvent.h>
 #import <AppKit/NSGraphics.h>
 #import <AppKit/NSGraphicsContextFunctions.h>
+#import <AppKit/NSImage.h>
 #import <AppKit/NSMenu.h>
+#import <AppKit/NSMenuItem.h>
 #import <AppKit/NSObject+BindingSupport.h>
 #import <AppKit/NSPasteboard.h>
 #import <AppKit/NSPrintInfo.h>
 #import <AppKit/NSPrintOperation.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSScrollView.h>
+#import <AppKit/NSGraphicsContext.h>
+#import <AppKit/NSDocument.h>
+#import <AppKit/NSTextInput.h>
+#import <AppKit/NSTextInputClient.h>
+#import <AppKit/NSTouch.h>
 #import <AppKit/NSTrackingArea.h>
 #import <AppKit/NSView.h>
 #import <AppKit/NSViewBackingLayer.h>
@@ -49,8 +57,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSGestureRecognizer.h>
 #import <AppKit/NSLayoutGuide.h>
 #import <Foundation/NSLayoutAnchor.h>
+#import <limits.h>
+#import <math.h>
 
 @class IBMetricsTable;
+
+@interface NSMenuItem (NSViewMenuLookup)
+- (NSView *) view;
+@end
+
+static NSMenuItem *findMenuItemForViewInMenu(NSMenu *menu, NSView *view) {
+    for (NSMenuItem *item in [menu itemArray]) {
+        NSView *itemView = [item view];
+        if (itemView != nil &&
+            (view == itemView || [view isDescendantOf: itemView]))
+            return item;
+
+        NSMenuItem *found = findMenuItemForViewInMenu([item submenu], view);
+        if (found != nil)
+            return found;
+    }
+
+    return nil;
+}
 
 NSString *const NSViewFrameDidChangeNotification =
         @"NSViewFrameDidChangeNotification";
@@ -167,8 +196,7 @@ static BOOL NSShowAllViews = NO;
 }
 
 + (NSFocusRingType) defaultFocusRingType {
-    NSUnimplementedMethod();
-    return 0;
+    return NSFocusRingTypeDefault;
 }
 
 typedef struct __VFlags {
@@ -243,11 +271,11 @@ typedef struct __VFlags {
         [coder encodeObject: _shadow forKey: @"NSViewShadow"];
         [coder encodeObject: _compositingFilter
                      forKey: @"NSViewCompositeFilter"];
-        //[coder encodeObject: _backgroundFilters
-        //             forKey: @"NSViewBackgroundFilters"];
+        [coder encodeObject: _backgroundFilters
+                     forKey: @"NSViewBackgroundFilters"];
         [coder encodeObject: _animations forKey: @"NSViewAnimations"];
-        //[coder encodeBool: _canDrawConcurrently
-        //           forKey: @"NSViewCanDrawConcurrently"];
+        [coder encodeBool: _canDrawConcurrently
+                   forKey: @"NSViewCanDrawConcurrently"];
         [coder encodeBool: _wantsLayer forKey: @"NSViewIsLayerTreeHost"];
         [coder encodeInteger: _layerContentsRedrawPolicy
                       forKey: @"NSViewLayerContentsRedrawPolicy"];
@@ -514,6 +542,8 @@ typedef struct __VFlags {
     [_draggedTypes release];
     [_trackingAreas release];
     [_contentFilters release];
+    [_backgroundFilters release];
+    [_inputContext release];
 
     if (_invalidRects != NULL)
         NSZoneFree(NULL, _invalidRects);
@@ -563,15 +593,23 @@ static CGAffineTransform concatViewTransform(CGAffineTransform result,
     NSRect bounds = [view bounds];
     NSRect frame = [view frame];
 
-    if (doFrame)
+    if (doFrame) {
         result = CGAffineTransformTranslate(result, frame.origin.x,
                                             frame.origin.y);
+        if ([view frameRotation] != 0.0)
+            result = CGAffineTransformRotate(
+                    result, [view frameRotation] * 0.017453292519943295769);
+    }
 
     // Apply bounds scaling to fit in the frame
     CGAffineTransform scale =
             CGAffineTransformMakeScale(NSWidth(frame) / NSWidth(bounds),
                                        NSHeight(frame) / NSHeight(bounds));
     result = CGAffineTransformConcat(scale, result);
+
+    if ([view boundsRotation] != 0.0)
+        result = CGAffineTransformRotate(
+                result, [view boundsRotation] * 0.017453292519943295769);
 
     if (flip) {
         CGAffineTransform flip =
@@ -697,8 +735,8 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (CGFloat) frameCenterRotation {
-    NSUnimplementedMethod();
-    return 0.;
+    // This coordinate system has no independent layer-anchor rotation.
+    return 0.0;
 }
 
 - (NSRect) bounds {
@@ -736,7 +774,12 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (void) scaleUnitSquareToSize: (NSSize) size {
-    NSUnimplementedMethod();
+    if (size.width == 0.0 || size.height == 0.0)
+        return;
+
+    NSSize boundsSize = [self bounds].size;
+    [self setBoundsSize: NSMakeSize(boundsSize.width / size.width,
+                                    boundsSize.height / size.height)];
 }
 
 - (NSWindow *) window {
@@ -761,7 +804,15 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (NSView *) ancestorSharedWithView: (NSView *) view {
-    NSUnimplementedMethod();
+    if (view == nil)
+        return nil;
+
+    for (NSView *ancestor = self; ancestor != nil;
+         ancestor = [ancestor superview]) {
+        if ([view isDescendantOf: ancestor])
+            return ancestor;
+    }
+
     return nil;
 }
 
@@ -776,8 +827,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (NSRect) adjustScroll: (NSRect) toRect {
-    NSUnimplementedMethod();
-    return NSZeroRect;
+    return toRect;
 }
 
 - (NSArray *) subviews {
@@ -837,19 +887,51 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (BOOL) wantsDefaultClipping {
-    NSUnimplementedMethod();
-    return NO;
+    return YES;
 }
 
 - (NSBitmapImageRep *) bitmapImageRepForCachingDisplayInRect: (NSRect) rect {
-    NSUnimplementedMethod();
-    return nil;
+    CGFloat width = ceil(NSWidth(rect));
+    CGFloat height = ceil(NSHeight(rect));
+
+    if (width <= 0.0 || height <= 0.0 || width > INT_MAX ||
+        height > INT_MAX)
+        return nil;
+
+    return [[[NSBitmapImageRep alloc]
+            initWithBitmapDataPlanes: NULL
+                          pixelsWide: (int) width
+                          pixelsHigh: (int) height
+                       bitsPerSample: 8
+                     samplesPerPixel: 4
+                            hasAlpha: YES
+                            isPlanar: NO
+                      colorSpaceName: NSDeviceRGBColorSpace
+                         bytesPerRow: 0
+                        bitsPerPixel: 32] autorelease];
 }
 
 - (void) cacheDisplayInRect: (NSRect) rect
            toBitmapImageRep: (NSBitmapImageRep *) imageRep
 {
-    NSUnimplementedMethod();
+    if (imageRep == nil || NSIsEmptyRect(rect))
+        return;
+
+    NSGraphicsContext *context =
+            [NSGraphicsContext graphicsContextWithBitmapImageRep: imageRep];
+
+    NSRect previousCacheRect = _cacheDisplayRect;
+    BOOL previousCacheState = _cacheDisplayInProgress;
+    NSView *previousViewBeingPrinted = viewBeingPrinted;
+    _cacheDisplayRect = rect;
+    _cacheDisplayInProgress = YES;
+    viewBeingPrinted = self;
+
+    [self displayRectIgnoringOpacity: rect inContext: context];
+
+    viewBeingPrinted = previousViewBeingPrinted;
+    _cacheDisplayRect = previousCacheRect;
+    _cacheDisplayInProgress = previousCacheState;
 }
 
 - (BOOL) isHidden {
@@ -963,8 +1045,13 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (NSMenuItem *) enclosingMenuItem {
-    NSUnimplementedMethod();
-    return nil;
+    NSMenu *menu = [self menu];
+    NSMenuItem *item = findMenuItemForViewInMenu(menu, self);
+    if (item != nil)
+        return item;
+
+    menu = [[NSApplication sharedApplication] mainMenu];
+    return findMenuItemForViewInMenu(menu, self);
 }
 
 - (NSString *) toolTip {
@@ -1182,7 +1269,17 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (void) setFrameRotation: (CGFloat) angle {
-    NSUnimplementedMethod();
+    if (_frameRotation == angle)
+        return;
+
+    _frameRotation = angle;
+    invalidateTransform(self);
+    [_window invalidateCursorRectsForView: self];
+
+    if (_postsNotificationOnFrameChange)
+        [[NSNotificationCenter defaultCenter]
+                postNotificationName: NSViewFrameDidChangeNotification
+                              object: self];
 }
 
 - (void) setFrameCenterRotation: (CGFloat) angle {
@@ -1221,7 +1318,17 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (void) setBoundsRotation: (CGFloat) angle {
-    NSUnimplementedMethod();
+    if (_boundsRotation == angle)
+        return;
+
+    _boundsRotation = angle;
+    invalidateTransform(self);
+    [_window invalidateCursorRectsForView: self];
+
+    if (_postsNotificationOnBoundsChange)
+        [[NSNotificationCenter defaultCenter]
+                postNotificationName: NSViewBoundsDidChangeNotification
+                              object: self];
 }
 
 - (void) setPostsFrameChangedNotifications: (BOOL) flag {
@@ -1293,6 +1400,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     [self setNeedsDisplayInRect: [view frame]];
 
     [view viewDidMoveToSuperview];
+    [self didAddSubview: view];
 
     if (_wantsLayer)
         [view setWantsLayer: YES];
@@ -1351,11 +1459,11 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (void) didAddSubview: (NSView *) subview {
-    NSUnimplementedMethod();
+    (void) subview;
 }
 
 - (void) willRemoveSubview: (NSView *) subview {
-    NSUnimplementedMethod();
+    (void) subview;
 }
 
 - (void) setAutoresizesSubviews: (BOOL) flag {
@@ -1389,17 +1497,19 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (BOOL) acceptsFirstMouse: (NSEvent *) event {
-    NSUnimplementedMethod();
+    (void) event;
     return NO;
 }
 
 - (BOOL) acceptsTouchEvents {
-    NSUnimplementedMethod();
-    return NO;
+    return (_allowedTouchTypes & NSTouchTypeMaskIndirect) != 0;
 }
 
 - (void) setAcceptsTouchEvents: (BOOL) accepts {
-    NSUnimplementedMethod();
+    if (accepts)
+        _allowedTouchTypes |= NSTouchTypeMaskIndirect;
+    else
+        _allowedTouchTypes &= ~NSTouchTypeMaskIndirect;
 }
 
 - (BOOL) wantsRestingTouches {
@@ -1604,8 +1714,13 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (NSTextInputContext *) inputContext {
-    NSUnimplementedMethod();
-    return nil;
+    if (![self conformsToProtocol: @protocol(NSTextInputClient)])
+        return nil;
+
+    if (_inputContext == nil)
+        _inputContext = [[NSTextInputContext alloc] initWithClient:
+                                                        (id<NSTextInputClient>) self];
+    return _inputContext;
 }
 
 - (void) registerForDraggedTypes: (NSArray *) types {
@@ -1642,6 +1757,9 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 - (void) removeFromSuperviewWithoutNeedingDisplay {
     NSView *removeFrom = _superview;
     NSWindow *window = [self window];
+
+    if (removeFrom != nil)
+        [removeFrom willRemoveSubview: self];
 
     [self _deepResignFirstResponder];
     [self _setSuperview: nil];
@@ -1754,7 +1872,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (BOOL) preservesContentDuringLiveResize {
-    NSUnimplementedMethod();
+    // NSView does not preserve content unless a subclass opts in.
     return NO;
 }
 
@@ -1872,7 +1990,9 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (void) reflectScrolledClipView: (NSClipView *) view {
-    NSUnimplementedMethod();
+    NSScrollView *scrollView = [self enclosingScrollView];
+    if (scrollView != nil)
+        [scrollView reflectScrolledClipView: view];
 }
 
 - (void) allocateGState {
@@ -2022,13 +2142,17 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (NSArray *) backgroundFilters {
-    NSUnimplementedMethod();
-    return nil;
+    return _backgroundFilters != nil ? _backgroundFilters : [NSArray array];
 }
 
 - (void) setBackgroundFilters: (NSArray *) filters {
-    // FIXME: implement but dont warn
-    //   NSUnimplementedMethod();
+    filters = [filters copy];
+    if (_backgroundFilters != filters) {
+        [_backgroundFilters release];
+        _backgroundFilters = filters;
+    } else {
+        [filters release];
+    }
 }
 
 - (NSArray *) contentFilters {
@@ -2192,7 +2316,7 @@ static void clearNeedsDisplay(NSView *self) {
 }
 
 - (void) setKeyboardFocusRingNeedsDisplayInRect: (NSRect) rect {
-    NSUnimplementedMethod();
+    [self setNeedsDisplayInRect: rect];
 }
 
 - (void) translateRectsNeedingDisplayInRect: (NSRect) rect by: (NSSize) delta {
@@ -2208,8 +2332,7 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (BOOL) canDrawConcurrently {
-    NSUnimplementedMethod();
-    return NO;
+    return _canDrawConcurrently;
 }
 
 - (void) viewWillDraw {
@@ -2595,7 +2718,39 @@ static NSView *viewBeingPrinted = nil;
 - (void) displayRectIgnoringOpacity: (NSRect) rect
                           inContext: (NSGraphicsContext *) context
 {
-    NSUnimplementedMethod();
+    if (context == nil)
+        return;
+
+    rect = NSIntersectionRect(rect, [self bounds]);
+    if (NSIsEmptyRect(rect))
+        return;
+
+    NSView *previousViewBeingPrinted = viewBeingPrinted;
+    if (viewBeingPrinted == nil)
+        viewBeingPrinted = self;
+
+    if ([self lockFocusIfCanDrawInContext: context]) {
+        CGContextRef graphicsPort = [context graphicsPort];
+        if (viewBeingPrinted != nil &&
+            viewBeingPrinted->_cacheDisplayInProgress) {
+            NSPoint origin = viewBeingPrinted->_cacheDisplayRect.origin;
+            CGContextTranslateCTM(graphicsPort, -origin.x, -origin.y);
+        }
+        CGContextClipToRect(graphicsPort, rect);
+        [self drawRect: rect];
+        [self unlockFocus];
+
+        NSEnumerator *viewEnumerator = [self _subviewsInDisplayOrderEnumerator];
+        NSView *child = nil;
+        while ((child = [viewEnumerator nextObject])) {
+            NSRect childRect = [self convertRect: rect toView: child];
+            childRect = NSIntersectionRect(childRect, [child bounds]);
+            if (!NSIsEmptyRect(childRect))
+                [child displayRectIgnoringOpacity: childRect inContext: context];
+        }
+    }
+
+    viewBeingPrinted = previousViewBeingPrinted;
 }
 
 - (void) drawRect: (NSRect) rect {
@@ -2619,8 +2774,7 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (BOOL) mouseDownCanMoveWindow {
-    NSUnimplementedMethod();
-    return NO;
+    return ![self isOpaque];
 }
 
 - (void) print: sender {
@@ -2680,8 +2834,14 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (NSString *) printJobTitle {
-    NSUnimplementedMethod();
-    return nil;
+    NSWindow *window = [self window];
+    id document = [[window windowController] document];
+    NSString *title = [document displayName];
+    if (title == nil || [title length] == 0)
+        title = [window title];
+    if (title == nil)
+        title = [[NSProcessInfo processInfo] processName];
+    return title != nil ? title : @"";
 }
 
 - (void) drawSheetBorderWithSize: (NSSize) size {
@@ -2795,8 +2955,35 @@ static NSView *viewBeingPrinted = nil;
         slideBack: (BOOL) slideBack
             event: (NSEvent *) event
 {
-    NSUnimplementedMethod();
-    return NO;
+    if (path == nil || event == nil || [self window] == nil ||
+        NSIsEmptyRect(rect) ||
+        ![[NSFileManager defaultManager] fileExistsAtPath: path])
+        return NO;
+
+    NSBitmapImageRep *imageRep =
+            [self bitmapImageRepForCachingDisplayInRect: rect];
+    if (imageRep == nil)
+        return NO;
+
+    NSImage *image = [[NSImage alloc] initWithSize: rect.size];
+    [image addRepresentation: imageRep];
+
+    NSPasteboard *pasteboard =
+            [NSPasteboard pasteboardWithName: NSDragPboard];
+    [pasteboard declareTypes: [NSArray arrayWithObject: NSFilenamesPboardType]
+                       owner: nil];
+    [pasteboard setPropertyList: [NSArray arrayWithObject: path]
+                        forType: NSFilenamesPboardType];
+
+    [self dragImage: image
+                 at: rect.origin
+             offset: NSZeroSize
+              event: event
+         pasteboard: pasteboard
+             source: self
+          slideBack: slideBack];
+    [image release];
+    return YES;
 }
 
 - (BOOL) acceptsFirstResponder {
@@ -2980,12 +3167,13 @@ static NSView *viewBeingPrinted = nil;
 }
 
 + (IBMetricsTable *) ibLayoutMetrics {
-    NSUnimplementedMethod();
+    // Interface Builder supplies its metrics table at runtime; Cocotron has
+    // no corresponding service.
     return nil;
 }
 
 - (void) _nsib_setUsesPointIntegralizationForLayout: (BOOL) usesPointIntegralizationForLayout {
-    NSUnimplementedMethod();
+    _usesPointIntegralizationForLayout = usesPointIntegralizationForLayout;
 }
 
 #pragma mark - Constraint based layout

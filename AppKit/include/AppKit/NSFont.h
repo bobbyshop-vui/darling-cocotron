@@ -60,6 +60,7 @@ typedef enum {
     CGFloat _pointSize;
     CGFloat _matrix[6];
     NSStringEncoding _encoding;
+    NSFontRenderingMode _renderingMode;
 
     CGFontRef _cgFont;
     CTFontRef _ctFont;
@@ -165,6 +166,7 @@ typedef enum {
 - (NSUInteger) getGlyphs: (NSGlyph *) glyphs
            forCharacters: (unichar *) characters
                   length: (NSUInteger) length;
+- (id) _metaType;
 
 @end
 

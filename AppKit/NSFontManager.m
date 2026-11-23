@@ -80,8 +80,9 @@ static Class _fontPanelFactory;
 }
 
 - (NSArray *) collectionNames {
-    NSUnimplementedMethod();
-    return nil;
+    // Font collections are not managed by Cocotron; expose an empty,
+    // non-nil collection list until that service is available.
+    return [NSArray array];
 }
 
 - (BOOL) addCollection: (NSString *) name options: (int) options {

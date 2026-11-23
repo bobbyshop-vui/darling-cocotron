@@ -28,6 +28,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSCollectionView *) collectionView;
+- (void) encodeWithCoder: (NSCoder *) coder;
 
 - (BOOL) isSelected;
 

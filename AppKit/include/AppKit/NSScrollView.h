@@ -100,6 +100,8 @@ APPKIT_EXPORT NSString *const NSScrollViewDidLiveScrollNotification;
                       controlSize: (NSControlSize)controlSize 
                     scrollerStyle: (NSScrollerStyle)scrollerStyle;
 
+- (void) encodeWithCoder: (NSCoder *) coder;
+
 + (void) setRulerViewClass: (Class) aClass;
 + (Class) rulerViewClass;
 

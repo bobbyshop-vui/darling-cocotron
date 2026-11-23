@@ -31,7 +31,61 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @implementation NSMatrix
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [super encodeWithCoder: coder];
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"%@ only supports keyed coding", [self class]];
+        return;
+    }
+
+    unsigned int flags = 0;
+    if (_tabKeyTraversesCells)
+        flags |= 0x00200000;
+    if (_autosizesCells)
+        flags |= 0x00800000;
+    if (_drawsBackground)
+        flags |= 0x01000000;
+    if (_drawsCellBackground)
+        flags |= 0x02000000;
+    if (_selectionByRect)
+        flags |= 0x04000000;
+    if (_isAutoscroll)
+        flags |= 0x08000000;
+    if (_allowsEmptySelection)
+        flags |= 0x10000000;
+
+    switch (_mode) {
+    case NSListModeMatrix:
+        flags |= 0x20000000;
+        break;
+    case NSRadioModeMatrix:
+        flags |= 0x40000000;
+        break;
+    case NSHighlightModeMatrix:
+        flags |= 0x80000000;
+        break;
+    case NSTrackModeMatrix:
+        break;
+    }
+
+    id selectedCell = nil;
+    if (_selectedIndex >= 0 && _selectedIndex < (NSInteger) [_cells count])
+        selectedCell = [_cells objectAtIndex: (NSUInteger) _selectedIndex];
+
+    [coder encodeInt: (int) flags forKey: @"NSMatrixFlags"];
+    [coder encodeInt: (int) _numberOfRows forKey: @"NSNumRows"];
+    [coder encodeInt: (int) _numberOfColumns forKey: @"NSNumCols"];
+    [coder encodeSize: _cellSize forKey: @"NSCellSize"];
+    [coder encodeSize: _intercellSpacing forKey: @"NSIntercellSpacing"];
+    [coder encodeObject: _backgroundColor forKey: @"NSBackgroundColor"];
+    [coder encodeObject: _cellBackgroundColor forKey: @"NSCellBackgroundColor"];
+    [coder encodeObject: NSStringFromClass(_cellClass != Nil
+                                                   ? _cellClass
+                                                   : [NSCell class])
+                 forKey: @"NSCellClass"];
+    [coder encodeObject: _protoCell forKey: @"NSProtoCell"];
+    [coder encodeObject: _cells forKey: @"NSCells"];
+    [coder encodeObject: selectedCell forKey: @"NSSelectedCell"];
 }
 
 - initWithCoder: (NSCoder *) coder {

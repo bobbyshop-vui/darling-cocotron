@@ -30,6 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     float _volume;
     BOOL _loops;
     BOOL _playing;
+    BOOL _paused;
 }
 
 + (NSArray *) soundUnfilteredFileTypes;

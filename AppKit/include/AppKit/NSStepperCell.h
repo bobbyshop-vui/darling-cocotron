@@ -36,6 +36,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (BOOL) autorepeat;
 - (BOOL) valueWraps;
+- (void) encodeWithCoder: (NSCoder *) coder;
 
 - (void) setMinValue: (double) value;
 - (void) setMaxValue: (double) value;

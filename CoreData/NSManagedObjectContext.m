@@ -28,6 +28,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreData/NSManagedObjectContext.h>
 #import <CoreData/NSManagedObjectModel.h>
 #import <CoreData/NSPersistentStore.h>
+#import <CoreData/NSRelationshipDescription.h>
 #import <Foundation/NSRaise.h>
 #import <Foundation/NSUndoManager.h>
 
@@ -66,6 +67,91 @@ static void NSManagedObjectContextSetCurrent(NSManagedObjectContext *context) {
                  forKey: NSManagedObjectContextThreadKey];
 }
 
+@interface NSManagedObject (NSManagedObjectContextState)
+- (void) _mocClearPendingChanges;
+- (void) _mocInvalidate;
+- (void) _mocRefault;
+@end
+
+@implementation NSManagedObject (NSManagedObjectContextState)
+
+- (void) _mocClearPendingChanges {
+    [_changedValues removeAllObjects];
+    _isInserted = NO;
+    _isUpdated = NO;
+    _isDeleted = NO;
+    _isFault = NO;
+}
+
+- (void) _mocInvalidate {
+    if (!_isFault)
+        [self willTurnIntoFault];
+    [_changedValues removeAllObjects];
+    [_committedValues release];
+    _committedValues = nil;
+    _context = nil;
+    _isInserted = NO;
+    _isUpdated = NO;
+    _isDeleted = NO;
+    _isFault = YES;
+    [self didTurnIntoFault];
+}
+
+- (void) _mocRefault {
+    if (!_isFault)
+        [self willTurnIntoFault];
+    [_changedValues removeAllObjects];
+    [_committedValues release];
+    _committedValues = nil;
+    _isInserted = NO;
+    _isUpdated = NO;
+    _isDeleted = NO;
+    _isFault = YES;
+    [self didTurnIntoFault];
+}
+
+@end
+
+static void NSManagedObjectContextRemoveObservers(NSManagedObject *object,
+                                                  NSManagedObjectContext *context) {
+    NSArray *keys = [[[object entity] propertiesByName] allKeys];
+    for (NSString *key in keys)
+        [object removeObserver: context forKeyPath: key];
+}
+
+static NSManagedObjectID *NSManagedObjectContextObjectIDForSaveValue(id value) {
+    if ([value isKindOfClass: [NSManagedObject class]])
+        return [value objectID];
+    if ([value isKindOfClass: [NSManagedObjectID class]])
+        return value;
+    return nil;
+}
+
+static BOOL NSManagedObjectContextHasLocalChanges(
+        NSManagedObjectContext *context, NSManagedObject *object) {
+    return [object hasChanges] ||
+           [[context insertedObjects] containsObject: object] ||
+           [[context updatedObjects] containsObject: object] ||
+           [[context deletedObjects] containsObject: object];
+}
+
+static id NSManagedObjectContextValueForCommittedProperty(
+        NSManagedObjectContext *context, NSPropertyDescription *property,
+        id value) {
+    if (![property isKindOfClass: [NSRelationshipDescription class]] ||
+        value == nil)
+        return value;
+
+    NSRelationshipDescription *relationship = (NSRelationshipDescription *) property;
+    if ([relationship isToMany]) {
+        NSMutableSet *objects = [NSMutableSet set];
+        for (NSManagedObjectID *objectID in value)
+            [objects addObject: [context objectWithID: objectID]];
+        return objects;
+    }
+    return [context objectWithID: value];
+}
+
 @implementation NSManagedObjectContext
 
 - init {
@@ -76,6 +162,7 @@ static void NSManagedObjectContextSetCurrent(NSManagedObjectContext *context) {
     _insertedObjects = [[NSMutableSet alloc] init];
     _updatedObjects = [[NSMutableSet alloc] init];
     _deletedObjects = [[NSMutableSet alloc] init];
+    _editors = [[NSMutableArray alloc] init];
 
     _objectIdToObject = NSCreateMapTable(NSObjectMapKeyCallBacks,
                                          NSObjectMapValueCallBacks, 0);
@@ -133,6 +220,9 @@ static void NSManagedObjectContextSetCurrent(NSManagedObjectContext *context) {
     [_undoManager release];
     [_registeredObjects release];
     [_insertedObjects release];
+    [_updatedObjects release];
+    [_deletedObjects release];
+    [_editors release];
     [_objectIdToObject release];
     [super dealloc];
 }
@@ -271,19 +361,69 @@ static void NSManagedObjectContextSetCurrent(NSManagedObjectContext *context) {
 }
 
 - (void) undo {
-    NSUnimplementedMethod();
+    [_undoManager undo];
 }
 
 - (void) redo {
-    NSUnimplementedMethod();
+    [_undoManager redo];
 }
 
 - (void) reset {
-    NSUnimplementedMethod();
+    [self processPendingChanges];
+
+    NSArray *objects = [[_registeredObjects allObjects] retain];
+    for (NSManagedObject *object in objects) {
+        NSManagedObjectContextRemoveObservers(object, self);
+        NSMapRemove(_objectIdToObject, [object objectID]);
+        [object _mocInvalidate];
+    }
+    [objects release];
+
+    [_registeredObjects removeAllObjects];
+    [_insertedObjects removeAllObjects];
+    [_updatedObjects removeAllObjects];
+    [_deletedObjects removeAllObjects];
+    [_undoManager removeAllActions];
+    _hasChanges = NO;
 }
 
 - (void) rollback {
-    NSUnimplementedMethod();
+    [self processPendingChanges];
+
+    NSArray *insertedObjects = [[_insertedObjects allObjects] retain];
+    for (NSManagedObject *object in insertedObjects) {
+        NSManagedObjectContextRemoveObservers(object, self);
+        NSMapRemove(_objectIdToObject, [object objectID]);
+        [_registeredObjects removeObject: object];
+        [object _mocInvalidate];
+    }
+    [insertedObjects release];
+
+    NSArray *objects = [[_registeredObjects allObjects] retain];
+    for (NSManagedObject *object in objects) {
+        BOOL wasDeleted = [_deletedObjects containsObject: object];
+        NSArray *keys = wasDeleted
+                                ? [[[object entity] propertiesByName] allKeys]
+                                : [[object changedValues] allKeys];
+        NSDictionary *committed = [object committedValuesForKeys: nil];
+
+        for (NSString *key in keys) {
+            NSPropertyDescription *property =
+                    [[[object entity] propertiesByName] objectForKey: key];
+            id value = [committed objectForKey: key];
+            value = NSManagedObjectContextValueForCommittedProperty(
+                    self, property, value);
+            [object setValue: value forKey: key];
+        }
+        [object _mocClearPendingChanges];
+    }
+    [objects release];
+
+    [_insertedObjects removeAllObjects];
+    [_updatedObjects removeAllObjects];
+    [_deletedObjects removeAllObjects];
+    [_undoManager removeAllActions];
+    _hasChanges = NO;
 }
 
 - (NSAtomicStoreCacheNode *) _cacheNodeForObjectID:
@@ -684,31 +824,128 @@ static void NSManagedObjectContextSetCurrent(NSManagedObjectContext *context) {
 - (void) mergeChangesFromContextDidSaveNotification:
         (NSNotification *) notification
 {
-    NSUnimplementedMethod();
+    if (notification == nil || [notification object] == self)
+        return;
+
+    NSDictionary *userInfo = [notification userInfo];
+    if (userInfo == nil)
+        return;
+
+    NSArray *inserted = [userInfo objectForKey: NSInsertedObjectsKey];
+    for (id value in inserted) {
+        NSManagedObjectID *objectID =
+                NSManagedObjectContextObjectIDForSaveValue(value);
+        if (objectID == nil)
+            continue;
+        NSManagedObject *object = [self objectRegisteredForID: objectID];
+        if (object == nil)
+            object = [self objectWithID: objectID];
+        if (!NSManagedObjectContextHasLocalChanges(self, object))
+            [object _mocRefault];
+    }
+
+    NSArray *updated = [userInfo objectForKey: NSUpdatedObjectsKey];
+    for (id value in updated) {
+        NSManagedObjectID *objectID =
+                NSManagedObjectContextObjectIDForSaveValue(value);
+        if (objectID == nil)
+            continue;
+        NSManagedObject *object = [self objectRegisteredForID: objectID];
+        if (object == nil)
+            object = [self objectWithID: objectID];
+        if (!NSManagedObjectContextHasLocalChanges(self, object))
+            [object _mocRefault];
+    }
+
+    NSArray *deleted = [userInfo objectForKey: NSDeletedObjectsKey];
+    for (id value in deleted) {
+        NSManagedObjectID *objectID =
+                NSManagedObjectContextObjectIDForSaveValue(value);
+        if (objectID == nil)
+            continue;
+        NSManagedObject *object = [self objectRegisteredForID: objectID];
+        if (object != nil && ![_insertedObjects containsObject: object])
+            [self deleteObject: object];
+    }
+
+    BOOL invalidateAll =
+            [[userInfo objectForKey: NSInvalidatedAllObjectsKey] boolValue];
+    if (invalidateAll) {
+        NSArray *registeredObjects = [[_registeredObjects allObjects] copy];
+        for (NSManagedObject *object in registeredObjects) {
+            if (!NSManagedObjectContextHasLocalChanges(self, object))
+                [object _mocRefault];
+        }
+        [registeredObjects release];
+    }
+
+    NSArray *refreshed = [userInfo objectForKey: NSRefreshedObjectsKey];
+    NSArray *invalidated = [userInfo objectForKey: NSInvalidatedObjectsKey];
+    if (refreshed == nil)
+        refreshed = [NSArray array];
+    NSArray *refreshValues = [refreshed arrayByAddingObjectsFromArray:
+                                       (invalidated != nil ? invalidated
+                                                           : [NSArray array])];
+    for (id value in refreshValues) {
+        NSManagedObjectID *objectID =
+                NSManagedObjectContextObjectIDForSaveValue(value);
+        if (objectID == nil)
+            continue;
+        NSManagedObject *object = [self objectRegisteredForID: objectID];
+        if (object != nil &&
+            !NSManagedObjectContextHasLocalChanges(self, object))
+            [object _mocRefault];
+    }
 }
 
 - (BOOL) commitEditing {
-    NSUnimplementedMethod();
-    return NO;
+    NSArray *editors = [[_editors copy] autorelease];
+    for (id editor in editors) {
+        if ([editor respondsToSelector: @selector(commitEditing)] &&
+            ![editor commitEditing])
+            return NO;
+    }
+    return YES;
 }
 
 - (void) commitEditingWithDelegate: (id) delegate
                  didCommitSelector: (SEL) didCommitSelector
                        contextInfo: (void *) contextInfo
 {
-    NSUnimplementedMethod();
+    BOOL success = [self commitEditing];
+
+    if (delegate != nil && didCommitSelector != NULL) {
+        NSMethodSignature *signature =
+                [delegate methodSignatureForSelector: didCommitSelector];
+        if ([signature numberOfArguments] == 5) {
+            NSInvocation *invocation =
+                    [NSInvocation invocationWithMethodSignature: signature];
+            id editor = self;
+            [invocation setSelector: didCommitSelector];
+            [invocation setArgument: &editor atIndex: 2];
+            [invocation setArgument: &success atIndex: 3];
+            [invocation setArgument: &contextInfo atIndex: 4];
+            [invocation invokeWithTarget: delegate];
+        }
+    }
 }
 
 - (void) discardEditing {
-    NSUnimplementedMethod();
+    NSArray *editors = [[_editors copy] autorelease];
+    for (id editor in editors) {
+        if ([editor respondsToSelector: @selector(discardEditing)])
+            [editor discardEditing];
+    }
 }
 
 - (void) objectDidBeginEditing: (id) editor {
-    NSUnimplementedMethod();
+    if (editor != nil && ![_editors containsObject: editor])
+        [_editors addObject: editor];
 }
 
 - (void) objectDidEndEditing: (id) editor {
-    NSUnimplementedMethod();
+    if (editor != nil)
+        [_editors removeObject: editor];
 }
 
 @end

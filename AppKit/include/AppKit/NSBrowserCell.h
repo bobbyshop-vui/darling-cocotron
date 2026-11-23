@@ -30,6 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (BOOL) isLeaf;
 - (BOOL) isLoaded;
+- (NSImage *) image;
 - (NSImage *) alternateImage;
 
 - (void) setLeaf: (BOOL) value;

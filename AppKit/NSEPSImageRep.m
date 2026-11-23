@@ -19,7 +19,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSEPSImageRep.h>
 #import <AppKit/NSRaise.h>
 #import <Foundation/NSArray.h>
+#import <Foundation/NSCharacterSet.h>
 #import <Foundation/NSData.h>
+#import <Foundation/NSScanner.h>
+#import <Foundation/NSString.h>
+
+static BOOL NSEPSParseBoundingBoxLine(NSString *line, NSString *prefix,
+                                      NSRect *result) {
+    if (![line hasPrefix: prefix])
+        return NO;
+
+    NSString *contents = [line substringFromIndex: [prefix length]];
+    NSScanner *scanner = [NSScanner scannerWithString: contents];
+    double minX, minY, maxX, maxY;
+    if (![scanner scanDouble: &minX] || ![scanner scanDouble: &minY] ||
+        ![scanner scanDouble: &maxX] || ![scanner scanDouble: &maxY] ||
+        maxX < minX || maxY < minY)
+        return NO;
+
+    *result = NSMakeRect(minX, minY, maxX - minX, maxY - minY);
+    return YES;
+}
 
 @implementation NSEPSImageRep
 
@@ -51,8 +71,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSRect) boundingBox {
-    NSUnimplementedMethod();
-    return NSMakeRect(0, 0, 0, 0);
+    if (_data == nil)
+        return NSZeroRect;
+
+    NSString *contents = [[[NSString alloc] initWithData: _data
+                                                encoding: NSUTF8StringEncoding]
+            autorelease];
+    if (contents == nil)
+        contents = [[[NSString alloc] initWithData: _data
+                                          encoding: NSASCIIStringEncoding]
+                autorelease];
+    if (contents == nil)
+        return NSZeroRect;
+
+    NSArray *lines = [contents componentsSeparatedByString: @"\n"];
+    NSRect result = NSZeroRect;
+    for (NSString *line in lines) {
+        NSString *trimmed = [line stringByTrimmingCharactersInSet:
+                                      [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (NSEPSParseBoundingBoxLine(trimmed, @"%%HiResBoundingBox:",
+                                      &result))
+            return result;
+    }
+    for (NSString *line in lines) {
+        NSString *trimmed = [line stringByTrimmingCharactersInSet:
+                                      [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (NSEPSParseBoundingBoxLine(trimmed, @"%%BoundingBox:", &result))
+            return result;
+    }
+    return NSZeroRect;
 }
 
 - (void) prepareGState {

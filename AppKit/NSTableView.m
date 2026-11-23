@@ -24,6 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSTableCornerView.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import <Foundation/NSUserDefaults.h>
 
 NSString *const NSTableViewSelectionIsChangingNotification =
         @"NSTableViewSelectionIsChangingNotification";
@@ -96,7 +97,52 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [super encodeWithCoder: coder];
+
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"TODO: support unkeyed encoding in NSTableView"];
+        return;
+    }
+
+    unsigned flags = 0;
+    flags |= _allowsColumnReordering ? 0x80000000 : 0;
+    flags |= _allowsColumnResizing ? 0x40000000 : 0;
+    flags |= _allowsMultipleSelection ? 0x08000000 : 0;
+    flags |= _allowsEmptySelection ? 0x10000000 : 0;
+    flags |= _allowsColumnSelection ? 0x04000000 : 0;
+    flags |= _alternatingRowBackground ? 0x00800000 : 0;
+    flags |= _autoresizesAllColumnsToFit ? 0x00008000 : 0;
+
+    [coder encodeObject: _headerView forKey: @"NSHeaderView"];
+    [coder encodeObject: _cornerView forKey: @"NSCornerView"];
+    [coder encodeObject: _tableColumns forKey: @"NSTableColumns"];
+    [coder encodeObject: _backgroundColor forKey: @"NSBackgroundColor"];
+    [coder encodeObject: _gridColor forKey: @"NSGridColor"];
+    [coder encodeObject: _target forKey: @"NSTarget"];
+    [coder encodeObject: (_action != NULL ? NSStringFromSelector(_action) : nil)
+                 forKey: @"NSAction"];
+    [coder encodeObject: (_doubleAction != NULL
+                                 ? NSStringFromSelector(_doubleAction)
+                                 : nil)
+                 forKey: @"NSDoubleAction"];
+    [coder encodeFloat: _standardRowHeight forKey: @"NSRowHeight"];
+    [coder encodeSize: _intercellSpacing forKey: @"NSIntercellSpacing"];
+    [coder encodeInt: (int) flags forKey: @"NSTvFlags"];
+    [coder encodeInt: (int) _gridStyleMask forKey: @"NSGridStyleMask"];
+    [coder encodeInt: (int) _selectionHighlightStyle
+              forKey: @"NSSelectionHighlightStyle"];
+    [coder encodeInteger: _columnAutoresizingStyle
+                   forKey: @"NSColumnAutoresizingStyle"];
+    [coder encodeInteger: _rowSizeStyle forKey: @"NSRowSizeStyle"];
+    [coder encodeInteger: _draggingDestinationFeedbackStyle
+                   forKey: @"NSDraggingDestinationFeedbackStyle"];
+    [coder encodeBool: _floatsGroupRows forKey: @"NSFloatsGroupRows"];
+    [coder encodeBool: _usesAutomaticRowHeights
+               forKey: @"NSUsesAutomaticRowHeights"];
+    [coder encodeObject: _autosaveName forKey: @"NSAutosaveName"];
+    [coder encodeBool: _autosaveTableColumns
+               forKey: @"NSAutosaveTableColumns"];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -116,6 +162,11 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
         _backgroundColor =
                 [[keyed decodeObjectForKey: @"NSBackgroundColor"] retain];
         _gridColor = [[keyed decodeObjectForKey: @"NSGridColor"] retain];
+        _target = [keyed decodeObjectForKey: @"NSTarget"];
+        _action = NSSelectorFromString(
+                [keyed decodeObjectForKey: @"NSAction"]);
+        _doubleAction = NSSelectorFromString(
+                [keyed decodeObjectForKey: @"NSDoubleAction"]);
         _rowHeightsCount = 0;
         _rowHeights = NULL;
         _standardRowHeight = [keyed decodeFloatForKey: @"NSRowHeight"];
@@ -145,6 +196,30 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
             _gridStyleMask = [keyed decodeIntForKey: @"NSGridStyleMask"];
         else
             _gridStyleMask = NSTableViewGridNone;
+        if ([keyed containsValueForKey: @"NSIntercellSpacing"])
+            _intercellSpacing = [keyed decodeSizeForKey: @"NSIntercellSpacing"];
+        if ([keyed containsValueForKey: @"NSSelectionHighlightStyle"])
+            _selectionHighlightStyle = (NSTableViewSelectionHighlightStyle)
+                    [keyed decodeIntForKey: @"NSSelectionHighlightStyle"];
+        if ([keyed containsValueForKey: @"NSColumnAutoresizingStyle"])
+            _columnAutoresizingStyle = (NSTableViewColumnAutoresizingStyle)
+                    [keyed decodeIntegerForKey: @"NSColumnAutoresizingStyle"];
+        if ([keyed containsValueForKey: @"NSRowSizeStyle"])
+            _rowSizeStyle = (NSTableViewRowSizeStyle)
+                    [keyed decodeIntegerForKey: @"NSRowSizeStyle"];
+        if ([keyed containsValueForKey: @"NSDraggingDestinationFeedbackStyle"])
+            _draggingDestinationFeedbackStyle =
+                    (NSTableViewDraggingDestinationFeedbackStyle)
+                            [keyed decodeIntegerForKey:
+                                              @"NSDraggingDestinationFeedbackStyle"];
+        _floatsGroupRows = [keyed decodeBoolForKey: @"NSFloatsGroupRows"];
+        _usesAutomaticRowHeights =
+                [keyed decodeBoolForKey: @"NSUsesAutomaticRowHeights"];
+        _autosaveName = [[keyed decodeObjectForKey: @"NSAutosaveName"] copy];
+        _autosaveTableColumns =
+                [keyed decodeBoolForKey: @"NSAutosaveTableColumns"];
+        if (_autosaveTableColumns && [_autosaveName length] > 0)
+            [self _readPersistentTableColumns];
     } else {
         [NSException raise: NSInvalidArgumentException
                     format: @"-[%@ %s] is not implemented for coder %@",
@@ -210,6 +285,7 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
     [_selectedRowIndexes release];
     [_selectedColumns release];
     [_sortDescriptors release];
+    [_autosaveName release];
     [_registeredNibs release];
     [super dealloc];
 }
@@ -259,8 +335,7 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
 }
 
 - (NSString *) autosaveName {
-    NSUnimplementedMethod();
-    return nil;
+    return _autosaveName;
 }
 
 // deprecated in OS X >= 10.3
@@ -298,8 +373,7 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
 }
 
 - (BOOL) autosaveTableColumns {
-    NSUnimplementedMethod();
-    return NO;
+    return _autosaveTableColumns;
 }
 
 // row background and grid attributes for OS X >= 10.3
@@ -639,7 +713,16 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (void) setAutosaveName: (NSString *) name {
-    NSUnimplementedMethod();
+    if (_autosaveName == name || [_autosaveName isEqualToString: name])
+        return;
+
+    [_autosaveName release];
+    _autosaveName = [name copy];
+    if (_autosaveTableColumns) {
+        [self _readPersistentTableColumns];
+        if ([_tableColumns count] > 0)
+            [self _writePersistentTableColumns];
+    }
 }
 
 // deprecated in OS X >= 10.3
@@ -680,7 +763,16 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (void) setAutosaveTableColumns: (BOOL) flag {
-    NSUnimplementedMethod();
+    flag = flag ? YES : NO;
+    if (_autosaveTableColumns == flag)
+        return;
+
+    _autosaveTableColumns = flag;
+    if (_autosaveTableColumns) {
+        [self _readPersistentTableColumns];
+        if ([_tableColumns count] > 0)
+            [self _writePersistentTableColumns];
+    }
 }
 
 // row background and grid attributes for OS X >= 10.3
@@ -707,6 +799,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     [column setTableView: self];
     [self reloadData];
     [_headerView setNeedsDisplay: YES];
+    [self _readPersistentTableColumns];
 }
 
 - (void) removeTableColumn: (NSTableColumn *) column {
@@ -714,10 +807,38 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     [_tableColumns removeObject: column];
     [self reloadData];
     [_headerView setNeedsDisplay: YES];
+    [self _writePersistentTableColumns];
 }
 
 - (void) moveColumn: (NSInteger) columnIndex toColumn: (NSInteger) newIndex {
-    NSUnimplementedMethod();
+    NSInteger count = (NSInteger) [_tableColumns count];
+    if (columnIndex < 0 || columnIndex >= count || newIndex < 0 ||
+        newIndex >= count)
+        [NSException raise: NSRangeException
+                    format: @"column index out of range in %@",
+                            NSStringFromSelector(_cmd)];
+    if (columnIndex == newIndex)
+        return;
+
+    NSTableColumn *column = [[_tableColumns objectAtIndex: columnIndex] retain];
+    [_tableColumns removeObjectAtIndex: columnIndex];
+    [_tableColumns insertObject: column atIndex: newIndex];
+    [column release];
+
+    [_headerView setNeedsDisplay: YES];
+    [self reloadData];
+    [[NSNotificationCenter defaultCenter]
+            postNotificationName: NSTableViewColumnDidMoveNotification
+                          object: self
+                        userInfo: [NSDictionary
+                                          dictionaryWithObjectsAndKeys:
+                                                  [NSNumber numberWithInteger:
+                                                                      columnIndex],
+                                                  @"NSOldColumn",
+                                                  [NSNumber numberWithInteger:
+                                                                      newIndex],
+                                                  @"NSNewColumn", nil]];
+    [self _writePersistentTableColumns];
 }
 
 - (NSInteger) editedRow {
@@ -1698,6 +1819,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
                                                   [NSNumber numberWithFloat:
                                                                     oldWidth],
                                                   @"NSOldWidth", nil]];
+    [self _writePersistentTableColumns];
 }
 
 - (BOOL) dataSourceCanSetObjectValue {
@@ -2095,11 +2217,96 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (void)_writePersistentTableColumns {
-    NSUnimplementedMethod();
+    if (!_autosaveTableColumns || [_autosaveName length] == 0)
+        return;
+
+    NSMutableArray *columns = [NSMutableArray arrayWithCapacity:
+                                               [_tableColumns count]];
+    NSUInteger index = 0;
+    for (NSTableColumn *column in _tableColumns) {
+        NSMutableDictionary *entry = [NSMutableDictionary dictionary];
+        [entry setObject: [NSNumber numberWithUnsignedInteger: index]
+                  forKey: @"index"];
+        if ([column identifier] != nil)
+            [entry setObject: [column identifier] forKey: @"identifier"];
+        [entry setObject: [NSNumber numberWithDouble: [column width]]
+                  forKey: @"width"];
+        [entry setObject: [NSNumber numberWithBool: [column isHidden]]
+                  forKey: @"hidden"];
+        [columns addObject: entry];
+        index++;
+    }
+
+    NSString *key = [NSString stringWithFormat: @"NSTableView Columns %@",
+                                               _autosaveName];
+    [[NSUserDefaults standardUserDefaults] setObject: columns forKey: key];
 }
 
 - (void)_readPersistentTableColumns {
-    NSUnimplementedMethod();
+    if (!_autosaveTableColumns || [_autosaveName length] == 0 ||
+        [_tableColumns count] == 0)
+        return;
+
+    NSString *key = [NSString stringWithFormat: @"NSTableView Columns %@",
+                                               _autosaveName];
+    NSArray *saved = [[NSUserDefaults standardUserDefaults] arrayForKey: key];
+    if (![saved isKindOfClass: [NSArray class]] || [saved count] == 0)
+        return;
+
+    NSArray *originalColumns = [[_tableColumns copy] autorelease];
+    NSMutableArray *remaining = [_tableColumns mutableCopy];
+    NSMutableArray *ordered = [NSMutableArray arrayWithCapacity:
+                                               [_tableColumns count]];
+
+    for (id savedEntry in saved) {
+        if (![savedEntry isKindOfClass: [NSDictionary class]])
+            continue;
+
+        id identifier = [savedEntry objectForKey: @"identifier"];
+        NSNumber *savedIndex = [savedEntry objectForKey: @"index"];
+        NSTableColumn *column = nil;
+
+        if (identifier != nil) {
+            for (NSTableColumn *candidate in remaining) {
+                if ([[candidate identifier] isEqual: identifier]) {
+                    column = candidate;
+                    break;
+                }
+            }
+        }
+        if (column == nil && [savedIndex respondsToSelector: @selector(integerValue)]) {
+            NSInteger index = [savedIndex integerValue];
+            if (index >= 0 && index < (NSInteger) [originalColumns count]) {
+                NSTableColumn *candidate = [originalColumns objectAtIndex: index];
+                if ([remaining containsObject: candidate])
+                    column = candidate;
+            }
+        }
+        if (column == nil)
+            continue;
+
+        NSNumber *width = [savedEntry objectForKey: @"width"];
+        if ([width respondsToSelector: @selector(doubleValue)])
+            [column setWidth: [width doubleValue]];
+        NSNumber *hidden = [savedEntry objectForKey: @"hidden"];
+        if ([hidden respondsToSelector: @selector(boolValue)])
+            [column setHidden: [hidden boolValue]];
+
+        [ordered addObject: column];
+        [remaining removeObjectIdenticalTo: column];
+    }
+
+    [ordered addObjectsFromArray: remaining];
+    [remaining release];
+
+    if ([ordered count] == [_tableColumns count]) {
+        [_tableColumns setArray: ordered];
+        [_tableColumns makeObjectsPerformSelector: @selector(setTableView:)
+                                       withObject: self];
+        [self tile];
+        [self reloadData];
+        [_headerView setNeedsDisplay: YES];
+    }
 }
 
 @end

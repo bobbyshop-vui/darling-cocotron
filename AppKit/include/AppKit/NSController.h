@@ -30,6 +30,7 @@ APPKIT_EXPORT BOOL NSIsControllerMarker(id object);
     NSMutableArray *_editors;
 }
 
+- (void) encodeWithCoder: (NSCoder *) coder;
 - (BOOL) commitEditing;
 - (void) commitEditingWithDelegate: (id) delegate
                  didCommitSelector: (SEL) didCommitSelector

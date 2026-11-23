@@ -26,6 +26,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRichTextWriter.h>
 #import <AppKit/NSStringDrawer.h>
 #import <AppKit/NSTextAttachment.h>
+#import <Foundation/NSFileWrapper.h>
 
 NSAttributedStringKey NSFontAttributeName = @"NSFontAttributeName";
 NSAttributedStringKey NSParagraphStyleAttributeName = @"NSParagraphStyleAttributeName";
@@ -120,6 +121,43 @@ NSAttributedStringKey NSWritingDirectionAttributeName = @"NSWritingDirectionAttr
 
 NSUInteger NSUnderlineStrikethroughMask = 0x4000;
 NSUInteger NSUnderlineByWordMask = 0x8000;
+
+static BOOL NSAttributedStringRangeIsValid(NSAttributedString *string,
+                                           NSRange range)
+{
+    NSUInteger length = [string length];
+    return range.location <= length && range.length <= length - range.location;
+}
+
+static BOOL NSAttributedStringRangeContainsAttachments(
+        NSAttributedString *string, NSRange range)
+{
+    NSUInteger end = NSMaxRange(range);
+    NSUInteger index = range.location;
+
+    while (index < end) {
+        NSRange effectiveRange = NSMakeRange(index, 1);
+        id attachment = [string attribute: NSAttachmentAttributeName
+                                  atIndex: index
+                           effectiveRange: &effectiveRange];
+        if (attachment != nil)
+            return YES;
+
+        NSUInteger nextIndex = NSMaxRange(effectiveRange);
+        index = nextIndex > index && nextIndex <= end ? nextIndex : index + 1;
+    }
+
+    return NO;
+}
+
+static BOOL NSAttributedStringCharacterIsCJK(unichar character)
+{
+    return (character >= 0x2e80 && character <= 0x9fff) ||
+           (character >= 0xac00 && character <= 0xd7af) ||
+           (character >= 0xf900 && character <= 0xfaff) ||
+           (character >= 0x3040 && character <= 0x30ff) ||
+           (character >= 0x31f0 && character <= 0x31ff);
+}
 
 @implementation NSAttributedString (NSAttributedString_AppKit)
 
@@ -316,13 +354,19 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
 #pragma mark Retrieving Font Attribute Information
 
 - (BOOL) containsAttachments {
-    NSUnimplementedMethod();
-    return NO;
+    return NSAttributedStringRangeContainsAttachments(
+            self, NSMakeRange(0, [self length]));
 }
 
 - (NSDictionary *) fontAttributesInRange: (NSRange) range {
-    NSUnimplementedMethod();
-    return nil;
+    NSUInteger length = [self length];
+    if (!NSAttributedStringRangeIsValid(self, range) || range.location >= length)
+        return nil;
+
+    NSMutableDictionary *attributes = [[self
+            attributesAtIndex: range.location effectiveRange: NULL] mutableCopy];
+    [attributes removeObjectForKey: NSParagraphStyleAttributeName];
+    return [attributes autorelease];
 }
 
 - (NSDictionary *) rulerAttributesInRange: (NSRange) range {
@@ -376,8 +420,46 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
 - (NSUInteger) lineBreakBeforeIndex: (NSUInteger) index
                         withinRange: (NSRange) range
 {
-    NSUnimplementedMethod();
-    return 0;
+    if (!NSAttributedStringRangeIsValid(self, range))
+        [NSException raise: NSRangeException
+                    format: @"lineBreakBeforeIndex:withinRange: received an "
+                            @"invalid range %@ for a string of length %lu",
+                            NSStringFromRange(range), (unsigned long) [self length]];
+
+    NSUInteger end = NSMaxRange(range);
+    if (index <= range.location)
+        return range.location;
+    if (index > end)
+        index = end;
+
+    NSString *string = [self string];
+    NSCharacterSet *breakCharacters =
+            [NSCharacterSet whitespaceAndNewlineCharacterSet];
+    for (NSUInteger candidate = index; candidate > range.location; --candidate) {
+        unichar previous = [string characterAtIndex: candidate - 1];
+        unichar current = candidate < end ? [string characterAtIndex: candidate]
+                                          : 0;
+
+        if (current == '\n' || current == '\r' || current == 0x2028 ||
+            current == 0x2029)
+            return candidate;
+
+        if ([breakCharacters characterIsMember: previous] ||
+            previous == '-' || previous == 0x2010 || previous == 0x2013 ||
+            previous == '/' || previous == 0x200b || previous == 0x00ad)
+            return candidate;
+
+        if (candidate < end &&
+            NSAttributedStringCharacterIsCJK(previous) &&
+            NSAttributedStringCharacterIsCJK(current))
+            return candidate;
+
+        if (candidate < end && previous >= 0xd800 && previous <= 0xdbff &&
+            current >= 0xdc00 && current <= 0xdfff)
+            continue;
+    }
+
+    return range.location;
 }
 
 - (NSUInteger) lineBreakByHyphenatingBeforeIndex: (NSUInteger) index
@@ -499,8 +581,30 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
 - (NSFileWrapper *) RTFDFileWrapperFromRange: (NSRange) range
                           documentAttributes: (NSDictionary *) attributes
 {
-    NSUnimplementedMethod();
-    return nil;
+    if (!NSAttributedStringRangeIsValid(self, range))
+        [NSException raise: NSRangeException
+                    format: @"RTFDFileWrapperFromRange:documentAttributes: "
+                            @"received an invalid range %@ for a string of "
+                            @"length %lu",
+                            NSStringFromRange(range), (unsigned long) [self length]];
+
+    // Cocotron's rich text writer does not yet encode the RTFD attachment
+    // records and their file references. Returning a package without those
+    // records would silently lose attachment data.
+    if (NSAttributedStringRangeContainsAttachments(self, range))
+        return nil;
+
+    NSData *rtf = [NSRichTextWriter dataWithAttributedString: self range: range];
+    if (rtf == nil)
+        return nil;
+
+    NSFileWrapper *textFile = [[[NSFileWrapper alloc]
+            initRegularFileWithContents: rtf] autorelease];
+    [textFile setPreferredFilename: @"TXT.rtf"];
+    NSDictionary *children = [NSDictionary dictionaryWithObject: textFile
+                                                         forKey: @"TXT.rtf"];
+    return [[[NSFileWrapper alloc] initDirectoryWithFileWrappers: children]
+            autorelease];
 }
 
 - (NSData *) RTFDFromRange: (NSRange) range
@@ -519,8 +623,56 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
         documentAttributes: (NSDictionary *) attributes
                      error: (NSError **) error
 {
-    NSUnimplementedMethod();
-    return 0;
+    if (error != NULL)
+        *error = nil;
+    if (!NSAttributedStringRangeIsValid(self, range))
+        [NSException raise: NSRangeException
+                    format: @"dataFromRange:documentAttributes:error: received "
+                            @"an invalid range %@ for a string of length %lu",
+                            NSStringFromRange(range), (unsigned long) [self length]];
+
+    NSString *documentType = [attributes objectForKey:
+            NSDocumentTypeDocumentAttribute];
+    if (documentType == nil)
+        documentType = NSRTFTextDocumentType;
+
+    if ([documentType isEqual: NSRTFTextDocumentType])
+        return [NSRichTextWriter dataWithAttributedString: self range: range];
+
+    if ([documentType isEqual: NSRTFDTextDocumentType]) {
+        NSFileWrapper *wrapper = [self RTFDFileWrapperFromRange: range
+                                             documentAttributes: attributes];
+        if (wrapper != nil)
+            return [wrapper serializedRepresentation];
+    } else if ([documentType isEqual: NSPlainTextDocumentType]) {
+        NSString *text = [[self string] substringWithRange: range];
+        id encodingValue = [attributes objectForKey:
+                NSCharacterEncodingDocumentAttribute];
+        NSStringEncoding encoding = encodingValue != nil
+                ? (NSStringEncoding) [encodingValue unsignedIntegerValue]
+                : NSUTF8StringEncoding;
+        NSData *data = [text dataUsingEncoding: encoding];
+        if (data != nil)
+            return data;
+    } else {
+        if (error != NULL)
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                         code: NSFileWriteUnknownError
+                                     userInfo: [NSDictionary dictionaryWithObject:
+                                                     [NSString stringWithFormat:
+                                                             @"Unsupported attributed string document type %@",
+                                                             documentType]
+                                                               forKey: NSLocalizedDescriptionKey]];
+        return nil;
+    }
+
+    if (error != NULL)
+        *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                     code: NSFileWriteUnknownError
+                                 userInfo: [NSDictionary dictionaryWithObject:
+                                                 @"The attributed string could not be represented in the requested format."
+                                                           forKey: NSLocalizedDescriptionKey]];
+    return nil;
 }
 
 - (NSData *) docFormatFromRange: (NSRange) range
@@ -534,7 +686,37 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
                       documentAttributes: (NSDictionary *) attributes
                                    error: (NSError **) error
 {
-    NSUnimplementedMethod();
+    if (error != NULL)
+        *error = nil;
+    if (!NSAttributedStringRangeIsValid(self, range))
+        [NSException raise: NSRangeException
+                    format: @"fileWrapperFromRange:documentAttributes:error: "
+                            @"received an invalid range %@ for a string of "
+                            @"length %lu",
+                            NSStringFromRange(range), (unsigned long) [self length]];
+
+    NSString *documentType = [attributes objectForKey:
+            NSDocumentTypeDocumentAttribute];
+    if ([documentType isEqual: NSRTFDTextDocumentType]) {
+        NSFileWrapper *wrapper = [self RTFDFileWrapperFromRange: range
+                                             documentAttributes: attributes];
+        if (wrapper != nil)
+            return wrapper;
+    } else {
+        NSData *data = [self dataFromRange: range
+                        documentAttributes: attributes
+                                     error: error];
+        if (data != nil)
+            return [[[NSFileWrapper alloc] initRegularFileWithContents: data]
+                    autorelease];
+    }
+
+    if (error != NULL && *error == nil)
+        *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                     code: NSFileWriteUnknownError
+                                 userInfo: [NSDictionary dictionaryWithObject:
+                                                 @"The attributed string could not be represented by a file wrapper."
+                                                           forKey: NSLocalizedDescriptionKey]];
     return nil;
 }
 
@@ -568,8 +750,9 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
 - (NSRect) boundingRectWithSize: (NSSize) size
                         options: (NSStringDrawingOptions) options
 {
-    NSUnimplementedMethod();
-    return NSMakeRect(0, 0, 0, 0);
+    NSSize measured = [[NSStringDrawer sharedStringDrawer]
+            sizeOfAttributedString: self inSize: size];
+    return NSMakeRect(0, 0, measured.width, measured.height);
 }
 
 #pragma mark -

@@ -88,8 +88,12 @@ static NSString *const NSSoundPasteboardType = @"NXSoundPboardType";
 }
 - (id) init {
     self = [super init];
-    if (self)
+    if (self) {
         _volume = 1.0f;
+        _playing = NO;
+        _paused = NO;
+        _currentTime = 0.0;
+    }
     return self;
 }
 
@@ -215,23 +219,45 @@ static NSString *const NSSoundPasteboardType = @"NXSoundPboardType";
 }
 
 - (BOOL) play {
-    NSUnimplementedMethod();
-    return NO;
+    if (_data == nil)
+        return NO;
+
+    // Darling has no audio output backend; preserve the playback state that
+    // NSSound clients observe so play/pause/resume/stop still compose.
+    _currentTime = 0.0;
+    _playing = YES;
+    _paused = NO;
+    return YES;
 }
 
 - (BOOL) pause {
-    NSUnimplementedMethod();
-    return NO;
+    if (_data == nil || !_playing)
+        return NO;
+    _playing = NO;
+    _paused = YES;
+    return YES;
 }
 
 - (BOOL) resume {
-    NSUnimplementedMethod();
-    return NO;
+    if (_data == nil || !_paused)
+        return NO;
+    _paused = NO;
+    _playing = YES;
+    return YES;
 }
 
 - (BOOL) stop {
-    NSUnimplementedMethod();
-    return NO;
+    BOOL hadActivePlayback = _playing || _paused;
+    BOOL hasData = (_data != nil);
+    _playing = NO;
+    _paused = NO;
+    _currentTime = 0.0;
+
+    if (hadActivePlayback &&
+        [_delegate respondsToSelector: @selector(sound:didFinishPlaying:)])
+        [_delegate sound: self didFinishPlaying: NO];
+
+    return hasData;
 }
 
 @end

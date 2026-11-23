@@ -57,6 +57,8 @@ typedef enum {
     BOOL _refusesFirstResponder;
 }
 
+- (void) encodeWithCoder: (NSCoder *) coder;
+
 - initWithFrame: (NSRect) frame
                    mode: (NSMatrixMode) mode
               prototype: (NSCell *) prototype

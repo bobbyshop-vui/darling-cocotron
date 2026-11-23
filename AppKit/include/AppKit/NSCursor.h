@@ -20,11 +20,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSGeometry.h>
 #import <Foundation/NSObject.h>
 
-@class NSImage, NSColor, NSEvent;
+@class NSImage, NSColor, NSEvent, NSString;
 
 @interface NSCursor : NSObject <NSCoding> {
     NSImage *_image;
     NSPoint _hotSpot;
+    NSString *_name;
     BOOL _isSetOnMouseEntered;
     BOOL _isSetOnMouseExited;
     id _platformCursor;

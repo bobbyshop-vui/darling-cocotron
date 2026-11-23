@@ -294,8 +294,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSRect) borderRect {
-    NSUnimplementedMethod();
-    return NSMakeRect(0, 0, 0, 0);
+    NSRect result = [self bounds];
+    NSRect title = [self titleRect];
+
+    switch (_titlePosition) {
+    case NSNoTitle:
+        break;
+    case NSAboveTop:
+        result.size.height -= title.size.height + TEXTGAP;
+        break;
+    case NSAtTop:
+        result.size.height -= floor(title.size.height / 2);
+        break;
+    case NSBelowTop:
+    case NSAboveBottom:
+        break;
+    case NSAtBottom:
+        result.origin.y += floor(title.size.height / 2);
+        result.size.height -= floor(title.size.height / 2);
+        break;
+    case NSBelowBottom:
+        result.origin.y += title.size.height + TEXTGAP;
+        result.size.height -= title.size.height + TEXTGAP;
+        break;
+    }
+
+    if (result.size.width < 0)
+        result.size.width = 0;
+    if (result.size.height < 0)
+        result.size.height = 0;
+    return result;
 }
 
 - titleCell {
@@ -308,7 +336,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) sizeToFit {
-    NSUnimplementedMethod();
+    NSView *content = [self contentView];
+    NSSize size = content != nil ? [content frame].size : NSZeroSize;
+    NSSize titleSize = [_titleCell cellSize];
+    CGFloat horizontalBorder = 0;
+    CGFloat verticalBorder = 0;
+
+    if (_borderType != NSNoBorder) {
+        CGFloat width = _boxType == NSBoxCustom ? [self borderWidth] : 1;
+        horizontalBorder = verticalBorder = MAX(1, width) * 2;
+    }
+
+    size.width += _contentViewMargins.width * 2 + horizontalBorder;
+    size.height += _contentViewMargins.height * 2 + verticalBorder;
+
+    switch (_titlePosition) {
+    case NSAboveTop:
+    case NSBelowBottom:
+        size.height += ceil(titleSize.height) + TEXTGAP;
+        break;
+    case NSAtTop:
+    case NSAtBottom:
+        size.height += ceil(titleSize.height / 2);
+        break;
+    case NSNoTitle:
+    case NSBelowTop:
+    case NSAboveBottom:
+        break;
+    }
+
+    [self setFrameSize: size];
 }
 
 - (void) drawRect: (NSRect) rect {

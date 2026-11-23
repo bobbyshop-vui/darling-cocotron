@@ -36,6 +36,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) setShadowColor: (NSColor *) color;
 - (void) setShadowBlurRadius: (CGFloat) radius;
 
+- (void) encodeWithCoder: (NSCoder *) coder;
 - (void) set;
 
 @end

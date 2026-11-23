@@ -22,7 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSUserInterfaceItemIdentification.h>
 #import <AppKit/NSWindow.h>
 
-@class NSView;
+@class NSView, NSAppearance;
 
 typedef NS_OPTIONS(uint32_t, NSWindowTemplateFlags) {
     NSWindowTemplateFlagRestorable = 1u << 9,
@@ -110,6 +110,8 @@ typedef NS_OPTIONS(uint32_t, NSWindowTemplateFlags) {
 @property NSSize minSize;
 @property NSSize maxSize;
 @property(copy) NSString *className;
+
+- (NSAppearance *) appearance;
 
 - (BOOL) autorecalculatesContentBorderThicknessForEdge: (NSRectEdge) edge;
 - (void) setAutorecalculatesContentBorderThickness: (BOOL) autorecalculatesContentBorderThickness

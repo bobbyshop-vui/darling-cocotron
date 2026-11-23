@@ -21,6 +21,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <OpenGL/gl.h>
 
 @interface NSOpenGLPixelBuffer : NSObject {
+    GLenum _textureTarget;
+    GLenum _textureInternalFormat;
+    GLint _textureMaxMipMapLevel;
+    GLsizei _pixelsWide;
+    GLsizei _pixelsHigh;
 }
 
 - (instancetype) initWithTextureTarget: (GLenum) textureTarget

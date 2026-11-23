@@ -38,6 +38,7 @@ typedef enum { NSSelectedTab, NSBackgroundTab, NSPressedTab } NSTabState;
 }
 
 - initWithIdentifier: identifier;
+- (void) encodeWithCoder: (NSCoder *) coder;
 
 - identifier;
 - (NSString *) label;

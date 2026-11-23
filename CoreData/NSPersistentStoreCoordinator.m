@@ -19,9 +19,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import "NSInMemoryPersistentStore.h"
 #import "NSManagedObjectID-Private.h"
 #import "NSXMLPersistentStore.h"
+#import <CoreData/CoreDataErrors.h>
 #import <CoreData/NSManagedObject.h>
 #import <CoreData/NSManagedObjectModel.h>
+#import <CoreData/NSAtomicStore.h>
+#import <CoreData/NSPersistentStore.h>
 #import <CoreData/NSPersistentStoreCoordinator.h>
+#import <Foundation/NSData.h>
+#import <Foundation/NSError.h>
+#import <Foundation/NSFileManager.h>
+#import <Foundation/NSURL.h>
 #import <Foundation/NSRaise.h>
 #import <dispatch/dispatch.h>
 
@@ -160,8 +167,112 @@ static NSMutableDictionary *_storeTypes = nil;
                                       withType: (NSString *) storeType
                                          error: (NSError **) error
 {
-    NSUnimplementedMethod();
-    return nil;
+    if (error != NULL)
+        *error = nil;
+
+    NSString *sourceType = [store type];
+    if (store == nil || [_stores indexOfObjectIdenticalTo: store] == NSNotFound ||
+        URL == nil || [store URL] == nil) {
+        if (error != NULL) {
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                         code: NSPersistentStoreOperationError
+                                     userInfo: @{
+                                         NSLocalizedDescriptionKey :
+                                             @"The source store and destination URL must be valid."
+                                     }];
+        }
+        return nil;
+    }
+
+    if (storeType == nil)
+        storeType = sourceType;
+
+    Class destinationStoreClass =
+            [[[self class] registeredStoreTypes] objectForKey: storeType];
+    if (destinationStoreClass == Nil) {
+        if (error != NULL) {
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                         code: NSPersistentStoreInvalidTypeError
+                                     userInfo: @{
+                                         NSLocalizedDescriptionKey :
+                                             [NSString stringWithFormat:
+                                                     @"No persistent store is registered for type %@.",
+                                                     storeType ?: @"(null)"]
+                                     }];
+        }
+        return nil;
+    }
+
+    // XML stores can be migrated without changing their record format by
+    // copying the backing file. Other registered stores have no export/import
+    // path in this implementation (the migration manager is also unavailable).
+    if (![store isKindOfClass: [NSXMLPersistentStore class]] ||
+        ![destinationStoreClass isSubclassOfClass: [NSXMLPersistentStore class]] ||
+        ![sourceType isEqualToString: storeType] ||
+        ![[store URL] isFileURL] || ![URL isFileURL] ||
+        [[store URL] isEqual: URL]) {
+        if (error != NULL) {
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                         code: NSPersistentStoreOperationError
+                                     userInfo: @{
+                                         NSLocalizedDescriptionKey :
+                                             @"This store migration cannot be represented by the available store backends."
+                                     }];
+        }
+        return nil;
+    }
+
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSString *destinationPath = [URL path];
+    if ([fileManager fileExistsAtPath: destinationPath]) {
+        if (error != NULL) {
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                         code: NSPersistentStoreOperationError
+                                     userInfo: @{
+                                         NSLocalizedDescriptionKey :
+                                             @"The destination store already exists."
+                                     }];
+        }
+        return nil;
+    }
+
+    NSError *migrationError = nil;
+    if (![(NSAtomicStore *) store save: &migrationError]) {
+        if (error != NULL)
+            *error = migrationError;
+        return nil;
+    }
+
+    if (![fileManager copyItemAtURL: [store URL]
+                              toURL: URL
+                              error: &migrationError]) {
+        if (error != NULL)
+            *error = migrationError;
+        return nil;
+    }
+
+    NSPersistentStore *migratedStore =
+            [self addPersistentStoreWithType: storeType
+                               configuration: [store configurationName]
+                                         URL: URL
+                                     options: options
+                                       error: &migrationError];
+    if (migratedStore == nil) {
+        [fileManager removeItemAtURL: URL error: NULL];
+        if (error != NULL)
+            *error = migrationError;
+        return nil;
+    }
+
+    if (![self removePersistentStore: store error: &migrationError]) {
+        [self removePersistentStore: migratedStore error: NULL];
+        [fileManager removeItemAtURL: URL error: NULL];
+        if (error != NULL)
+            *error = migrationError;
+        return nil;
+    }
+
+    return migratedStore;
 }
 
 - (NSArray *) persistentStores {

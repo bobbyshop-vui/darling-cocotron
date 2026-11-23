@@ -35,6 +35,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (NSColor *) color;
 - (BOOL) isBordered;
 - (BOOL) isActive;
+- (void) encodeWithCoder: (NSCoder *) coder;
 
 - (void) setColor: (NSColor *) color;
 - (void) setBordered: (BOOL) flag;

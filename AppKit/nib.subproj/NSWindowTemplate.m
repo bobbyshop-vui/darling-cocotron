@@ -303,8 +303,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return nil;
 }
 
-- (id) appearance {
-    NSUnimplementedMethod();
+- (NSAppearance *) appearance {
+    // No per-window appearance is stored in a nib template here. A nil
+    // appearance lets the instantiated window inherit from the application.
     return nil;
 }
 

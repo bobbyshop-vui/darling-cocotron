@@ -90,6 +90,7 @@ APPKIT_EXPORT NSString *const NSOutlineViewDisclosureButtonKey;
 - (void) reloadItem: item;
 
 - (void) setDropItem: item dropChildIndex: (NSInteger) index;
+- (void) encodeWithCoder: (NSCoder *) coder;
 - (BOOL) shouldCollapseAutoExpandedItemsForDeposited: (BOOL) collapse;
 
 - (NSRect) frameOfOutlineCellAtRow: (NSInteger) row;

@@ -27,6 +27,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSBundle.h>
 #import <Foundation/NSNumber.h>
 #import <Foundation/NSOrthography.h>
+#import <Foundation/NSUserDefaults.h>
 #import <Foundation/NSSpellEngine.h>
 
 NSString *const NSSpellCheckerDidChangeAutomaticTextReplacementNotification =
@@ -531,8 +532,7 @@ static BOOL NSSpellCheckerDefaultsFlag(NSString *key) {
 #pragma mark Automatic Spelling Correction
 
 + (BOOL) isAutomaticSpellingCorrectionEnabled {
-    NSUnimplementedMethod();
-    return 0;
+    return NSSpellCheckerDefaultsFlag(@"NSAutomaticSpellingCorrectionEnabled");
 }
 
 #ifdef NS_BLOCKS
@@ -574,8 +574,7 @@ static BOOL NSSpellCheckerDefaultsFlag(NSString *key) {
 #pragma mark Automatic Text Replacement
 
 + (BOOL) isAutomaticTextReplacementEnabled {
-    NSUnimplementedMethod();
-    return 0;
+    return NSSpellCheckerDefaultsFlag(@"NSAutomaticTextReplacementEnabled");
 }
 
 @end

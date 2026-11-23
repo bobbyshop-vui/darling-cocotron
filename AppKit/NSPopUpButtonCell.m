@@ -43,7 +43,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"%@ does not support unkeyed encoding",
+                            [self class]];
+        return;
+    }
+
+    [super encodeWithCoder: coder];
+
+    [coder encodeBool: _pullsDown forKey: @"NSPullDown"];
+    [coder encodeObject: _popUpMenu forKey: @"NSMenu"];
+    [coder encodeInt: (int) _selectedIndex forKey: @"NSSelectedIndex"];
+    [coder encodeInt: (int) _arrowPosition forKey: @"NSArrowPosition"];
+    [coder encodeInt: (int) _preferredEdge forKey: @"NSPreferredEdge"];
+    [coder encodeBool: _usesItemFromMenu forKey: @"NSUsesItemFromMenu"];
+    [coder encodeBool: _altersStateOfSelectedItem forKey: @"NSAltersState"];
 }
 
 - initWithCoder: (NSCoder *) coder {

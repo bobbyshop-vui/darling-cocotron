@@ -321,8 +321,7 @@ static NSMutableDictionary *_namedColorLists = nil;
 }
 
 - (BOOL) isEditable {
-    NSUnimplementedMethod();
-    return NO;
+    return _path == nil;
 }
 
 - (NSString *) name {

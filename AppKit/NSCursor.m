@@ -190,15 +190,43 @@ static NSMutableArray *_cursorStack = nil;
 }
 
 - initWithCoder: (NSCoder *) coder {
-    // TODO: Need to implement
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArgumentException
+                    format: @"-[%@ %s] is not implemented for coder %@",
+                            [self class], sel_getName(_cmd), coder];
+        return nil;
+    }
+
+    _name = [[coder decodeObjectForKey: @"NSCursorName"] copy];
+    _image = [[coder decodeObjectForKey: @"NSImage"] retain];
+    if ([coder containsValueForKey: @"NSHotSpot"])
+        _hotSpot = [coder decodePointForKey: @"NSHotSpot"];
+    _isSetOnMouseEntered = [coder decodeBoolForKey: @"NSOnMouseEntered"];
+    _isSetOnMouseExited = [coder decodeBoolForKey: @"NSOnMouseExited"];
+
+    if (_name != nil)
+        _platformCursor = NSPlatformCreateCursorImpWithName(_name);
+    else if (_image != nil)
+        _platformCursor = NSPlatformCreateCursorImpWithImage(_image, _hotSpot);
     return self;
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"TODO: support unkeyed encoding in NSCursor"];
+        return;
+    }
+
+    [coder encodeObject: _name forKey: @"NSCursorName"];
+    [coder encodeObject: _image forKey: @"NSImage"];
+    [coder encodePoint: _hotSpot forKey: @"NSHotSpot"];
+    [coder encodeBool: _isSetOnMouseEntered forKey: @"NSOnMouseEntered"];
+    [coder encodeBool: _isSetOnMouseExited forKey: @"NSOnMouseExited"];
 }
 
 - initWithName: (NSString *) name {
+    _name = [name copy];
     _platformCursor = NSPlatformCreateCursorImpWithName(name);
     return self;
 }
@@ -389,6 +417,7 @@ static NSMutableArray *_cursorStack = nil;
 
 - (void) dealloc {
     [_image release];
+    [_name release];
     NSPlatformReleaseCursorImp(_platformCursor);
     [super dealloc];
 }
@@ -418,11 +447,19 @@ static NSMutableArray *_cursorStack = nil;
 }
 
 - (void) mouseEntered: (NSEvent *) event {
-    NSUnimplementedMethod();
+    if (_isSetOnMouseEntered)
+        [self set];
+    else if (!_isSetOnMouseExited)
+        [self push];
 }
 
 - (void) mouseExited: (NSEvent *) event {
-    NSUnimplementedMethod();
+    if (_isSetOnMouseExited)
+        [self set];
+    else if (!_isSetOnMouseEntered)
+        [self pop];
+    else
+        [[NSCursor arrowCursor] set];
 }
 
 - (void) pop {

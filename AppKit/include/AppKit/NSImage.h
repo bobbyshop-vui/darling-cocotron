@@ -114,6 +114,8 @@ typedef enum {
 - (BOOL) isDataRetained;
 - delegate;
 
+- (void) encodeWithCoder: (NSCoder *) coder;
+
 - (BOOL) setName: (NSString *) value;
 - (void) setSize: (NSSize) value;
 - (void) setBackgroundColor: (NSColor *) value;

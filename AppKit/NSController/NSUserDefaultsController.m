@@ -124,7 +124,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 + (void) awakeAfterUsingCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if ([coder allowsKeyedCoding] &&
+        [coder decodeBoolForKey: @"NSSharedInstance"])
+        [self sharedUserDefaultsController];
+}
+
+- (id) awakeAfterUsingCoder: (NSCoder *) coder {
+    // initWithCoder: already substitutes the shared instance when the archive
+    // marks this controller as shared.
+    return self;
 }
 
 @end

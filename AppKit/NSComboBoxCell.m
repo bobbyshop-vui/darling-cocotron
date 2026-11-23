@@ -23,11 +23,31 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSGraphicsStyle.h>
 #import <AppKit/NSRaise.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import <Foundation/NSNull.h>
+
+@interface NSObject (NSComboBoxCellDataSourceMethods)
+- (NSInteger) numberOfItemsInComboBoxCell: (NSComboBoxCell *) cell;
+- (id) comboBoxCell: (NSComboBoxCell *) cell
+        objectValueForItemAtIndex: (NSInteger) index;
+@end
 
 @implementation NSComboBoxCell
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    [super encodeWithCoder: coder];
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"%@ only supports keyed coding", [self class]];
+        return;
+    }
+
+    [coder encodeObject: _dataSource forKey: @"NSDataSource"];
+    [coder encodeObject: _objectValues forKey: @"NSPopUpListData"];
+    [coder encodeInt: (int) _numberOfVisibleItems
+              forKey: @"NSVisibleItemCount"];
+    [coder encodeBool: _usesDataSource forKey: @"NSUsesDataSource"];
+    [coder encodeBool: _hasVerticalScroller forKey: @"NSHasVerticalScroller"];
+    [coder encodeBool: _completes forKey: @"NSCompletes"];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -214,7 +234,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) deselectItemAtIndex: (NSInteger) index {
-    NSUnimplementedMethod();
+    if (index < 0 || index != [self indexOfSelectedItem])
+        return;
+
+    [self setObjectValue: nil];
+    [[self controlView] setNeedsDisplay: YES];
 }
 
 - (void) scrollItemAtIndexToTop: (NSInteger) index {
@@ -230,7 +254,30 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) reloadData {
-    NSUnimplementedMethod();
+    if (_usesDataSource &&
+        [_dataSource respondsToSelector:
+                @selector(numberOfItemsInComboBoxCell:)] &&
+        [_dataSource respondsToSelector:
+                @selector(comboBoxCell:objectValueForItemAtIndex:)]) {
+        NSInteger count = [_dataSource numberOfItemsInComboBoxCell: self];
+        if (count < 0)
+            count = 0;
+
+        NSMutableArray *values = [NSMutableArray arrayWithCapacity:
+                (NSUInteger) count];
+        NSInteger index;
+        for (index = 0; index < count; index++) {
+            id value = [_dataSource comboBoxCell: self
+                    objectValueForItemAtIndex: index];
+            [values addObject: value != nil ? value : [NSNull null]];
+        }
+        if (_objectValues == nil)
+            _objectValues = [NSMutableArray new];
+        [_objectValues setArray: values];
+    }
+
+    _buttonEnabled = ([_objectValues count] > 0);
+    [[self controlView] setNeedsDisplay: YES];
 }
 
 - (NSString *) completedString: (NSString *) string {

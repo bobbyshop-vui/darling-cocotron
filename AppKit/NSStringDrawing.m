@@ -79,7 +79,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) drawWithRect: (NSRect) rect options: (NSStringDrawingOptions) options {
-    NSUnimplementedMethod();
+    if ((options & NSStringDrawingUsesLineFragmentOrigin) &&
+        (options & NSStringDrawingTruncatesLastVisibleLine)) {
+        [self _clipAndDrawInRect: rect truncatingTail: YES];
+    } else {
+        [[NSStringDrawer sharedStringDrawer] drawAttributedString: self
+                                                           inRect: rect];
+    }
 }
 
 @end

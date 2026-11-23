@@ -54,12 +54,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return _isLoaded;
 }
 
-/*
--(NSImage *)image {
-   NSUnimplementedMethod();
-   return nil;
+- (NSImage *) image {
+    return [super image];
 }
-*/
 
 - (NSImage *) alternateImage {
     return _alternateImage;
@@ -74,7 +71,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setImage: (NSImage *) value {
-    NSUnimplementedMethod();
+    [super setImage: value];
 }
 
 - (void) setAlternateImage: (NSImage *) value {

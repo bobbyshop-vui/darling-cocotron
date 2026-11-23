@@ -18,6 +18,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSTextAttachmentCell.h>
+#import <AppKit/NSTextAttachment.h>
+#import <AppKit/NSImage.h>
 
 @implementation NSTextAttachmentCell
 
@@ -30,13 +32,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSSize) cellSize {
-    NSUnimplementedMethod();
-    return NSMakeSize(0, 0);
+    NSRect bounds = [_attachment bounds];
+    if (bounds.size.width != 0 || bounds.size.height != 0)
+        return bounds.size;
+
+    NSImage *image = [self image];
+    if (image == nil)
+        image = [_attachment image];
+    return (image != nil) ? [image size] : NSZeroSize;
 }
 
 - (NSPoint) cellBaselineOffset {
-    NSUnimplementedMethod();
-    return NSMakePoint(0, 0);
+    return NSZeroPoint;
 }
 
 - (NSRect) cellFrameForTextContainer: (NSTextContainer *) textContainer
@@ -44,8 +51,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                        glyphPosition: (NSPoint) glyphPoint
                       characterIndex: (unsigned) characterIndex
 {
-    NSUnimplementedMethod();
-    return NSMakeRect(0, 0, 0, 0);
+    NSRect bounds = [_attachment bounds];
+    NSSize size = [self cellSize];
+
+    if (bounds.size.width == 0 && bounds.size.height == 0)
+        bounds.size = size;
+
+    bounds.origin.x += glyphPoint.x;
+    bounds.origin.y += glyphPoint.y;
+    return bounds;
 }
 
 - (BOOL) wantsToTrackMouse {
@@ -66,8 +80,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         atCharacterIndex: (unsigned) characterIndex
             untilMouseUp: (BOOL) untilMouseUp
 {
-    NSUnimplementedMethod();
-    return NO;
+    return [super trackMouse: event
+                      inRect: rect
+                      ofView: view
+                untilMouseUp: untilMouseUp];
 }
 
 - (BOOL) trackMouse: (NSEvent *) event
@@ -75,15 +91,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
               ofView: (NSView *) view
         untilMouseUp: (BOOL) untilMouseUp
 {
-    NSUnimplementedMethod();
-    return NO;
+    return [super trackMouse: event
+                      inRect: rect
+                      ofView: view
+                untilMouseUp: untilMouseUp];
 }
 
 - (void) highlight: (BOOL) highlight
          withFrame: (NSRect) frame
             inView: (NSView *) view
 {
-    NSUnimplementedMethod();
+    [super highlight: highlight withFrame: frame inView: view];
 }
 
 - (void) drawWithFrame: (NSRect) frame
@@ -91,18 +109,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         characterIndex: (unsigned) characterIndex
          layoutManager: (NSLayoutManager *) layoutManager
 {
-    NSUnimplementedMethod();
+    [self drawWithFrame: frame inView: view characterIndex: characterIndex];
 }
 
 - (void) drawWithFrame: (NSRect) frame
                 inView: (NSView *) view
         characterIndex: (unsigned) characterIndex
 {
-    NSUnimplementedMethod();
+    [self drawWithFrame: frame inView: view];
 }
 
 - (void) drawWithFrame: (NSRect) frame inView: (NSView *) view {
-    NSUnimplementedMethod();
+    NSImage *image = [self image];
+    if (image == nil)
+        image = [_attachment image];
+
+    if (image != nil)
+        [image drawInRect: frame];
+    else
+        [super drawWithFrame: frame inView: view];
 }
 
 @end

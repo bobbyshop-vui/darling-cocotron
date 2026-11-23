@@ -35,7 +35,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @synthesize identifier = _identifier;
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"%@ only supports keyed coding", [self class]];
+        return;
+    }
+
+    [coder encodeObject: _identifier forKey: @"NSIdentifier"];
+    [coder encodeObject: _headerCell forKey: @"NSHeaderCell"];
+    [coder encodeObject: _dataCell forKey: @"NSDataCell"];
+    [coder encodeFloat: (float) _width forKey: @"NSWidth"];
+    [coder encodeFloat: (float) _minWidth forKey: @"NSMinWidth"];
+    [coder encodeFloat: (float) _maxWidth forKey: @"NSMaxWidth"];
+    [coder encodeBool: _isResizable forKey: @"NSIsResizeable"];
+    [coder encodeBool: _isEditable forKey: @"NSIsEditable"];
 }
 
 - initWithCoder: (NSCoder *) coder {

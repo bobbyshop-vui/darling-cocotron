@@ -29,11 +29,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (id) itemAtRow: (NSInteger) row;
 @end
 
+@interface NSSavePanel ()
+- (void) _completeWithResult: (NSModalResponse) result;
+@end
+
 @implementation NSSavePanel
 
 @synthesize showsHiddenFiles=_showsHiddenFiles;
 
 - (id) resetToDefaultValues {
+    if (_completionHandler != nil)
+        [self _completeWithResult: (NSModalResponse) NSCancelButton];
     _dialogTitle = @"Save";
     _nameFieldStringValue = @"";
     _filename = @"";
@@ -42,6 +48,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _treatsFilePackagesAsDirectories = NO;
     _accessoryView = nil;
     _showsHiddenFiles = false;
+    _canCreateDirectories = YES;
+    _allowsOtherFileTypes = YES;
+    _usesModalCompletionHandler = NO;
+    [_completionHandler release];
+    _completionHandler = nil;
     [_nameFieldLabel release];
     _nameFieldLabel = nil;
     _canSelectHiddenExtension = NO;
@@ -83,6 +94,7 @@ static NSSavePanel *_newPanel = nil;
     [_requiredFileType release];
     [_accessoryView release];
     [_nameFieldLabel release];
+    [_completionHandler release];
     [super dealloc];
 }
 
@@ -129,7 +141,12 @@ static NSSavePanel *_newPanel = nil;
     NSURL *url = [outline itemAtRow: [outline selectedRow]];
     [self _setFilename: [url path]];
 
-    [NSApp stopModalWithCode: NSOKButton];
+    if (_completionHandler != nil && !_usesModalCompletionHandler) {
+        [self orderOut: nil];
+        [self _completeWithResult: (NSModalResponse) NSOKButton];
+    } else {
+        [NSApp stopModalWithCode: NSOKButton];
+    }
 }
 
 - (IBAction) cancel: (id) sender {
@@ -177,11 +194,49 @@ static NSSavePanel *_newPanel = nil;
 }
 
 - (IBAction) _cancel: (id) sender {
-    [NSApp stopModalWithCode: NSCancelButton];
+    if (_completionHandler != nil && !_usesModalCompletionHandler) {
+        [self orderOut: nil];
+        [self _completeWithResult: (NSModalResponse) NSCancelButton];
+    } else {
+        [NSApp stopModalWithCode: NSCancelButton];
+    }
 }
 
 - (void) beginWithCompletionHandler: (void (^)(NSModalResponse result)) handler {
-    NSUnimplementedMethod();
+    if (_completionHandler != nil)
+        [self _completeWithResult: (NSModalResponse) NSCancelButton];
+    [_completionHandler release];
+    _completionHandler = [handler copy];
+
+    if ([[NSDisplay currentDisplay]
+                implementsCustomPanelForClass: [self class]]) {
+        // Custom panels only expose a synchronous runModal hook in Cocotron.
+        _usesModalCompletionHandler = YES;
+        NSInteger result = [self runModal];
+        _usesModalCompletionHandler = NO;
+        [self _completeWithResult: (NSModalResponse) result];
+    } else {
+        _usesModalCompletionHandler = NO;
+        [self makeKeyAndOrderFront: nil];
+    }
+}
+
+- (void) _completeWithResult: (NSModalResponse) result {
+    void (^handler)(NSModalResponse) = [_completionHandler copy];
+    [_completionHandler release];
+    _completionHandler = nil;
+    if (handler != nil) {
+        handler(result);
+        [handler release];
+    }
+}
+
+- (void) close {
+    BOOL shouldComplete =
+            _completionHandler != nil && !_usesModalCompletionHandler;
+    [super close];
+    if (shouldComplete && _completionHandler != nil)
+        [self _completeWithResult: (NSModalResponse) NSCancelButton];
 }
 
 - (NSInteger) runModalForDirectory: (NSString *) directory
@@ -300,7 +355,11 @@ static NSSavePanel *_newPanel = nil;
 }
 
 - (void) setCanCreateDirectories: (BOOL) value {
-    NSUnimplementedMethod();
+    _canCreateDirectories = value;
+}
+
+- (BOOL) canCreateDirectories {
+    return _canCreateDirectories;
 }
 
 - (void) setAllowedFileTypes: (NSArray *) value {
@@ -313,7 +372,11 @@ static NSSavePanel *_newPanel = nil;
 }
 
 - (void) setAllowsOtherFileTypes: (BOOL) value {
-    NSUnimplementedMethod();
+    _allowsOtherFileTypes = value;
+}
+
+- (BOOL) allowsOtherFileTypes {
+    return _allowsOtherFileTypes;
 }
 
 - (void) beginSheetForDirectory: (NSString *) path

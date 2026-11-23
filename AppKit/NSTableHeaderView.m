@@ -54,8 +54,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSInteger) draggedColumn {
-    NSUnimplementedMethod();
-    return -1;
+    // This implementation has no column-reordering drag session in progress.
+    return NSNotFound;
 }
 
 - (CGFloat) draggedDistance {

@@ -503,6 +503,8 @@ static const CGFloat kImageMargin = 2.;
 }
 
 - (NSString *) alternateTitle {
+    if ([_alternateTitle isKindOfClass: [NSAttributedString class]])
+        return [(NSAttributedString *) _alternateTitle string];
     return _alternateTitle;
 }
 
@@ -546,6 +548,9 @@ static const CGFloat kImageMargin = 2.;
 }
 
 - (NSAttributedString *) attributedAlternateTitle {
+    if ([_alternateTitle isKindOfClass: [NSAttributedString class]])
+        return (NSAttributedString *) _alternateTitle;
+
     NSMutableDictionary *attributes = [NSMutableDictionary dictionary];
     NSMutableParagraphStyle *paraStyle =
             [[[NSParagraphStyle defaultParagraphStyle] mutableCopy]
@@ -566,7 +571,10 @@ static const CGFloat kImageMargin = 2.;
         [attributes setObject: [NSColor disabledControlTextColor]
                        forKey: NSForegroundColorAttributeName];
 
-    return [[[NSAttributedString alloc] initWithString: [self alternateTitle]
+    NSString *alternateTitle = [self alternateTitle];
+    if (alternateTitle == nil)
+        alternateTitle = @"";
+    return [[[NSAttributedString alloc] initWithString: alternateTitle
                                             attributes: attributes]
             autorelease];
 }
@@ -678,7 +686,9 @@ static const CGFloat kImageMargin = 2.;
 }
 
 - (void) setAttributedAlternateTitle: (NSAttributedString *) title {
-    NSUnimplementedMethod();
+    title = [title copy];
+    [_alternateTitle release];
+    _alternateTitle = (NSString *) title;
 }
 
 - (void) setHighlightsBy: (int) type {
@@ -793,6 +803,7 @@ static const CGFloat kImageMargin = 2.;
 
 - (void) setShowsBorderOnlyWhileMouseInside: (BOOL) show {
     _showsBorderOnlyWhileMouseInside = show;
+    [[self controlView] setNeedsDisplay: YES];
 }
 
 - (void) setSound: (NSSound *) sound {
@@ -1500,7 +1511,8 @@ static NSSize scaledImageSizeInFrameSize(NSSize imageSize, NSSize frameSize,
     if ([self isTransparent])
         return;
 
-    [self drawBezelWithFrame: frame inView: control];
+    if (!_showsBorderOnlyWhileMouseInside || (_bcFlags & 1))
+        [self drawBezelWithFrame: frame inView: control];
     [self drawInteriorWithFrame: frame inView: control];
 }
 
@@ -1511,11 +1523,19 @@ static NSSize scaledImageSizeInFrameSize(NSSize imageSize, NSSize frameSize,
 }
 
 - (void) mouseEntered: (NSEvent *) event {
-    NSUnimplementedMethod();
+    (void) event;
+    if (!(_bcFlags & 1)) {
+        _bcFlags |= 1;
+        [[self controlView] setNeedsDisplay: YES];
+    }
 }
 
 - (void) mouseExited: (NSEvent *) event {
-    NSUnimplementedMethod();
+    (void) event;
+    if (_bcFlags & 1) {
+        _bcFlags &= ~((NSUInteger) 1);
+        [[self controlView] setNeedsDisplay: YES];
+    }
 }
 
 @end

@@ -22,7 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSObject.h>
 #import <Foundation/NSString.h>
 
-@class NSMutableDictionary, NSError, NSSet, NSMutableSet, NSNotification, NSUndoManager, NSMapTable;
+@class NSMutableArray, NSMutableDictionary, NSError, NSSet, NSMutableSet, NSNotification, NSUndoManager, NSMapTable;
 @class NSManagedObject, NSManagedObjectID, NSFetchRequest, NSPersistentStore,
         NSPersistentStoreCoordinator;
 
@@ -51,6 +51,7 @@ COREDATA_EXPORT NSString *const NSPersistentStoreSaveConflictsErrorKey;
     NSMutableSet *_insertedObjects;
     NSMutableSet *_updatedObjects;
     NSMutableSet *_deletedObjects;
+    NSMutableArray *_editors;
 
     NSMapTable *_objectIdToObject;
 

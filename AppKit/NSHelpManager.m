@@ -19,7 +19,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSHelpManager.h>
 #import <AppKit/NSRaise.h>
+#import <AppKit/NSWorkspace.h>
 #import <Foundation/NSMapTable.h>
+#import <Foundation/NSBundle.h>
+#import <Foundation/NSURL.h>
 
 @implementation NSHelpManager
 
@@ -74,7 +77,56 @@ static BOOL _isContextHelpModeActive = NO;
 }
 
 - (void) openHelpAnchor: (NSString *) anchor inBook: (NSString *) bookName {
-    NSUnimplementedMethod();
+    NSBundle *mainBundle = [NSBundle mainBundle];
+    NSDictionary *mainInfo = [mainBundle infoDictionary];
+    NSString *helpFolderName = [mainInfo objectForKey: @"CFBundleHelpBookFolder"];
+    NSString *helpFolder = (helpFolderName != nil)
+                                   ? [mainBundle pathForResource: helpFolderName
+                                                          ofType: nil]
+                                   : nil;
+    NSBundle *helpBundle = (helpFolder != nil)
+                                   ? [NSBundle bundleWithPath: helpFolder]
+                                   : nil;
+
+    NSString *requestedBook = (bookName != nil)
+                                      ? bookName
+                                      : [mainInfo objectForKey:
+                                                 @"CFBundleHelpBookName"];
+    if ([requestedBook length] > 0 && helpFolder != nil) {
+        NSString *bookPath = [mainBundle pathForResource: requestedBook
+                                                 ofType: @"help"
+                                            inDirectory: helpFolder];
+        if (bookPath == nil)
+            bookPath = [mainBundle pathForResource: requestedBook
+                                            ofType: nil
+                                       inDirectory: helpFolder];
+        if (bookPath != nil)
+            helpBundle = [NSBundle bundleWithPath: bookPath];
+    }
+
+    if (helpBundle == nil)
+        return;
+
+    NSString *tocName = [[helpBundle infoDictionary]
+            objectForKey: @"CFBundleHelpTOCFile"];
+    NSString *helpPath = (tocName != nil)
+                                 ? [helpBundle pathForResource: tocName
+                                                       ofType: nil]
+                                 : nil;
+    if (helpPath == nil)
+        helpPath = [helpBundle pathForResource: @"index" ofType: @"html"];
+    if (helpPath == nil)
+        return;
+
+    NSString *urlString = [[NSURL fileURLWithPath: helpPath] absoluteString];
+    if ([anchor length] > 0) {
+        NSString *escapedAnchor = [anchor
+                stringByAddingPercentEscapesUsingEncoding: NSUTF8StringEncoding];
+        urlString = [urlString stringByAppendingFormat: @"#%@", escapedAnchor];
+    }
+    NSURL *helpURL = [NSURL URLWithString: urlString];
+    if (helpURL != nil)
+        [[NSWorkspace sharedWorkspace] openURL: helpURL];
 }
 
 @end

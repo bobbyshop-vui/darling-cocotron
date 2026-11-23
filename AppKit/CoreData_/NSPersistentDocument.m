@@ -60,7 +60,12 @@ NSString *const NSDisplayNameBindingOption = @"NSDisplayNameBindingOption";
 - (void) setManagedObjectContext:
         (NSManagedObjectContext *) managedObjectContext
 {
-    NSUnimplementedMethod();
+    if (managedObjectContext == _context)
+        return;
+
+    [managedObjectContext retain];
+    [_context release];
+    _context = managedObjectContext;
 }
 
 - (BOOL) configurePersistentStoreCoordinatorForURL: (NSURL *) url
@@ -92,24 +97,67 @@ NSString *const NSDisplayNameBindingOption = @"NSDisplayNameBindingOption";
 }
 
 - (BOOL) isDocumentEdited {
-    NSUnimplementedMethod();
-    return NO;
+    return [super isDocumentEdited] || [_context hasChanges];
 }
 
 - (BOOL) readFromURL: (NSURL *) absoluteURL
               ofType: (NSString *) typeName
                error: (NSError **) outError
 {
-    NSUnimplementedMethod();
-    return NO;
+    if (absoluteURL == nil || ![absoluteURL isFileURL] || _context == nil) {
+        if (outError != NULL)
+            *outError = [NSError errorWithDomain: NSCocoaErrorDomain
+                                             code: 1
+                                         userInfo: [NSDictionary
+                                                 dictionaryWithObject:
+                                                         @"A file URL and a managed object context are required to read a persistent document."
+                                                     forKey:
+                                                         NSLocalizedDescriptionKey]];
+        return NO;
+    }
+
+    NSPersistentStoreCoordinator *coordinator =
+            [_context persistentStoreCoordinator];
+    if (coordinator == nil) {
+        if (outError != NULL)
+            *outError = [NSError errorWithDomain: NSCocoaErrorDomain
+                                             code: 1
+                                         userInfo: [NSDictionary
+                                                 dictionaryWithObject:
+                                                         @"The managed object context has no persistent store coordinator."
+                                                     forKey:
+                                                         NSLocalizedDescriptionKey]];
+        return NO;
+    }
+
+    [_context reset];
+    NSArray *oldStores = [[coordinator persistentStores] copy];
+    for (id store in oldStores) {
+        if (![coordinator removePersistentStore: store error: outError]) {
+            [oldStores release];
+            return NO;
+        }
+    }
+    [oldStores release];
+
+    if ([coordinator addPersistentStoreWithType: NSXMLStoreType
+                                  configuration: nil
+                                            URL: absoluteURL
+                                        options: nil
+                                          error: outError] == nil)
+        return NO;
+    return YES;
 }
 
 - (BOOL) revertToContentsOfURL: (NSURL *) inAbsoluteURL
                         ofType: (NSString *) inTypeName
                          error: (NSError **) outError
 {
-    NSUnimplementedMethod();
-    return NO;
+    if (![self readFromURL: inAbsoluteURL ofType: inTypeName error: outError])
+        return NO;
+
+    [self updateChangeCount: NSChangeCleared];
+    return YES;
 }
 
 - (BOOL) writeToURL: (NSURL *) absoluteURL
@@ -118,8 +166,64 @@ NSString *const NSDisplayNameBindingOption = @"NSDisplayNameBindingOption";
         originalContentsURL: (NSURL *) absoluteOriginalContentsURL
                       error: (NSError **) error
 {
-    NSUnimplementedMethod();
-    return NO;
+    if (absoluteURL == nil || ![absoluteURL isFileURL] || _context == nil) {
+        if (error != NULL)
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                          code: 1
+                                      userInfo: [NSDictionary
+                                              dictionaryWithObject:
+                                                      @"A file URL and a managed object context are required to write a persistent document."
+                                                  forKey:
+                                                      NSLocalizedDescriptionKey]];
+        return NO;
+    }
+
+    NSPersistentStoreCoordinator *coordinator =
+            [_context persistentStoreCoordinator];
+    if (coordinator == nil) {
+        if (error != NULL)
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                          code: 1
+                                      userInfo: [NSDictionary
+                                              dictionaryWithObject:
+                                                      @"The managed object context has no persistent store coordinator."
+                                                  forKey:
+                                                      NSLocalizedDescriptionKey]];
+        return NO;
+    }
+
+    id store = absoluteOriginalContentsURL != nil
+                       ? [coordinator persistentStoreForURL:
+                                             absoluteOriginalContentsURL]
+                       : nil;
+    if (store == nil && [[coordinator persistentStores] count] == 1)
+        store = [[coordinator persistentStores] objectAtIndex: 0];
+
+    if (store == nil) {
+        store = [coordinator addPersistentStoreWithType: NSXMLStoreType
+                                          configuration: nil
+                                                    URL: absoluteURL
+                                                options: nil
+                                                  error: error];
+        if (store == nil)
+            return NO;
+    } else {
+        NSURL *storeURL = [coordinator URLForPersistentStore: store];
+        if (![storeURL isEqual: absoluteURL] &&
+            ![coordinator setURL: absoluteURL forPersistentStore: store]) {
+            if (error != NULL)
+                *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                              code: 1
+                                          userInfo: [NSDictionary
+                                                  dictionaryWithObject:
+                                                          @"The persistent store could not be moved to the requested URL."
+                                                      forKey:
+                                                          NSLocalizedDescriptionKey]];
+            return NO;
+        }
+    }
+
+    return [_context save: error];
 }
 
 @end

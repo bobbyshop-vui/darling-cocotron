@@ -39,6 +39,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @interface NSTypesetter_concrete (forward)
 - (void) _updateBidiLevelsForRange: (NSRange) range;
+- (void) insertGlyphs: (const NSGlyph *) glyphs
+                length: (NSUInteger) length
+       forStartingGlyphAtIndex: (NSUInteger) glyphIndex
+                characterIndex: (NSUInteger) characterIndex;
 @end
 
 @implementation NSTypesetter_concrete
@@ -1112,7 +1116,10 @@ static void loadGlyphAndCharacterCacheForLocation(NSTypesetter_concrete *self,
         forStartingGlyphAtIndex: (NSUInteger) glyphIndex
                  characterIndex: (NSUInteger) characterIndex
 {
-    NSUnimplementedMethod();
+    [_layoutManager insertGlyphs: glyphs
+                         length: length
+        forStartingGlyphAtIndex: glyphIndex
+                 characterIndex: characterIndex];
 }
 
 - (void) setIntAttribute: (NSInteger) intAttribute
