@@ -4735,3 +4735,56 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 @end
+
+// NSTextInputClient / NSTextInput.  Xcode's field editors are NSTextViews;
+// without these methods the first keystroke aborted the process with
+// "unrecognized selector".  Darling has no input method support, so marked
+// text is never used and plain insertion goes through -insertText:.
+@implementation NSTextView (DarlingTextInputClient)
+
+- (BOOL) hasMarkedText {
+    return NO;
+}
+
+- (NSRange) markedRange {
+    return NSMakeRange(NSNotFound, 0);
+}
+
+- (void) unmarkText {
+}
+
+- (NSArray *) validAttributesForMarkedText {
+    return [NSArray array];
+}
+
+- (NSAttributedString *) attributedSubstringFromRange: (NSRange) range {
+    return [[self textStorage] attributedSubstringFromRange: range];
+}
+
+- (NSAttributedString *) attributedSubstringForProposedRange: (NSRange) range
+                                                 actualRange: (NSRangePointer) actualRange
+{
+    return [[self textStorage] attributedSubstringFromRange: range];
+}
+
+- (void) insertText: (id) string replacementRange: (NSRange) replacementRange {
+    [self insertText: string];
+}
+
+- (void) setMarkedText: (id) string
+         selectedRange: (NSRange) selectedRange
+      replacementRange: (NSRange) replacementRange
+{
+}
+
+- (NSRect) firstRectForCharacterRange: (NSRange) range
+                          actualRange: (NSRangePointer) actualRange
+{
+    return [self firstRectForCharacterRange: range];
+}
+
+- (NSUInteger) characterIndexForPoint: (NSPoint) point {
+    return NSNotFound;
+}
+
+@end

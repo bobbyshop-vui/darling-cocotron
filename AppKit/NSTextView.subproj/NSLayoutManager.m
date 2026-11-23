@@ -3159,3 +3159,17 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
 }
 
 @end
+
+// NSGlyphStorage.  The layout manager is asked for its text storage and glyph
+// options by the text system; these are required members of the protocol.
+@implementation NSLayoutManager (DarlingGlyphStorage)
+
+- (NSAttributedString *) attributedString {
+    return _textStorage;
+}
+
+- (NSUInteger) layoutOptions {
+    return 0;
+}
+
+@end

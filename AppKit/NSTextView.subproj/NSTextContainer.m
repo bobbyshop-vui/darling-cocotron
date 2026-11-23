@@ -280,3 +280,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 @end
+
+// NSTextLayoutOrientationProvider.
+@implementation NSTextContainer (DarlingLayoutOrientation)
+
+- (NSTextLayoutOrientation) layoutOrientation {
+    return NSTextLayoutOrientationHorizontal;
+}
+
+@end

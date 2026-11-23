@@ -1285,3 +1285,22 @@ static Class _rulerViewClass = nil;
 }
 
 @end
+#import <objc/runtime.h>
+
+// NSTextFinderBarContainer.  Xcode's find bar asks the scroll view for its
+// find bar view; an unimplemented getter aborted the app when the find bar
+// was shown.
+static char DarlingFindBarViewKey;
+
+@implementation NSScrollView (DarlingTextFinderBar)
+
+- (NSView *) findBarView {
+    return objc_getAssociatedObject(self, &DarlingFindBarViewKey);
+}
+
+- (void) setFindBarView: (NSView *) findBarView {
+    objc_setAssociatedObject(self, &DarlingFindBarViewKey, findBarView,
+                             OBJC_ASSOCIATION_RETAIN);
+}
+
+@end

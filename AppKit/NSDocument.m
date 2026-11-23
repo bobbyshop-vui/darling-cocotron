@@ -1769,3 +1769,13 @@ static int untitled_document_number = 0;
 }
 
 @end
+
+// NSFilePresenter.  Xcode registers its documents with the file coordinator;
+// the presenter is asked for its URL, so answer instead of aborting.
+@implementation NSDocument (DarlingFilePresenter)
+
+- (NSURL *) presentedItemURL {
+    return [self fileURL];
+}
+
+@end
