@@ -19,11 +19,33 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import "NSCustomResource.h"
 #import <AppKit/NSImage.h>
+#import <AppKit/NSSound.h>
+#import <Foundation/NSBundle.h>
 #import <Foundation/NSException.h>
+#import <Foundation/NSURL.h>
 #import <Foundation/NSKeyedArchiver.h>
 #import <Foundation/NSString.h>
 
+extern NSBundle *NSNibCurrentLoadingBundle(void);
+
 @implementation NSCustomResource
+
+/*
+ * The bundles a named resource is looked up in: the bundle the nib is being
+ * loaded from first (Xcode keeps its UI images next to its nibs in IDEKit and
+ * other frameworks), then the main bundle and AppKit itself.
+ */
+static NSArray *NSCustomResourceBundles(void) {
+    NSMutableArray *bundles = [NSMutableArray array];
+    NSBundle *nibBundle = NSNibCurrentLoadingBundle();
+
+    if (nibBundle != nil)
+        [bundles addObject: nibBundle];
+    if ([NSBundle mainBundle] != nil &&
+        ![bundles containsObject: [NSBundle mainBundle]])
+        [bundles addObject: [NSBundle mainBundle]];
+    return bundles;
+}
 
 - initWithCoder: (NSCoder *) coder {
     if ([coder allowsKeyedCoding]) {
@@ -67,6 +89,94 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     }
 }
 
+/*
+ * IDEInterfaceBuilderKit's -ibSwizzledAwakeAfterUsingCoder: (which replaces
+ * this class's -awakeAfterUsingCoder: inside Xcode) dispatches on -className
+ * and then calls one of these loaders on the receiver.  They are part of the
+ * real AppKit class.  Each returns an autoreleased object.
+ */
+- (NSImage *) loadImageWithName: (NSString *) name {
+    NSImage *image = nil;
+
+    if (name == nil)
+        return nil;
+
+    for (NSBundle *bundle in NSCustomResourceBundles()) {
+        NSString *path = [bundle pathForImageResource: name];
+
+        if (path != nil) {
+            image = [[[NSImage alloc] initWithContentsOfFile: path]
+                    autorelease];
+            if (image != nil) {
+                [image setName: name];
+                break;
+            }
+        }
+    }
+
+    if (image == nil)
+        image = [NSImage imageNamed: name];
+
+    if (image == nil) {
+        /*
+         * Most of Xcode's images live in compiled asset catalogs (Assets.car),
+         * which we cannot read yet.  Returning nil would make the unarchiver
+         * fail the whole nib, so hand back an empty, named placeholder the
+         * way AppKit does for a missing image in a nib.
+         */
+        NSLog(@"NSCustomResource: could not find image named '%@'", name);
+        image = [[[NSImage alloc] initWithSize: NSMakeSize(0, 0)] autorelease];
+        [image setName: name];
+    }
+
+    if ([name hasSuffix: @"Template"])
+        [image setTemplate: YES];
+
+    return image;
+}
+
+- (NSSound *) loadSoundWithName: (NSString *) name {
+    NSSound *sound;
+
+    if (name == nil)
+        return nil;
+
+    for (NSBundle *bundle in NSCustomResourceBundles()) {
+        NSString *path = [bundle pathForSoundResource: name];
+
+        if (path != nil) {
+            sound = [[[NSSound alloc] initWithContentsOfFile: path
+                                                 byReference: YES]
+                    autorelease];
+            if (sound != nil)
+                return sound;
+        }
+    }
+
+    return [NSSound soundNamed: name];
+}
+
+- (id) loadCIImageWithName: (NSString *) name {
+    Class ciImageClass = NSClassFromString(@"CIImage");
+
+    if (name == nil || ciImageClass == Nil)
+        return nil;
+
+    for (NSBundle *bundle in NSCustomResourceBundles()) {
+        NSString *path = [bundle pathForImageResource: name];
+
+        if (path != nil &&
+            [ciImageClass respondsToSelector: @selector(imageWithContentsOfURL:)])
+        {
+            return [ciImageClass
+                    performSelector: @selector(imageWithContentsOfURL:)
+                         withObject: [NSURL fileURLWithPath: path]];
+        }
+    }
+
+    return nil;
+}
+
 - (void) dealloc {
     [_className release];
     [_resourceName release];
@@ -74,21 +184,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - awakeAfterUsingCoder: (NSCoder *) coder {
-    if ([_className isEqualToString: @"NSImage"]) {
-        NSImage *image = [NSImage imageNamed: _resourceName];
+    id result = nil;
 
-        if ([_resourceName hasSuffix: @"Template"])
-            [image setTemplate: YES];
+    if ([_className isEqualToString: @"NSImage"])
+        result = [self loadImageWithName: _resourceName];
+    else if ([_className isEqualToString: @"NSSound"])
+        result = [self loadSoundWithName: _resourceName];
+    else if ([_className isEqualToString: @"CIImage"])
+        result = [self loadCIImageWithName: _resourceName];
 
-        if (image != nil) {
-            [self release];
-            return [image retain];
-        }
+    if (result == nil) {
+        NSLog(@"Could not load %@ named '%@'", _className, _resourceName);
+        result = [[[NSImage alloc] initWithSize: NSMakeSize(0, 0)] autorelease];
     }
 
-    NSLog(@"Could not find image named '%@'", _resourceName);
-
-    return [[NSImage alloc] init];
+    [result retain];
+    [self release];
+    return result;
 }
 
 @end

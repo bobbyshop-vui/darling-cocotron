@@ -29,8 +29,48 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSTableCornerView.h>
 #import <Foundation/NSKeyedArchiver.h>
 #import <Foundation/NSURL.h>
+#import <Foundation/NSThread.h>
+#import <objc/runtime.h>
 
 NSString *const NSNibOwner = @"NSOwner";
+
+/*
+ * Real AppKit resolves a nib's named resources (NSCustomResource images,
+ * sounds) against the bundle the nib was loaded from, not just the main
+ * bundle.  Xcode's own windows live in nibs inside IDEKit.framework and friends,
+ * so we remember the nib's path and publish its enclosing bundle in the thread
+ * dictionary while it is being decoded.  NSCustomResource reads it back via
+ * NSNibCurrentLoadingBundle().
+ */
+static char NSNibPathKey;
+static NSString *const NSNibLoadingBundleKey = @"__NSNibLoadingBundle";
+
+static NSBundle *NSNibBundleForPath(NSString *path) {
+    NSString *dir = path;
+
+    while ([dir length] > 1) {
+        NSString *ext = [dir pathExtension];
+
+        if ([ext isEqualToString: @"framework"] ||
+            [ext isEqualToString: @"app"] || [ext isEqualToString: @"bundle"] ||
+            [ext isEqualToString: @"plugin"] ||
+            [ext isEqualToString: @"ideplugin"] ||
+            [ext isEqualToString: @"xcplugin"] ||
+            [ext isEqualToString: @"appex"])
+        {
+            NSBundle *bundle = [NSBundle bundleWithPath: dir];
+            if (bundle != nil)
+                return bundle;
+        }
+        dir = [dir stringByDeletingLastPathComponent];
+    }
+    return nil;
+}
+
+NSBundle *NSNibCurrentLoadingBundle(void) {
+    return [[[NSThread currentThread] threadDictionary]
+            objectForKey: NSNibLoadingBundleKey];
+}
 NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
 
 @implementation NSNib
@@ -103,6 +143,8 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
     }
 
     _allObjects = [NSMutableArray new];
+    objc_setAssociatedObject(self, &NSNibPathKey, path,
+                             OBJC_ASSOCIATION_COPY);
 
     return self;
 }
@@ -170,6 +212,14 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
     NIBDEBUG(@"instantiateNibWithExternalNameTable: %@", nameTable);
 
     NSIBObjectData *objectData;
+    NSMutableDictionary *threadDict = [[NSThread currentThread] threadDictionary];
+    id previousBundle = [[threadDict objectForKey: NSNibLoadingBundleKey] retain];
+    NSBundle *nibBundle =
+            NSNibBundleForPath(objc_getAssociatedObject(self, &NSNibPathKey));
+
+    if (nibBundle != nil)
+        [threadDict setObject: nibBundle forKey: NSNibLoadingBundleKey];
+
     @autoreleasepool {
         NSData *archiveData = _data;
         BOOL isNibArchive = NSIsNibArchive(archiveData);
@@ -177,6 +227,12 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
             archiveData = NSKeyedArchiveFromNibArchive(archiveData);
             if (archiveData == nil) {
                 NSLog(@"Unable to read NIBArchive data");
+                if (previousBundle != nil)
+                    [threadDict setObject: previousBundle
+                                   forKey: NSNibLoadingBundleKey];
+                else
+                    [threadDict removeObjectForKey: NSNibLoadingBundleKey];
+                [previousBundle release];
                 return NO;
             }
         }
@@ -220,6 +276,12 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
         if (objectData == nil) {
             [_nameTable release];
             _nameTable = nil;
+            if (previousBundle != nil)
+                [threadDict setObject: previousBundle
+                               forKey: NSNibLoadingBundleKey];
+            else
+                [threadDict removeObjectForKey: NSNibLoadingBundleKey];
+            [previousBundle release];
             return NO;
         }
 
@@ -277,6 +339,12 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
         [_nameTable release];
         _nameTable = nil;
     }
+
+    if (previousBundle != nil)
+        [threadDict setObject: previousBundle forKey: NSNibLoadingBundleKey];
+    else
+        [threadDict removeObjectForKey: NSNibLoadingBundleKey];
+    [previousBundle release];
 
     return (objectData != nil);
 }

@@ -27,4 +27,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (NSString *) resourceName;
 - (void) setResourceName: (NSString *) value;
 
+- (id) loadImageWithName: (NSString *) name;
+- (id) loadSoundWithName: (NSString *) name;
+- (id) loadCIImageWithName: (NSString *) name;
+
 @end
