@@ -60,6 +60,11 @@ COREDATA_EXPORT NSString *const NSPersistentStoreSaveConflictsErrorKey;
     BOOL _requestedProcessPendingChanges;
 }
 
+- (instancetype) initWithConcurrencyType: (NSUInteger) concurrencyType;
+
+- (void) performBlock: (void (^)(void)) block;
+- (void) performBlockAndWait: (void (^)(void)) block;
+
 - (NSPersistentStoreCoordinator *) persistentStoreCoordinator;
 - (NSUndoManager *) undoManager;
 - (BOOL) retainsRegisteredObjects;

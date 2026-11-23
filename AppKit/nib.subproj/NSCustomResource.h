@@ -24,4 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSString *_resourceName;
 }
 
+- (NSString *) resourceName;
+- (void) setResourceName: (NSString *) value;
+
 @end

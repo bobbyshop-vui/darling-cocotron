@@ -425,6 +425,7 @@ set(AppKit_sources
 	NSSharingService.m
 	MacWorkspace.m
 	NSCoder+AppKit.m
+	NSXcodeCompatibility.m
 
 	NSMovie.m
 	NSMovieView.m

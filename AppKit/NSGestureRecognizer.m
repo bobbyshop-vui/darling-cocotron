@@ -25,6 +25,14 @@
 @interface NSRotationGestureRecognizer : NSGestureRecognizer
 @end
 
+/*
+ * Not part of the public API on macOS 10.10 but present in every later AppKit.
+ * Xcode 10 links against it unconditionally, and a missing class symbol is a hard
+ * dlopen() failure (it's a non-lazy reference), so it has to exist here as well.
+ */
+@interface NSImmediateActionGestureRecognizer : NSGestureRecognizer
+@end
+
 @implementation NSGestureRecognizer
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
@@ -54,6 +62,20 @@
 @end
 
 @implementation NSMagnificationGestureRecognizer
+
+- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+{
+    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+}
+
+- (void)forwardInvocation:(NSInvocation *)anInvocation
+{
+    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+}
+
+@end
+
+@implementation NSImmediateActionGestureRecognizer
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {

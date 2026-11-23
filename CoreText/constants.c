@@ -35,3 +35,7 @@ const CFStringRef kCTFontWidthTrait = CFSTR("NSCTFontWidthTrait");
 const CFStringRef kCTFontSlantTrait = CFSTR("NSCTFontSlantTrait");
 const CFStringRef kCTFontOpenTypeFeatureTag = CFSTR("CTFeatureOpenTypeTag");
 const CFStringRef kCTFontOpenTypeFeatureValue = CFSTR("CTFeatureOpenTypeValue");
+
+/* Required by Xcode 10's DVTMarkup / SourceEditor (non-lazy binds). */
+const CFStringRef kCTRunDelegateAttributeName = CFSTR("CTRunDelegate");
+const CFStringRef kCTUnderlineColorAttributeName = CFSTR("CTUnderlineColor");

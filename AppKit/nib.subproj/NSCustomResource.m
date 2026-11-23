@@ -38,6 +38,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return self;
 }
 
+/*
+ * `-resourceName` is part of the real class and is called by
+ * IDEInterfaceBuilderKit's -ibSwizzledAwakeAfterUsingCoder: while decoding a
+ * nib.  Without it, loading Xcode's Welcome window raised
+ * "-[NSCustomResource resourceName]: unrecognized selector" and aborted.
+ */
+- (NSString *) resourceName {
+    return _resourceName;
+}
+
+- (void) setResourceName: (NSString *) value {
+    if (value != _resourceName) {
+        [_resourceName release];
+        _resourceName = [value retain];
+    }
+}
+
 - (void) dealloc {
     [_className release];
     [_resourceName release];

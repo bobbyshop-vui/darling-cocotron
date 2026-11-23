@@ -65,6 +65,39 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     return self;
 }
 
+/*
+ * The designated initialiser on macOS 10.7+.  Xcode's Core Data usage (and
+ * many modern apps) call this instead of -init, so without it the runtime
+ * raises "-[NSManagedObjectContext initWithConcurrencyType:]: unrecognized
+ * selector" and startup aborts.  The concurrency type only affects how
+ * performBlock:/performBlockAndWait: queue work; we accept it and fall back to
+ * the plain initialiser.
+ */
+- (instancetype) initWithConcurrencyType: (NSUInteger) concurrencyType {
+    (void) concurrencyType;
+    return [self init];
+}
+
+/*
+ * The block-based API.  Without any queue of our own there is no private queue
+ * to hop to, so both variants simply run the block on the calling thread.
+ * Running -performBlock: synchronously as well keeps ordering deterministic,
+ * which is what callers depend on in practice.
+ */
+- (void) performBlock: (void (^)(void)) block {
+    if (block == nil) {
+        return;
+    }
+    block();
+}
+
+- (void) performBlockAndWait: (void (^)(void)) block {
+    if (block == nil) {
+        return;
+    }
+    block();
+}
+
 - (void) dealloc {
     [_storeCoordinator release];
     [_undoManager release];
