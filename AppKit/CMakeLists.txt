@@ -68,6 +68,7 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/NSDrawer.subproj
 
 	${CMAKE_CURRENT_SOURCE_DIR}/X11.backend
+	${CMAKE_CURRENT_SOURCE_DIR}/../../lzfse/src
 
 	${X11_INCLUDE_DIR}
 	${X11_Xrandr_INCLUDE_PATH}
@@ -287,6 +288,8 @@ set(AppKit_sources
 	NSMenuItemCell+XcodeAdditions.m
 	NSObject+XcodeAdditions.m
 	NSResponder+XcodeAccessibility.m
+	NSAssetCatalog.m
+	NSAssetCatalogLZFSE.m
 	NSResponder+XcodeProtocols.m
 	NSTextView+XcodeProtocols.m
 	NSInputManager+XcodeProtocols.m
@@ -587,7 +590,7 @@ add_framework(AppKit
 		# native libraries
 		FreeType
 		fontconfig
-		jpeg png tiff
+		jpeg png tiff z
 		CoreServices
 )
 

@@ -17,6 +17,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import <AppKit/NSAssetCatalog.h>
 #import <AppKit/NSBitmapImageRep.h>
 #import <AppKit/NSBezierPath.h>
 #import <AppKit/NSCachedImageRep.h>
@@ -573,6 +574,9 @@ static NSImage *NSImageCreateStandardTemplateImage(NSString *name) {
                 }
             }
         }
+
+        if (image == nil)
+            image = [NSAssetCatalog imageNamed: name inBundles: bundles];
 
         if (image == nil)
             image = NSImageCreateStandardTemplateImage(name);
@@ -1272,7 +1276,6 @@ static NSImage *NSImageCreateStandardTemplateImage(NSString *name) {
 }
 
 - (void) cancelIncrementalLoad {
-    NSUnimplementedMethod();
 }
 
 - (NSData *) TIFFRepresentation {
@@ -1481,14 +1484,17 @@ static NSImage *NSImageCreateStandardTemplateImage(NSString *name) {
 }
 
 - (void) dissolveToPoint: (NSPoint) point fraction: (CGFloat) fraction {
-    NSUnimplementedMethod();
+    [self dissolveToPoint: point fromRect: NSZeroRect fraction: fraction];
 }
 
 - (void) dissolveToPoint: (NSPoint) point
                 fromRect: (NSRect) rect
                 fraction: (CGFloat) fraction
 {
-    NSUnimplementedMethod();
+    [self drawAtPoint: point
+             fromRect: rect
+            operation: NSCompositeSourceOver
+             fraction: fraction];
 }
 
 - (void) drawAtPoint: (NSPoint) point

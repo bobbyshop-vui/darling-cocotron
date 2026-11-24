@@ -17,6 +17,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import <AppKit/NSAssetCatalog.h>
 #import "NSCustomResource.h"
 #import <AppKit/NSImage.h>
 #import <AppKit/NSSound.h>
@@ -116,6 +117,16 @@ static NSArray *NSCustomResourceBundles(void) {
 
     if (image == nil)
         image = [NSImage imageNamed: name];
+
+    if (image == nil) {
+        // Compiled asset catalogs: the nib's bundle and the main bundle first, then every loaded
+        // framework (Xcode's nibs live in one framework and use images from another).
+        image = [NSAssetCatalog imageNamed: name inBundles: NSCustomResourceBundles()];
+        if (image == nil)
+            image = [NSAssetCatalog imageNamed: name inBundles: [NSBundle allFrameworks]];
+        if (image != nil)
+            [image setName: name];
+    }
 
     if (image == nil) {
         /*
