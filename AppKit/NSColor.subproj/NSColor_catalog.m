@@ -75,10 +75,10 @@ NSColor *NSColorGetCatalogColor(NSColorListName catalogName,
 + (NSColor *) colorWithCatalogName: (NSColorListName) catalogName
                          colorName: (NSColorName) colorName
 {
-    NSColor *color = NSColorGetCatalogColor(catalogName, colorName);
-
-    if (color == nil)
-        color = [[NSDisplay currentDisplay] colorWithName: colorName];
+    // Resolve through the display only. Looking the name up in the color list
+    // here recurses: +[NSColorList _createDefaultColorLists] builds the
+    // "System" list from [NSColor xxxColor], which lands back in this method.
+    NSColor *color = [[NSDisplay currentDisplay] colorWithName: colorName];
 
     return [[[self alloc] initWithCatalogName: catalogName
                                     colorName: colorName
