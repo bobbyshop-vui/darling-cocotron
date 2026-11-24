@@ -220,13 +220,20 @@ static GLint interpolationFromName(NSString *name) {
         return GL_LINEAR;
 }
 
-void CATexImage2DCGImage(CGImageRef image) {
+BOOL CATexImage2DCGImage(CGImageRef image) {
+    if (image == NULL)
+        return NO;
+
     size_t imageWidth = CGImageGetWidth(image);
     size_t imageHeight = CGImageGetHeight(image);
     CGBitmapInfo bitmapInfo = CGImageGetBitmapInfo(image);
 
     CGDataProviderRef provider = CGImageGetDataProvider(image);
+    if (provider == NULL)
+        return NO;
     CFDataRef data = CGDataProviderCopyData(provider);
+    if (data == NULL)
+        return NO;
     const uint8_t *pixelBytes = CFDataGetBytePtr(data);
 
     GLenum glFormat = GL_BGRA;
@@ -272,6 +279,8 @@ void CATexImage2DCGImage(CGImageRef image) {
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, imageWidth, imageHeight, 0,
                  glFormat, glType, pixelBytes);
+    CFRelease(data);
+    return YES;
 }
 
 - (void) _renderLayer: (CALayer *) layer
@@ -281,6 +290,7 @@ void CATexImage2DCGImage(CGImageRef image) {
     NSNumber *textureId = [layer _textureId];
     GLuint texture = [textureId unsignedIntValue];
     GLboolean loadPixelData = GL_FALSE;
+    BOOL hasContents = YES;
 
     if (texture == 0)
         loadPixelData = GL_TRUE;
@@ -295,7 +305,9 @@ void CATexImage2DCGImage(CGImageRef image) {
     if (loadPixelData) {
         CGImageRef image = (CGImageRef)layer.contents;
 
-        CATexImage2DCGImage(image);
+        // Layers without bitmap contents (plain container or colour layers) have
+        // nothing to upload; skip their quad but still render the sublayers.
+        hasContents = CATexImage2DCGImage(image);
 
         GLint minFilter = interpolationFromName(layer.minificationFilter);
         GLint magFilter = interpolationFromName(layer.magnificationFilter);
@@ -356,7 +368,8 @@ void CATexImage2DCGImage(CGImageRef image) {
     //  glRotatef(1,0,0,1);
     glColor4f(opacity, opacity, opacity, opacity);
 
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    if (hasContents)
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     for (CALayer *child in layer.sublayers)
         [self _renderLayer: child z: z + 1 currentTime: currentTime];
