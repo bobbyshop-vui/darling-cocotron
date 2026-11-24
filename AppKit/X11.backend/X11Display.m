@@ -999,13 +999,27 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
 }
 
 - (NSArray *) orderedWindowNumbers {
+    // X11 gives us no stacking order here: approximate it with key window first, then the main
+    // window, then the other visible windows, then the hidden ones.
     NSMutableArray *result = [NSMutableArray array];
+    NSMutableArray *rest = [NSMutableArray array];
+    NSWindow *key = [NSApp keyWindow];
+    NSWindow *main = [NSApp mainWindow];
+
+    if (key != nil)
+        [result addObject: @([key windowNumber])];
+    if (main != nil && main != key)
+        [result addObject: @([main windowNumber])];
 
     for (NSWindow *win in [NSApp windows]) {
-        [result addObject: @([win windowNumber])];
+        if (win == key || win == main)
+            continue;
+        if ([win isVisible])
+            [result addObject: @([win windowNumber])];
+        else
+            [rest addObject: @([win windowNumber])];
     }
-
-    NSUnimplementedFunction(); // (Window numbers not even remotely ordered)
+    [result addObjectsFromArray: rest];
 
     return result;
 }
