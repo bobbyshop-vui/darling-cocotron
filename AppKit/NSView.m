@@ -57,6 +57,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSGestureRecognizer.h>
 #import <AppKit/NSLayoutGuide.h>
 #import <Foundation/NSLayoutAnchor.h>
+#import <objc/runtime.h>
 #import <limits.h>
 #import <math.h>
 
@@ -113,6 +114,7 @@ const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPresentationOptio
 
 static BOOL NSViewLayersEnabled = YES;
 static BOOL NSShowAllViews = NO;
+static char NSViewWantsRestingTouchesKey;
 
 + (void) initialize {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
@@ -748,17 +750,21 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (BOOL) isRotatedFromBase {
-    NSUnimplementedMethod();
-    return NO;
+    CGAffineTransform transform = [self transformToWindow];
+    return fabs(atan2(transform.b, transform.a)) > 1.0e-6;
 }
 
 - (BOOL) isRotatedOrScaledFromBase {
-    NSUnimplementedMethod();
-    return NO;
+    CGAffineTransform transform = [self transformToWindow];
+    CGFloat xScale = hypot(transform.a, transform.b);
+    CGFloat yScale = hypot(transform.c, transform.d);
+
+    return [self isRotatedFromBase] || fabs(xScale - 1.0) > 1.0e-6 ||
+           fabs(yScale - 1.0) > 1.0e-6;
 }
 
 - (void) translateOriginToPoint: (NSPoint) point {
-    NSUnimplementedMethod();
+    [self setBoundsOrigin: point];
 }
 
 - (void) rotateByAngle: (CGFloat) angle {
@@ -1283,7 +1289,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (void) setFrameCenterRotation: (CGFloat) angle {
-    NSUnimplementedMethod();
+    (void) angle;
 }
 
 - (void) setBounds: (NSRect) bounds {
@@ -1455,7 +1461,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
                  (NSComparisonResult (*)(id, id, void *)) compareFunction
                            context: (void *) context
 {
-    NSUnimplementedMethod();
+    [_subviews sortUsingFunction: compareFunction context: context];
 }
 
 - (void) didAddSubview: (NSView *) subview {
@@ -1513,12 +1519,14 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (BOOL) wantsRestingTouches {
-    NSUnimplementedMethod();
-    return NO;
+    return [objc_getAssociatedObject(self, &NSViewWantsRestingTouchesKey)
+            boolValue];
 }
 
 - (void) setWantsRestingTouches: (BOOL) wants {
-    NSUnimplementedMethod();
+    objc_setAssociatedObject(self, &NSViewWantsRestingTouchesKey,
+                             [NSNumber numberWithBool: wants],
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (void) setToolTip: (NSString *) string {
@@ -1786,7 +1794,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (BOOL) shouldDelayWindowOrderingForEvent: (NSEvent *) event {
-    NSUnimplementedMethod();
+    (void) event;
     return NO;
 }
 
@@ -1877,7 +1885,6 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (NSRect) rectPreservedDuringLiveResize {
-    NSUnimplementedMethod();
     return NSZeroRect;
 }
 
@@ -1894,7 +1901,8 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 - (BOOL) enterFullScreenMode: (NSScreen *) screen
                  withOptions: (NSDictionary *) options
 {
-    NSUnimplementedMethod();
+    (void) screen;
+    (void) options;
     return NO;
 }
 
@@ -1904,7 +1912,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (void) exitFullScreenModeWithOptions: (NSDictionary *) options {
-    NSUnimplementedMethod();
+    (void) options;
 }
 
 - (NSClipView *) _enclosingClipView {
@@ -1982,7 +1990,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (void) scrollClipView: (NSClipView *) clipView toPoint: (NSPoint) newOrigin {
-    NSUnimplementedMethod();
+    [clipView scrollToPoint: newOrigin];
 }
 
 - (BOOL) mouse: (NSPoint) point inRect: (NSRect) rect {
@@ -2320,7 +2328,78 @@ static void clearNeedsDisplay(NSView *self) {
 }
 
 - (void) translateRectsNeedingDisplayInRect: (NSRect) rect by: (NSSize) delta {
-    NSUnimplementedMethod();
+    if (!_needsDisplay || _invalidRects == NULL || _invalidRectCount == 0 ||
+        NSIsEmptyRect(rect) || (delta.width == 0 && delta.height == 0))
+        return;
+
+    NSUInteger capacity = _invalidRectCount * 5;
+    NSRect *translatedRects = NSZoneCalloc(NULL, capacity, sizeof(NSRect));
+    NSUInteger translatedCount = 0;
+    NSRect visibleRect = [self visibleRect];
+
+    for (NSUInteger i = 0; i < _invalidRectCount; i++) {
+        NSRect invalidRect = _invalidRects[i];
+        NSRect intersection = NSIntersectionRect(invalidRect, rect);
+
+        if (NSIsEmptyRect(intersection)) {
+            translatedRects[translatedCount++] = invalidRect;
+            continue;
+        }
+
+        NSRect outside = NSMakeRect(NSMinX(invalidRect), NSMinY(invalidRect),
+                                    NSMinX(intersection) - NSMinX(invalidRect),
+                                    NSHeight(invalidRect));
+        if (!NSIsEmptyRect(outside))
+            translatedRects[translatedCount++] = outside;
+
+        outside = NSMakeRect(NSMaxX(intersection), NSMinY(invalidRect),
+                             NSMaxX(invalidRect) - NSMaxX(intersection),
+                             NSHeight(invalidRect));
+        if (!NSIsEmptyRect(outside))
+            translatedRects[translatedCount++] = outside;
+
+        outside = NSMakeRect(NSMinX(intersection), NSMinY(invalidRect),
+                             NSWidth(intersection),
+                             NSMinY(intersection) - NSMinY(invalidRect));
+        if (!NSIsEmptyRect(outside))
+            translatedRects[translatedCount++] = outside;
+
+        outside = NSMakeRect(NSMinX(intersection), NSMaxY(intersection),
+                             NSWidth(intersection),
+                             NSMaxY(invalidRect) - NSMaxY(intersection));
+        if (!NSIsEmptyRect(outside))
+            translatedRects[translatedCount++] = outside;
+
+        intersection.origin.x += delta.width;
+        intersection.origin.y += delta.height;
+        intersection = NSIntersectionRect(intersection, visibleRect);
+        if (!NSIsEmptyRect(intersection))
+            translatedRects[translatedCount++] = intersection;
+    }
+
+    NSZoneFree(NULL, _invalidRects);
+    _invalidRects = NULL;
+    _invalidRectCount = translatedCount;
+    if (translatedCount != 0)
+        _invalidRects = NSZoneRealloc(NULL, translatedRects,
+                                      sizeof(NSRect) * translatedCount);
+    else
+        NSZoneFree(NULL, translatedRects);
+
+    _needsDisplay = translatedCount != 0;
+    clearRectsBeingRedrawn(self);
+
+    if (_needsDisplay) {
+        NSView *opaqueAncestor = [self opaqueAncestor];
+        if (opaqueAncestor != nil && opaqueAncestor != self) {
+            for (NSUInteger i = 0; i < _invalidRectCount; i++) {
+                NSRect dirtyRect = [self convertRect: _invalidRects[i]
+                                              toView: opaqueAncestor];
+                [opaqueAncestor setNeedsDisplayInRect: dirtyRect];
+            }
+        }
+        [[self window] setViewsNeedDisplay: YES];
+    }
 }
 
 static NSView *viewBeingPrinted = nil;
@@ -2532,11 +2611,11 @@ static NSView *viewBeingPrinted = nil;
 - (void) getRectsExposedDuringLiveResize: (NSRect) rects
                                    count: (NSInteger *) count
 {
-    NSUnimplementedMethod();
+    if (count != NULL)
+        *count = 0;
 }
 
 - (BOOL) shouldDrawColor {
-    NSUnimplementedMethod();
     return YES;
 }
 
@@ -2824,12 +2903,10 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (NSAttributedString *) pageHeader {
-    NSUnimplementedMethod();
     return nil;
 }
 
 - (NSAttributedString *) pageFooter {
-    NSUnimplementedMethod();
     return nil;
 }
 
@@ -2845,11 +2922,9 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (void) drawSheetBorderWithSize: (NSSize) size {
-    NSUnimplementedMethod();
 }
 
 - (void) drawPageBorderWithSize: (NSSize) size {
-    NSUnimplementedMethod();
 }
 
 - (CGFloat) widthAdjustLimit {
@@ -3034,7 +3109,7 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (BOOL) performMnemonic: (NSString *) string {
-    NSUnimplementedMethod();
+    (void) string;
     return NO;
 }
 
@@ -3085,7 +3160,11 @@ static NSView *viewBeingPrinted = nil;
                         slideBack: (BOOL) slideBack
                             event: (NSEvent *) event
 {
-    NSUnimplementedMethod();
+    (void) types;
+    (void) rect;
+    (void) source;
+    (void) slideBack;
+    (void) event;
     return NO;
 }
 
@@ -3116,16 +3195,16 @@ static NSView *viewBeingPrinted = nil;
 - (void) showDefinitionForAttributedString: (NSAttributedString *) string
                                    atPoint: (NSPoint) origin
 {
-    NSUnimplementedMethod();
+    (void) string;
+    (void) origin;
 }
 
 + defaultAnimationForKey: (NSString *) key {
-    NSUnimplementedMethod();
+    (void) key;
     return nil;
 }
 
 - animator {
-    NSUnimplementedMethod();
     // should return animating proxy. returning self does not animate.
     return self;
 }
@@ -3151,7 +3230,10 @@ static NSView *viewBeingPrinted = nil;
                     baselineOriginProvider:
                             (NSPoint (^)(NSRange adjustedRange)) originProvider
 {
-    NSUnimplementedMethod();
+    (void) string;
+    (void) range;
+    (void) options;
+    (void) originProvider;
 }
 #endif
 

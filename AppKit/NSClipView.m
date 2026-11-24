@@ -152,7 +152,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     value = [value retain];
     [_documentCursor release];
     _documentCursor = value;
-    NSUnimplementedMethod();
+    [self discardCursorRects];
+    if (_documentCursor != nil)
+        [self addCursorRect: [self bounds] cursor: _documentCursor];
 }
 
 - (void) setDocumentView: (NSView *) view {
@@ -190,8 +192,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSRect) documentRect {
-    NSUnimplementedMethod();
-    return NSMakeRect(0, 0, 0, 0);
+    return _docView != nil ? [_docView frame] : NSZeroRect;
 }
 
 - (NSRect) documentVisibleRect {

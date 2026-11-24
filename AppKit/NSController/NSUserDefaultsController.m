@@ -91,7 +91,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (id) initWithCoder: (id) coder {
     if (![coder allowsKeyedCoding]) {
-        NSUnimplementedMethod();
+        self = [self init];
     } else {
         BOOL sharedInstance = [coder decodeBoolForKey: @"NSSharedInstance"];
         if (sharedInstance) {

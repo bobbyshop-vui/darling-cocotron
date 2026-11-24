@@ -352,7 +352,7 @@ static NSTimer *_periodicTimer = nil;
 + (id) addLocalMonitorForEventsMatchingMask: (NSEventMask) mask
                                     handler: (NSEvent * (^)(NSEvent *event)) block
 {
-    NSUnimplementedMethod();
+    // The event dispatch path has no local-monitor hook in this AppKit port.
     return nil;
 }
 

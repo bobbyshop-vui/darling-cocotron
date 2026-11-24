@@ -42,24 +42,37 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                               collection: (NSCharacterCollection) collection
                               baseString: (NSString *) baseString
 {
-    NSUnimplementedMethod();
-    return nil;
+    return [[[self alloc] initWithCharacterIdentifier: identifier
+                                          collection: collection
+                                           glyphName: nil] autorelease];
 }
 
 + (NSGlyphInfo *) glyphInfoWithGlyph: (NSGlyph) glyph
                              forFont: (NSFont *) font
                           baseString: (NSString *) baseString
 {
-    NSUnimplementedMethod();
-    return nil;
+    if (font == nil)
+        return nil;
+
+    return [[[self alloc] initWithCharacterIdentifier: glyph
+                                          collection: (NSCharacterCollection) 0
+                                           glyphName: nil] autorelease];
 }
 
 + (NSGlyphInfo *) glyphInfoWithGlyphName: (NSString *) glyphName
                                  forFont: (NSFont *) font
                               baseString: (NSString *) baseString
 {
-    NSUnimplementedMethod();
-    return nil;
+    if (font == nil || glyphName == nil)
+        return nil;
+
+    NSGlyph glyph = [font glyphWithName: glyphName];
+    if (glyph == NSNullGlyph)
+        return nil;
+
+    return [[[self alloc] initWithCharacterIdentifier: glyph
+                                          collection: (NSCharacterCollection) 0
+                                           glyphName: glyphName] autorelease];
 }
 
 - (NSUInteger) characterIdentifier {

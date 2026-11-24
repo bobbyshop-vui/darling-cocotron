@@ -2278,11 +2278,63 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (void) copyRuler: sender {
-    NSUnimplementedMethod();
+    NSParagraphStyle *style = [_typingAttributes
+            objectForKey: NSParagraphStyleAttributeName];
+    NSUInteger length = [_textStorage length];
+    if (length > 0) {
+        NSUInteger index = [self selectedRange].location;
+        if (index >= length)
+            index = length - 1;
+        NSParagraphStyle *storageStyle =
+                [_textStorage attribute: NSParagraphStyleAttributeName
+                                atIndex: index
+                         effectiveRange: NULL];
+        if (storageStyle != nil)
+            style = storageStyle;
+    }
+    if (style == nil)
+        style = [NSParagraphStyle defaultParagraphStyle];
+
+    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName: NSRulerPboard];
+    [pasteboard declareTypes: [NSArray arrayWithObject: NSRulerPboardType]
+                       owner: nil];
+    [pasteboard setData: [NSKeyedArchiver archivedDataWithRootObject: style]
+                forType: NSRulerPboardType];
 }
 
 - (void) pasteRuler: sender {
-    NSUnimplementedMethod();
+    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName: NSRulerPboard];
+    NSData *data = [pasteboard dataForType: NSRulerPboardType];
+    if (data == nil)
+        return;
+
+    id object = [NSKeyedUnarchiver unarchiveObjectWithData: data];
+    if (![object isKindOfClass: [NSParagraphStyle class]])
+        return;
+
+    NSRange range = [self rangeForUserParagraphAttributeChange];
+    if (range.location == NSNotFound)
+        return;
+
+    NSParagraphStyle *style = object;
+    if ([_textStorage length] == 0) {
+        [self setDefaultParagraphStyle: style];
+    } else if (range.length > 0) {
+        NSRange selection = [self selectedRange];
+        [_textStorage beginEditing];
+        [self _addAttribute: NSParagraphStyleAttributeName
+                      value: style
+                      range: range];
+        [_textStorage endEditing];
+        [self setSelectedRange: selection];
+    }
+
+    NSMutableDictionary *attributes = _typingAttributes
+            ? [[_typingAttributes mutableCopy] autorelease]
+            : [NSMutableDictionary dictionary];
+    [attributes setObject: style forKey: NSParagraphStyleAttributeName];
+    [self setTypingAttributes: attributes];
+    [self didChangeText];
 }
 
 // NSText
@@ -3390,7 +3442,6 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (void) cleanUpAfterDragOperation {
-    NSUnimplementedMethod();
 }
 
 - (NSUInteger) characterIndexForPoint: (NSPoint) point {
@@ -3752,13 +3803,19 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
 - (void) setAutomaticSpellingCorrectionEnabled: (BOOL) value {
     _isAutomaticSpellingCorrectionEnabled = value;
-    NSUnimplementedMethod();
+    if (value)
+        _enabledTextCheckingTypes |= NSTextCheckingTypeCorrection;
+    else
+        _enabledTextCheckingTypes &= ~NSTextCheckingTypeCorrection;
 }
 
 - (void) toggleAutomaticSpellingCorrection: sender {
     _isAutomaticSpellingCorrectionEnabled =
             !_isAutomaticSpellingCorrectionEnabled;
-    NSUnimplementedMethod();
+    if (_isAutomaticSpellingCorrectionEnabled)
+        _enabledTextCheckingTypes |= NSTextCheckingTypeCorrection;
+    else
+        _enabledTextCheckingTypes &= ~NSTextCheckingTypeCorrection;
 }
 
 - (NSTextCheckingTypes) enabledTextCheckingTypes {
@@ -3766,8 +3823,26 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (void) setEnabledTextCheckingTypes: (NSTextCheckingTypes) checkingTypes {
+    [self setContinuousSpellCheckingEnabled:
+            (checkingTypes & NSTextCheckingTypeSpelling) != 0];
+    [self setGrammarCheckingEnabled:
+            (checkingTypes & NSTextCheckingTypeGrammar) != 0];
+    [self setAutomaticQuoteSubstitutionEnabled:
+            (checkingTypes & NSTextCheckingTypeQuote) != 0];
+    [self setAutomaticLinkDetectionEnabled:
+            (checkingTypes & NSTextCheckingTypeLink) != 0];
+    [self setAutomaticDataDetectionEnabled:
+            (checkingTypes & (NSTextCheckingTypeDate |
+                              NSTextCheckingTypeAddress |
+                              NSTextCheckingTypePhoneNumber |
+                              NSTextCheckingTypeTransitInformation)) != 0];
+    [self setAutomaticDashSubstitutionEnabled:
+            (checkingTypes & NSTextCheckingTypeDash) != 0];
+    [self setAutomaticTextReplacementEnabled:
+            (checkingTypes & NSTextCheckingTypeReplacement) != 0];
+    [self setAutomaticSpellingCorrectionEnabled:
+            (checkingTypes & NSTextCheckingTypeCorrection) != 0];
     _enabledTextCheckingTypes = checkingTypes;
-    NSUnimplementedMethod();
 }
 
 - (BOOL) smartInsertDeleteEnabled {
@@ -4110,7 +4185,6 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (id) replacementObjectForKeyedArchiver {
-    NSUnimplementedMethod();
     return self;
 }
 - (NSTextLayoutOrientation) layoutOrientation {
@@ -4119,7 +4193,6 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
 - (void) setLayoutOrientation: (NSTextLayoutOrientation) orientation {
     _layoutOrientation = orientation;
-    NSUnimplementedMethod();
 }
 
 - (BOOL) isIncrementalSearchingEnabled {
@@ -4135,17 +4208,14 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (void) setIncrementalSearchingEnabled: (BOOL) value {
-    NSUnimplementedMethod();
     _incrementalSearchingEnabled = value;
 }
 
 - (void) setUsesFindBar: (BOOL) value {
-    NSUnimplementedMethod();
     _usesFindBar = value;
 }
 
 - (void) setUsesInspectorBar: (BOOL) value {
-    NSUnimplementedMethod();
     _usesInspectorBar = value;
 }
 
@@ -4174,33 +4244,55 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (void) setGrammarCheckingEnabled: (BOOL) value {
-    NSUnimplementedMethod();
     _grammarCheckingEnabled = value;
+    if (value)
+        _enabledTextCheckingTypes |= NSTextCheckingTypeGrammar;
+    else
+        _enabledTextCheckingTypes &= ~NSTextCheckingTypeGrammar;
 }
 
 - (void) setAutomaticQuoteSubstitutionEnabled: (BOOL) value {
-    NSUnimplementedMethod();
     _automaticQuoteSubstitutionEnabled = value;
+    if (value)
+        _enabledTextCheckingTypes |= NSTextCheckingTypeQuote;
+    else
+        _enabledTextCheckingTypes &= ~NSTextCheckingTypeQuote;
 }
 
 - (void) setAutomaticDashSubstitutionEnabled: (BOOL) value {
-    NSUnimplementedMethod();
     _automaticDashSubstitutionEnabled = value;
+    if (value)
+        _enabledTextCheckingTypes |= NSTextCheckingTypeDash;
+    else
+        _enabledTextCheckingTypes &= ~NSTextCheckingTypeDash;
 }
 
 - (void) setAutomaticLinkDetectionEnabled: (BOOL) value {
-    NSUnimplementedMethod();
     _automaticLinkDetectionEnabled = value;
+    if (value)
+        _enabledTextCheckingTypes |= NSTextCheckingTypeLink;
+    else
+        _enabledTextCheckingTypes &= ~NSTextCheckingTypeLink;
 }
 
 - (void) setAutomaticDataDetectionEnabled: (BOOL) value {
-    NSUnimplementedMethod();
     _automaticDataDetectionEnabled = value;
+    NSTextCheckingTypes dataTypes = NSTextCheckingTypeDate |
+                                    NSTextCheckingTypeAddress |
+                                    NSTextCheckingTypePhoneNumber |
+                                    NSTextCheckingTypeTransitInformation;
+    if (value)
+        _enabledTextCheckingTypes |= dataTypes;
+    else
+        _enabledTextCheckingTypes &= ~dataTypes;
 }
 
 - (void) setAutomaticTextReplacementEnabled: (BOOL) value {
-    NSUnimplementedMethod();
     _automaticTextReplacementEnabled = value;
+    if (value)
+        _enabledTextCheckingTypes |= NSTextCheckingTypeReplacement;
+    else
+        _enabledTextCheckingTypes &= ~NSTextCheckingTypeReplacement;
 }
 
 // Is defined in NSText but throws an NSInvalidAbstractInvocation Exception

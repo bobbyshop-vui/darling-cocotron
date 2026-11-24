@@ -239,7 +239,99 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         didPresentSelector: (SEL) selector
                contextInfo: (void *) info
 {
-    NSUnimplementedMethod();
+    NSError *errorToPresent = [self willPresentError: error];
+    NSResponder *responder = _nextResponder;
+
+    if (responder == nil && self != NSApp)
+        responder = NSApp;
+
+    if (responder != nil) {
+        [responder presentError: errorToPresent
+                 modalForWindow: window
+                       delegate: delegate
+             didPresentSelector: selector
+                    contextInfo: info];
+        return;
+    }
+
+    if (self == NSApp) {
+        id applicationDelegate = [NSApp delegate];
+        if ([applicationDelegate respondsToSelector:
+                        @selector(application: willPresentError:)])
+            errorToPresent = [applicationDelegate application: NSApp
+                                               willPresentError: errorToPresent];
+
+        NSArray *recoveryOptions = [errorToPresent localizedRecoveryOptions];
+        id recoveryAttempter = [errorToPresent recoveryAttempter];
+        if ([recoveryOptions count] &&
+            ![recoveryAttempter respondsToSelector:
+                    @selector(attemptRecoveryFromError:optionIndex:)] &&
+            ![recoveryAttempter respondsToSelector:
+                    @selector(attemptRecoveryFromError:optionIndex:delegate:didRecoverSelector:contextInfo:)]) {
+            NSMutableDictionary *userInfo = [NSMutableDictionary
+                    dictionaryWithDictionary: [errorToPresent userInfo]];
+            [userInfo removeObjectForKey: NSLocalizedRecoveryOptionsErrorKey];
+            errorToPresent = [NSError errorWithDomain: [errorToPresent domain]
+                                                 code: [errorToPresent code]
+                                             userInfo: userInfo];
+        }
+    }
+
+    void (^notifyDelegate)(BOOL) = ^(BOOL didRecover) {
+        if (delegate != nil && selector != NULL) {
+            NSMethodSignature *signature =
+                    [delegate methodSignatureForSelector: selector];
+            if (signature != nil) {
+                NSInvocation *invocation =
+                        [NSInvocation invocationWithMethodSignature: signature];
+                void *contextInfo = info;
+                [invocation setSelector: selector];
+                [invocation setArgument: &didRecover atIndex: 2];
+                [invocation setArgument: &contextInfo atIndex: 3];
+                [invocation invokeWithTarget: delegate];
+            }
+        }
+    };
+
+    if (self == NSApp &&
+        [[errorToPresent domain] isEqualToString: NSCocoaErrorDomain] &&
+        [errorToPresent code] == NSUserCancelledError) {
+        notifyDelegate(NO);
+        return;
+    }
+
+    NSAlert *alert = [NSAlert alertWithError: errorToPresent];
+    void (^handleResponse)(NSModalResponse) = ^(NSModalResponse response) {
+        NSArray *options = [errorToPresent localizedRecoveryOptions];
+        id recoveryAttempter = [errorToPresent recoveryAttempter];
+        NSInteger optionIndex = response - NSAlertFirstButtonReturn;
+        if (optionIndex < 0 || optionIndex >= [options count]) {
+            notifyDelegate(NO);
+        } else if ([recoveryAttempter respondsToSelector:
+                           @selector(attemptRecoveryFromError:optionIndex:delegate:didRecoverSelector:contextInfo:)]) {
+            [recoveryAttempter attemptRecoveryFromError: errorToPresent
+                                           optionIndex: optionIndex
+                                              delegate: delegate
+                                   didRecoverSelector: selector
+                                          contextInfo: info];
+        } else if ([recoveryAttempter respondsToSelector:
+                           @selector(attemptRecoveryFromError:optionIndex:)]) {
+            notifyDelegate([recoveryAttempter
+                    attemptRecoveryFromError: errorToPresent
+                                  optionIndex: optionIndex]);
+        } else {
+            notifyDelegate(NO);
+        }
+    };
+
+    if (window != nil) {
+        [alert beginSheetModalForWindow: window
+                      completionHandler: ^(NSModalResponse response) {
+                          handleResponse(response);
+                      }];
+    } else {
+        handleResponse([alert runModal]);
+    }
 }
 
 - (void) flagsChanged: (NSEvent *) event {

@@ -164,7 +164,22 @@
                  didCommitSelector: (SEL) didCommitSelector
                        contextInfo: (void *) contextInfo
 {
-    NSUnimplementedMethod();
+    BOOL success = [self commitEditing];
+
+    if (delegate != nil && didCommitSelector != NULL) {
+        NSMethodSignature *signature =
+                [delegate methodSignatureForSelector: didCommitSelector];
+        if (signature != nil) {
+            NSInvocation *invocation =
+                    [NSInvocation invocationWithMethodSignature: signature];
+            id editor = self;
+            [invocation setSelector: didCommitSelector];
+            [invocation setArgument: &editor atIndex: 2];
+            [invocation setArgument: &success atIndex: 3];
+            [invocation setArgument: &contextInfo atIndex: 4];
+            [invocation invokeWithTarget: delegate];
+        }
+    }
 }
 
 - (BOOL) isViewLoaded {

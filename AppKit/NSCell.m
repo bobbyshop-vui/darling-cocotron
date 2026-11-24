@@ -26,6 +26,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSEvent.h>
 #import <AppKit/NSFont.h>
 #import <AppKit/NSImage.h>
+#import <AppKit/NSGraphicsContext.h>
 #import <AppKit/NSParagraphStyle.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSWindow.h>
@@ -1484,12 +1485,110 @@ static NSString *NSStringFromCellType(NSCellType type) {
 
 @end
 
+static void NSCellDrawImageInRect(NSImage *image, NSRect rect,
+                                  NSCompositingOperation operation,
+                                  CGFloat alpha)
+{
+    if (image == nil || NSIsEmptyRect(rect))
+        return;
+
+    [image drawInRect: rect
+             fromRect: NSZeroRect
+            operation: operation
+             fraction: alpha];
+}
+
+static void NSCellTileImage(NSImage *image, NSRect rect,
+                            NSCompositingOperation operation, CGFloat alpha,
+                            CGFloat tileWidth, CGFloat tileHeight, BOOL flipped)
+{
+    CGFloat x, y;
+
+    if (image == nil || NSIsEmptyRect(rect) || tileWidth <= 0.0 ||
+        tileHeight <= 0.0)
+        return;
+
+    [NSGraphicsContext saveGraphicsState];
+    NSRectClip(rect);
+    if (flipped) {
+        for (y = NSMinY(rect); y < NSMaxY(rect); y += tileHeight) {
+            for (x = NSMinX(rect); x < NSMaxX(rect); x += tileWidth)
+                NSCellDrawImageInRect(image,
+                        NSMakeRect(x, y, tileWidth, tileHeight), operation,
+                        alpha);
+        }
+    } else {
+        for (y = NSMaxY(rect) - tileHeight;
+             y > NSMinY(rect) - tileHeight; y -= tileHeight) {
+            for (x = NSMinX(rect); x < NSMaxX(rect); x += tileWidth)
+                NSCellDrawImageInRect(image,
+                        NSMakeRect(x, y, tileWidth, tileHeight), operation,
+                        alpha);
+        }
+    }
+    [NSGraphicsContext restoreGraphicsState];
+}
+
 void NSDrawThreePartImage(NSRect frame, NSImage *startCap, NSImage *centerFill,
                           NSImage *endCap, BOOL vertical,
                           NSCompositingOperation operation, CGFloat alpha,
                           BOOL flipped)
 {
-    NSUnimplementedFunction();
+    NSSize startSize = [startCap size];
+    NSSize endSize = [endCap size];
+    NSSize fillSize = [centerFill size];
+    NSRect startRect = frame, fillRect = frame, endRect = frame;
+    CGFloat startLength = 0.0, endLength = 0.0;
+
+    if (NSIsEmptyRect(frame))
+        return;
+
+    if (vertical) {
+        if (startCap != nil && startSize.width > 0.0)
+            startLength = startSize.height * frame.size.width / startSize.width;
+        if (endCap != nil && endSize.width > 0.0)
+            endLength = endSize.height * frame.size.width / endSize.width;
+
+        startRect.size.height = startLength;
+        endRect.size.height = endLength;
+        if (flipped) {
+            startRect.origin.y = NSMinY(frame);
+            endRect.origin.y = NSMaxY(frame) - endLength;
+            fillRect.origin.y = NSMinY(frame) + startLength;
+        } else {
+            startRect.origin.y = NSMaxY(frame) - startLength;
+            endRect.origin.y = NSMinY(frame);
+            fillRect.origin.y = NSMinY(frame) + endLength;
+        }
+        fillRect.size.height = MAX(0.0, frame.size.height - startLength - endLength);
+        if (fillSize.width > 0.0)
+            NSCellTileImage(centerFill, fillRect, operation, alpha,
+                    frame.size.width,
+                    fillSize.height * frame.size.width / fillSize.width,
+                    flipped);
+    } else {
+        if (startCap != nil && startSize.height > 0.0)
+            startLength = startSize.width * frame.size.height / startSize.height;
+        if (endCap != nil && endSize.height > 0.0)
+            endLength = endSize.width * frame.size.height / endSize.height;
+
+        startRect.size.width = startLength;
+        endRect.size.width = endLength;
+        startRect.origin.x = NSMinX(frame);
+        endRect.origin.x = NSMaxX(frame) - endLength;
+        fillRect.origin.x = NSMinX(frame) + startLength;
+        fillRect.size.width = MAX(0.0, frame.size.width - startLength - endLength);
+        if (fillSize.height > 0.0)
+            NSCellTileImage(centerFill, fillRect, operation, alpha,
+                    fillSize.width * frame.size.height / fillSize.height,
+                    frame.size.height, flipped);
+    }
+
+    [NSGraphicsContext saveGraphicsState];
+    NSRectClip(frame);
+    NSCellDrawImageInRect(startCap, startRect, operation, alpha);
+    NSCellDrawImageInRect(endCap, endRect, operation, alpha);
+    [NSGraphicsContext restoreGraphicsState];
 }
 
 void NSDrawNinePartImage(NSRect frame, NSImage* topLeftCorner,
@@ -1500,5 +1599,73 @@ void NSDrawNinePartImage(NSRect frame, NSImage* topLeftCorner,
                           NSCompositingOperation operation, CGFloat alpha,
                           BOOL flipped)
 {
-    NSUnimplementedFunction();
+    NSSize topLeftSize = [topLeftCorner size];
+    NSSize topRightSize = [topRightCorner size];
+    NSSize bottomLeftSize = [bottomLeftCorner size];
+    NSSize bottomRightSize = [bottomRightCorner size];
+    CGFloat leftWidth = MAX(topLeftSize.width, bottomLeftSize.width);
+    CGFloat rightWidth = MAX(topRightSize.width, bottomRightSize.width);
+    CGFloat topHeight = MAX(topLeftSize.height, topRightSize.height);
+    CGFloat bottomHeight = MAX(bottomLeftSize.height, bottomRightSize.height);
+    CGFloat middleWidth, middleHeight, middleY, topY, bottomY;
+    NSRect middle, topEdge, bottomEdge, leftEdge, rightEdge;
+
+    if (NSIsEmptyRect(frame))
+        return;
+
+    middleWidth = MAX(0.0, frame.size.width - leftWidth - rightWidth);
+    middleHeight = MAX(0.0, frame.size.height - topHeight - bottomHeight);
+    if (flipped) {
+        topY = NSMinY(frame);
+        bottomY = NSMaxY(frame) - bottomHeight;
+        middleY = NSMinY(frame) + topHeight;
+    } else {
+        topY = NSMaxY(frame) - topHeight;
+        bottomY = NSMinY(frame);
+        middleY = NSMinY(frame) + bottomHeight;
+    }
+
+    middle = NSMakeRect(NSMinX(frame) + leftWidth, middleY,
+                        middleWidth, middleHeight);
+    topEdge = NSMakeRect(NSMinX(frame) + leftWidth, topY,
+                         middleWidth, topHeight);
+    bottomEdge = NSMakeRect(NSMinX(frame) + leftWidth, bottomY,
+                            middleWidth, bottomHeight);
+    leftEdge = NSMakeRect(NSMinX(frame), middleY, leftWidth, middleHeight);
+    rightEdge = NSMakeRect(NSMaxX(frame) - rightWidth, middleY,
+                           rightWidth, middleHeight);
+
+    [NSGraphicsContext saveGraphicsState];
+    NSRectClip(frame);
+    NSCellDrawImageInRect(topLeftCorner,
+            NSMakeRect(NSMinX(frame), topY, topLeftSize.width,
+                       topLeftSize.height), operation, alpha);
+    NSCellDrawImageInRect(topRightCorner,
+            NSMakeRect(NSMaxX(frame) - topRightSize.width, topY,
+                       topRightSize.width, topRightSize.height), operation,
+            alpha);
+    NSCellDrawImageInRect(bottomLeftCorner,
+            NSMakeRect(NSMinX(frame), bottomY, bottomLeftSize.width,
+                       bottomLeftSize.height), operation, alpha);
+    NSCellDrawImageInRect(bottomRightCorner,
+            NSMakeRect(NSMaxX(frame) - bottomRightSize.width, bottomY,
+                       bottomRightSize.width, bottomRightSize.height),
+            operation, alpha);
+
+    NSCellTileImage(topEdgeFill, topEdge, operation, alpha,
+                    [topEdgeFill size].width, [topEdgeFill size].height,
+                    flipped);
+    NSCellTileImage(bottomEdgeFill, bottomEdge, operation, alpha,
+                    [bottomEdgeFill size].width, [bottomEdgeFill size].height,
+                    flipped);
+    NSCellTileImage(leftEdgeFill, leftEdge, operation, alpha,
+                    [leftEdgeFill size].width, [leftEdgeFill size].height,
+                    flipped);
+    NSCellTileImage(rightEdgeFill, rightEdge, operation, alpha,
+                    [rightEdgeFill size].width, [rightEdgeFill size].height,
+                    flipped);
+    NSCellTileImage(centerFill, middle, operation, alpha,
+                    [centerFill size].width, [centerFill size].height,
+                    flipped);
+    [NSGraphicsContext restoreGraphicsState];
 };

@@ -255,8 +255,8 @@ static NSComparisonResult compareFontDescriptorMatches(id left, id right,
 }
 
 - (NSFontDescriptor *) matchingFontDescriptorWithMandatoryKeys: (NSSet *) keys {
-    NSUnimplementedMethod();
-    return nil;
+    NSArray *matches = [self matchingFontDescriptorsWithMandatoryKeys: keys];
+    return ([matches count] == 0) ? nil : [matches objectAtIndex: 0];
 }
 
 @end

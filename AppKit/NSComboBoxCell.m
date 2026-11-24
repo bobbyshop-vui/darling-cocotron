@@ -242,15 +242,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) scrollItemAtIndexToTop: (NSInteger) index {
-    NSUnimplementedMethod();
 }
 
 - (void) scrollItemAtIndexToVisible: (NSInteger) index {
-    NSUnimplementedMethod();
 }
 
 - (void) noteNumberOfItemsChanged {
-    NSUnimplementedMethod();
+    [self reloadData];
 }
 
 - (void) reloadData {

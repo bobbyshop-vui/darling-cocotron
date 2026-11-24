@@ -23,6 +23,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSImageCell.h>
 #import <AppKit/NSImageView.h>
 #import <AppKit/NSRaise.h>
+#import <objc/runtime.h>
+
+static char NSImageViewAllowsCutCopyPasteKey;
+static char NSImageViewAnimatesKey;
 
 @implementation NSImageView
 
@@ -71,12 +75,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (BOOL) allowsCutCopyPaste {
     // Because cut, copy, paste isn't implemented yet ...
-    return NO;
+    return [objc_getAssociatedObject(self, &NSImageViewAllowsCutCopyPasteKey)
+            boolValue];
 }
 
 - (BOOL) animates {
     // Because animation isn't implemented yet ...
-    return NO;
+    return [objc_getAssociatedObject(self, &NSImageViewAnimatesKey) boolValue];
 }
 
 - (NSImage *) image {
@@ -105,13 +110,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setAllowsCutCopyPaste: (BOOL) allow {
-    if (allow != NO)
-        NSUnimplementedMethod();
+    objc_setAssociatedObject(self, &NSImageViewAllowsCutCopyPasteKey,
+                             [NSNumber numberWithBool: allow],
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (void) setAnimates: (BOOL) flag {
-    if (flag != NO)
-        ; // NSUnimplementedMethod(); ignore until implemented
+    objc_setAssociatedObject(self, &NSImageViewAnimatesKey,
+                             [NSNumber numberWithBool: flag],
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (void) setEditable: (BOOL) flag {

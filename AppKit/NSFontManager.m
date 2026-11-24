@@ -18,6 +18,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSApplication.h>
+#import <AppKit/NSAttributedString.h>
 #import <AppKit/NSFont.h>
 #import <AppKit/NSFontFamily.h>
 #import <AppKit/NSFontManager.h>
@@ -27,11 +28,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSMenuItem.h>
 #import <AppKit/NSNibLoading.h>
 #import <AppKit/NSRaise.h>
+#import <objc/runtime.h>
 
 @implementation NSFontManager
 
 static Class _fontManagerFactory;
 static Class _fontPanelFactory;
+static char _fontManagerCollectionsKey;
+
+static NSMutableDictionary *fontCollectionsForManager(NSFontManager *manager,
+                                                       BOOL create)
+{
+    NSMutableDictionary *collections =
+            objc_getAssociatedObject(manager, &_fontManagerCollectionsKey);
+    if (collections == nil && create) {
+        collections = [NSMutableDictionary dictionary];
+        objc_setAssociatedObject(manager, &_fontManagerCollectionsKey,
+                                 collections,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return collections;
+}
 
 + (NSFontManager *) sharedFontManager {
     NSString *name = @"NSFontManager";
@@ -80,30 +97,65 @@ static Class _fontPanelFactory;
 }
 
 - (NSArray *) collectionNames {
-    // Font collections are not managed by Cocotron; expose an empty,
-    // non-nil collection list until that service is available.
-    return [NSArray array];
+    @synchronized(self) {
+        NSArray *names = [[fontCollectionsForManager(self, NO) allKeys]
+                sortedArrayUsingSelector: @selector(compare:)];
+        return (names == nil) ? [NSArray array] : names;
+    }
 }
 
 - (BOOL) addCollection: (NSString *) name options: (int) options {
-    NSUnimplementedMethod();
-    return 0;
+    if (name == nil || [name length] == 0)
+        return NO;
+
+    @synchronized(self) {
+        NSMutableDictionary *collections = fontCollectionsForManager(self, YES);
+        if ([collections objectForKey: name] != nil)
+            return NO;
+        [collections setObject: [NSMutableArray array] forKey: name];
+        return YES;
+    }
 }
 
 - (void) addFontDescriptors: (NSArray *) descriptors
                toCollection: (NSString *) name
 {
-    NSUnimplementedMethod();
+    if (name == nil || descriptors == nil)
+        return;
+
+    @synchronized(self) {
+        NSMutableDictionary *collections = fontCollectionsForManager(self, YES);
+        NSMutableArray *stored = [collections objectForKey: name];
+        if (stored == nil) {
+            stored = [NSMutableArray array];
+            [collections setObject: stored forKey: name];
+        }
+        for (id descriptor in descriptors)
+            if (![stored containsObject: descriptor])
+                [stored addObject: descriptor];
+    }
 }
 
 - (BOOL) removeCollection: (NSString *) name {
-    NSUnimplementedMethod();
-    return 0;
+    if (name == nil)
+        return NO;
+    @synchronized(self) {
+        NSMutableDictionary *collections = fontCollectionsForManager(self, NO);
+        if ([collections objectForKey: name] == nil)
+            return NO;
+        [collections removeObjectForKey: name];
+        return YES;
+    }
 }
 
 - (NSArray *) fontDescriptorsInCollection: (NSString *) name {
-    NSUnimplementedMethod();
-    return nil;
+    if (name == nil)
+        return nil;
+    @synchronized(self) {
+        NSArray *descriptors = [fontCollectionsForManager(self, NO)
+                objectForKey: name];
+        return [[descriptors copy] autorelease];
+    }
 }
 
 - (NSArray *) availableFonts {
@@ -186,13 +238,40 @@ static Class _fontPanelFactory;
 - (NSArray *) availableFontNamesMatchingFontDescriptor:
         (NSFontDescriptor *) descriptor
 {
-    NSUnimplementedMethod();
-    return nil;
+    if (descriptor == nil)
+        return [self availableFonts];
+
+    NSMutableArray *result = [NSMutableArray array];
+    NSArray *matches = [descriptor matchingFontDescriptorsWithMandatoryKeys:
+                                         nil];
+    for (NSFontDescriptor *match in matches) {
+        NSString *name = [match objectForKey: NSFontNameAttribute];
+        if (name != nil)
+            [result addObject: name];
+    }
+    return result;
 }
 
 - (NSArray *) availableFontNamesWithTraits: (NSFontTraitMask) traits {
-    NSUnimplementedMethod();
-    return nil;
+    NSMutableArray *result = [NSMutableArray array];
+    NSFontTraitMask requiredTraits =
+            traits & ~(NSUnboldFontMask | NSUnitalicFontMask);
+
+    for (NSString *name in [self availableFonts]) {
+        NSFont *font = [NSFont fontWithName: name size: 12.0];
+        if (font == nil)
+            continue;
+
+        NSFontTraitMask fontTraits = [self traitsOfFont: font];
+        if ((traits & NSUnboldFontMask) && (fontTraits & NSBoldFontMask))
+            continue;
+        if ((traits & NSUnitalicFontMask) && (fontTraits & NSItalicFontMask))
+            continue;
+        if ((fontTraits & requiredTraits) != requiredTraits)
+            continue;
+        [result addObject: name];
+    }
+    return result;
 }
 
 - (BOOL) fontNamed: (NSString *) name hasTraits: (NSFontTraitMask) traits {
@@ -599,8 +678,15 @@ static Class _fontPanelFactory;
 }
 
 - (NSDictionary *) convertAttributes: (NSDictionary *) attributes {
-    NSUnimplementedMethod();
-    return nil;
+    NSFont *font = [attributes objectForKey: NSFontAttributeName];
+    if (font == nil)
+        return nil;
+
+    NSFont *convertedFont = [self convertFont: font];
+    if (convertedFont == nil || convertedFont == font)
+        return nil;
+    return [NSDictionary dictionaryWithObject: convertedFont
+                                       forKey: NSFontAttributeName];
 }
 
 - (void) addFontTrait: sender {
@@ -642,7 +728,6 @@ static Class _fontPanelFactory;
 }
 
 - (void) orderFrontStylesPanel: sender {
-    NSUnimplementedMethod();
 }
 
 #pragma mark -

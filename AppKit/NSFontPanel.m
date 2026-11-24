@@ -108,7 +108,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     view = [view retain];
     [_accessoryView release];
     _accessoryView = view;
-    NSUnimplementedMethod();
 }
 
 - (BOOL) worksWhenModal {
@@ -116,7 +115,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) reloadDefaultFontFamilies {
-    NSUnimplementedMethod();
+    [self buildFamilyMatrix];
+    [self buildTypefaceMatrix];
+    [self buildSizeMatrix];
+    [self buildSampleTextField];
 }
 
 - (NSString *) selectedFamilyName {

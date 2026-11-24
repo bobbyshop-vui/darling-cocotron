@@ -218,10 +218,41 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) makeNextSegmentKey {
-    NSUnimplementedMethod();
+    NSInteger count = [_segments count];
+    NSInteger selected = [self selectedSegment];
+    NSInteger start, offset;
+
+    if (count == 0)
+        return;
+
+    start = (selected >= 0 && selected < count) ? (selected + 1) % count : 0;
+    for (offset = 0; offset < count; offset++) {
+        NSInteger segment = (start + offset) % count;
+        if ([self isEnabledForSegment: segment]) {
+            [self setSelectedSegment: segment];
+            [[self controlView] setNeedsDisplay: YES];
+            return;
+        }
+    }
 }
 - (void) makePreviousSegmentKey {
-    NSUnimplementedMethod();
+    NSInteger count = [_segments count];
+    NSInteger selected = [self selectedSegment];
+    NSInteger start, offset;
+
+    if (count == 0)
+        return;
+
+    start = (selected >= 0 && selected < count) ?
+                    (selected + count - 1) % count : count - 1;
+    for (offset = 0; offset < count; offset++) {
+        NSInteger segment = (start + count - offset) % count;
+        if ([self isEnabledForSegment: segment]) {
+            [self setSelectedSegment: segment];
+            [[self controlView] setNeedsDisplay: YES];
+            return;
+        }
+    }
 }
 
 - (void) setFont: (NSFont *) font {

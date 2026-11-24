@@ -327,13 +327,52 @@ static void evaluate(void *info, CGFloat const *input, CGFloat *output) {
 }
 
 - (void) drawInRect: (NSRect) rect relativeCenterPosition: (NSPoint) center {
-    NSUnimplementedMethod();
+    if (_numberOfColors < 2 || rect.size.width <= 0 || rect.size.height <= 0)
+        return;
+
+    CGContextRef context = [[NSGraphicsContext currentContext] graphicsPort];
+    if (context == NULL)
+        return;
+
+    NSPoint centerPoint = NSMakePoint(
+            rect.origin.x + rect.size.width * (0.5 + center.x * 0.5),
+            rect.origin.y + rect.size.height * (0.5 + center.y * 0.5));
+    CGFloat radius = 0;
+    NSPoint corners[4] = {
+        rect.origin,
+        NSMakePoint(rect.origin.x + rect.size.width, rect.origin.y),
+        NSMakePoint(rect.origin.x, rect.origin.y + rect.size.height),
+        NSMakePoint(rect.origin.x + rect.size.width,
+                    rect.origin.y + rect.size.height)
+    };
+    for (NSInteger i = 0; i < 4; i++) {
+        CGFloat dx = corners[i].x - centerPoint.x;
+        CGFloat dy = corners[i].y - centerPoint.y;
+        radius = MAX(radius, sqrt(dx * dx + dy * dy));
+    }
+
+    CGContextSaveGState(context);
+    CGContextClipToRect(context, rect);
+    [self drawFromCenter: centerPoint
+                  radius: 0
+                toCenter: centerPoint
+                  radius: radius
+                 options: NSGradientDrawsBeforeStartingLocation |
+                          NSGradientDrawsAfterEndingLocation];
+    CGContextRestoreGState(context);
 }
 
 - (void) drawInBezierPath: (NSBezierPath *) path
         relativeCenterPosition: (NSPoint) center
 {
-    NSUnimplementedMethod();
+    if (path == nil)
+        return;
+
+    NSRect rect = [path bounds];
+    [NSGraphicsContext saveGraphicsState];
+    [path addClip];
+    [self drawInRect: rect relativeCenterPosition: center];
+    [NSGraphicsContext restoreGraphicsState];
 }
 
 - (NSColorSpace *) colorSpace {

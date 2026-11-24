@@ -549,7 +549,6 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
 }
 
 - (NSDraggingManager *) draggingManager {
-    //   NSUnimplementedMethod();
     return nil;
 }
 
@@ -884,14 +883,12 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
 }
 
 - (int) runModalPageLayoutWithPrintInfo: (NSPrintInfo *) printInfo {
-    NSUnimplementedMethod();
     return 0;
 }
 
 - (int) runModalPrintPanelWithPrintInfoDictionary:
         (NSMutableDictionary *) attributes
 {
-    NSUnimplementedMethod();
     return 0;
 }
 
@@ -899,7 +896,6 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
                                             printInfo: (NSPrintInfo *) printInfo
                                             pageRange: (NSRange) pageRange
 {
-    NSUnimplementedMethod();
     return nil;
 }
 
@@ -907,7 +903,6 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
         runModalForDirectory: (NSString *) directory
                         file: (NSString *) file
 {
-    NSUnimplementedMethod();
     return 0;
 }
 
@@ -916,7 +911,6 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
                         file: (NSString *) file
                        types: (NSArray *) types
 {
-    NSUnimplementedMethod();
     return 0;
 }
 

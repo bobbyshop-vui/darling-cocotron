@@ -18,6 +18,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <Foundation/NSKeyedArchiver.h>
+#import <CoreFoundation/CFLocale.h>
 
 #import <AppKit/NSParagraphStyle.h>
 #import <AppKit/NSRaise.h>
@@ -35,8 +36,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 + (NSWritingDirection) defaultWritingDirectionForLanguage: (NSString *) languageName {
-    NSUnimplementedMethod();
-    return NSWritingDirectionNatural;
+    if (languageName == nil)
+        return NSWritingDirectionNatural;
+
+    switch (CFLocaleGetLanguageCharacterDirection((CFStringRef) languageName)) {
+    case kCFLocaleLanguageDirectionLeftToRight:
+        return NSWritingDirectionLeftToRight;
+    case kCFLocaleLanguageDirectionRightToLeft:
+        return NSWritingDirectionRightToLeft;
+    default:
+        return NSWritingDirectionNatural;
+    }
 }
 
 + (NSArray *) _defaultTabStops {
@@ -174,7 +184,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         [coder encodeBool: _allowsDefaultTighteningForTruncation
                    forKey: @"AllowsTightening"];
     } else {
-        NSUnimplementedMethod();
+        [NSException raise: NSInvalidArgumentException
+                    format: @"-[%@ %s] requires a keyed coder",
+                            [self class], sel_getName(_cmd)];
     }
 }
 

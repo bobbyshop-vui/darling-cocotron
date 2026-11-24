@@ -260,7 +260,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) getPeriodicDelay: (float *) delay interval: (float *) interval {
-    NSUnimplementedMethod();
+    [_cell getPeriodicDelay: delay interval: interval];
 }
 
 - (void) setTransparent: (BOOL) value {
@@ -346,11 +346,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setTitleWithMnemonic: (NSString *) value {
-    NSUnimplementedMethod();
+    [self setTitle: [value stringByReplacingOccurrencesOfString: @"&"
+                                                     withString: @""]];
 }
 
 - (void) setPeriodicDelay: (float) delay interval: (float) interval {
-    NSUnimplementedMethod();
+    [_cell setPeriodicDelay: delay interval: interval];
 }
 
 - (void) highlight: (BOOL) value {

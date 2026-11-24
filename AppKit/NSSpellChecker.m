@@ -29,6 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSOrthography.h>
 #import <Foundation/NSUserDefaults.h>
 #import <Foundation/NSSpellEngine.h>
+#import <objc/runtime.h>
 
 NSString *const NSSpellCheckerDidChangeAutomaticTextReplacementNotification =
         @"NSSpellCheckerDidChangeAutomaticTextReplacementNotification";
@@ -48,6 +49,8 @@ NSString *const NSTextCheckingDocumentTitleKey =
         @"NSTextCheckingDocumentTitleKey";
 NSString *const NSTextCheckingDocumentAuthorKey =
         @"NSTextCheckingDocumentAuthorKey";
+
+static char NSSpellCheckerSubstitutionsAccessoryViewControllerKey;
 
 #define SPELLCHECK_DEBUG 0
 
@@ -198,11 +201,15 @@ static NSSpellChecker *shared = nil;
 - (void) updateSpellingPanelWithGrammarString: (NSString *) problemString
                                        detail: (NSDictionary *) detail
 {
-    NSUnimplementedMethod();
+    (void) detail;
+    [[self _spellingViewController]
+            updateSpellingPanelWithMisspelledWord: problemString];
 }
 
 - (void) updatePanels {
-    NSUnimplementedMethod();
+    if (_spellingViewController != nil)
+        [_spellingViewController
+                performSelector: @selector(reloadGuessesForCurrentWord)];
 }
 
 - (NSView *) accessoryView {
@@ -213,18 +220,19 @@ static NSSpellChecker *shared = nil;
     view = [view retain];
     [_accessoryView release];
     _accessoryView = view;
-    NSUnimplementedMethod();
 }
 
 - (NSViewController *) substitutionsPanelAccessoryViewController {
-    NSUnimplementedMethod();
-    return 0;
+    return objc_getAssociatedObject(
+            self, &NSSpellCheckerSubstitutionsAccessoryViewControllerKey);
 }
 
 - (void) setSubstitutionsPanelAccessoryViewController:
         (NSViewController *) viewController
 {
-    NSUnimplementedMethod();
+    objc_setAssociatedObject(
+            self, &NSSpellCheckerSubstitutionsAccessoryViewControllerKey,
+            viewController, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 #pragma mark -
@@ -233,8 +241,21 @@ static NSSpellChecker *shared = nil;
 - (NSInteger) countWordsInString: (NSString *) string
                         language: (NSString *) language
 {
-    NSUnimplementedMethod();
-    return 0;
+    NSSpellEngine *spellEngine = [[self class] _currentSpellEngine];
+    NSInteger wordCount = -1;
+
+    if (![spellEngine respondsToSelector:
+                  @selector(findMisspelledWordInString:language:wordCount:countOnly:)])
+        return -1;
+
+    if (language == nil)
+        language = [self currentLanguage];
+
+    [spellEngine findMisspelledWordInString: string
+                                   language: language
+                                  wordCount: &wordCount
+                                  countOnly: YES];
+    return wordCount;
 }
 
 - (NSRange) checkSpellingOfString: (NSString *) string
@@ -298,8 +319,48 @@ static NSSpellChecker *shared = nil;
           inSpellDocumentWithTag: (NSInteger) documentTag
                          details: (NSArray **) outDetails
 {
-    NSUnimplementedMethod();
-    return NSMakeRange(0, 0);
+    NSSpellEngine *spellEngine = [[self class] _currentSpellEngine];
+    NSArray *details = nil;
+    NSRange result;
+    NSUInteger searchStart;
+    NSUInteger resultOffset;
+
+    if (outDetails != NULL)
+        *outDetails = [NSArray array];
+
+    if (![spellEngine respondsToSelector:
+                  @selector(checkGrammarInString:language:details:)])
+        return NSMakeRange(0, 0);
+
+    if (language == nil)
+        language = [self language] ?: [self currentLanguage];
+
+    searchStart = (start < 0) ? 0 : (NSUInteger) start;
+    if (searchStart > [string length])
+        searchStart = [string length];
+
+    resultOffset = searchStart;
+    result = [spellEngine checkGrammarInString:
+                           [string substringFromIndex: searchStart]
+                                             language: language
+                                              details: &details];
+
+    if (result.length == 0 && wrap && searchStart > 0) {
+        details = nil;
+        resultOffset = 0;
+        result = [spellEngine checkGrammarInString:
+                               [string substringToIndex: searchStart]
+                                                 language: language
+                                                  details: &details];
+    }
+
+    if (result.length == 0)
+        return NSMakeRange(0, 0);
+
+    if (outDetails != NULL)
+        *outDetails = details ?: [NSArray array];
+
+    return NSMakeRange(result.location + resultOffset, result.length);
 }
 
 - (NSArray *) checkString: (NSString *) string
@@ -358,8 +419,31 @@ static NSSpellChecker *shared = nil;
                                       NSOrthography *orthography,
                                       NSInteger wordCount)) completionHandler
 {
-    NSUnimplementedMethod();
-    return 0;
+    static NSInteger sequenceNumber = 0;
+    NSInteger thisSequenceNumber;
+    NSInteger wordCount = 0;
+    NSOrthography *orthography =
+            [options objectForKey: NSTextCheckingOrthographyKey];
+    NSArray *results;
+
+    @synchronized([self class]) {
+        thisSequenceNumber = ++sequenceNumber;
+    }
+
+    results = [self checkString: stringToCheck
+                          range: range
+                          types: checkingTypes
+                        options: options
+         inSpellDocumentWithTag: tag
+                    orthography: &orthography
+                      wordCount: &wordCount];
+    if (results == nil)
+        results = [NSArray array];
+
+    if (completionHandler != nil)
+        completionHandler(thisSequenceNumber, results, orthography, wordCount);
+
+    return thisSequenceNumber;
 }
 #endif
 
@@ -398,7 +482,7 @@ static NSSpellChecker *shared = nil;
 }
 
 - (void) closeSpellDocumentWithTag: (NSInteger) tag {
-    NSUnimplementedMethod();
+    [_tagToData removeObjectForKey: [NSNumber numberWithInteger: tag]];
 }
 
 - (void) ignoreWord: (NSString *) word inSpellDocumentWithTag: (NSInteger) tag {
@@ -416,7 +500,8 @@ static NSSpellChecker *shared = nil;
 }
 
 - (void) setWordFieldStringValue: (NSString *) string {
-    NSUnimplementedMethod();
+    [[self _spellingViewController]
+            updateSpellingPanelWithMisspelledWord: string];
 }
 
 - (void) updateSpellingPanelWithMisspelledWord: (NSString *) word {
@@ -439,8 +524,19 @@ static NSSpellChecker *shared = nil;
                                     language: (NSString *) language
                       inSpellDocumentWithTag: (NSInteger) tag
 {
-    NSUnimplementedMethod();
-    return 0;
+    NSSpellEngine *spellEngine = [[self class] _currentSpellEngine];
+
+    if (![spellEngine respondsToSelector:
+                  @selector(suggestCompletionsForPartialWordRange:inString:language:)])
+        return nil;
+
+    if (language == nil)
+        language = [self currentLanguage];
+
+    return [spellEngine suggestCompletionsForPartialWordRange:
+                           partialWordRange
+                                                   inString: string
+                                                    language: language];
 }
 
 - (BOOL) hasLearnedWord: (NSString *) word {
@@ -448,7 +544,10 @@ static NSSpellChecker *shared = nil;
 }
 
 - (void) unlearnWord: (NSString *) word {
-    NSUnimplementedMethod();
+    [_learnedWords removeObject: word];
+    [[[self class] _currentSpellEngine]
+            didForgetWord: word
+               inLanguage: [self language] ?: [self currentLanguage]];
 }
 
 - (void) learnWord: (NSString *) word {
@@ -456,13 +555,12 @@ static NSSpellChecker *shared = nil;
 }
 
 - (NSArray *) userQuotesArrayForLanguage: (NSString *) language {
-    NSUnimplementedMethod();
-    return 0;
+    (void) language;
+    return [NSArray arrayWithObjects: @"“", @"”", @"‘", @"’", nil];
 }
 
 - (NSDictionary *) userReplacementsDictionary {
-    NSUnimplementedMethod();
-    return 0;
+    return [NSDictionary dictionary];
 }
 
 #pragma mark -
@@ -544,7 +642,8 @@ static BOOL NSSpellCheckerDefaultsFlag(NSString *key) {
                      completionHandler: (void (^)(NSString *acceptedString))
                                                 completionBlock
 {
-    NSUnimplementedMethod();
+    if (completionBlock != nil)
+        completionBlock(nil);
 }
 #endif
 
@@ -553,8 +652,12 @@ static BOOL NSSpellCheckerDefaultsFlag(NSString *key) {
                              language: (NSString *) language
                inSpellDocumentWithTag: (NSInteger) tag
 {
-    NSUnimplementedMethod();
-    return 0;
+    NSArray *guesses = [self guessesForWordRange: range
+                                        inString: string
+                                        language: language
+                          inSpellDocumentWithTag: tag];
+
+    return ([guesses count] > 0) ? [guesses objectAtIndex: 0] : nil;
 }
 
 - (void) recordResponse: (NSCorrectionResponse) response
@@ -563,11 +666,15 @@ static BOOL NSSpellCheckerDefaultsFlag(NSString *key) {
                       language: (NSString *) language
         inSpellDocumentWithTag: (NSInteger) tag
 {
-    NSUnimplementedMethod();
+    (void) response;
+    (void) correction;
+    (void) word;
+    (void) language;
+    (void) tag;
 }
 
 - (void) dismissCorrectionIndicatorForView: (NSView *) view {
-    NSUnimplementedMethod();
+    (void) view;
 }
 
 #pragma mark -

@@ -50,6 +50,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSURL.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreGraphics/CGWindow.h>
+#import <objc/runtime.h>
 
 const NSNotificationName NSWindowDidBecomeKeyNotification =
         @"NSWindowDidBecomeKeyNotification";
@@ -123,6 +124,21 @@ NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
     }
 
     return 0;
+}
+
+static char NSWindowAllowsConcurrentViewDrawingKey;
+static char NSWindowPreferredBackingLocationKey;
+static char NSWindowPreventsApplicationTerminationWhenModalKey;
+static char NSWindowCanBecomeVisibleWithoutLoginKey;
+static char NSWindowDepthLimitKey;
+
+static id NSWindowAssociatedValue(NSWindow *window, const void *key) {
+    return objc_getAssociatedObject(window, key);
+}
+
+static void NSWindowSetAssociatedValue(NSWindow *window, const void *key,
+                                       id value) {
+    objc_setAssociatedObject(window, key, value, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 @interface CGWindow (private)
@@ -278,8 +294,9 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 + (CGFloat) minFrameWidthWithTitle: (NSString *) title
                          styleMask: (NSWindowStyleMask) styleMask
 {
-    NSUnimplementedMethod();
-    return 0;
+    NSRect contentRect = NSMakeRect(0, 0, [title size].width, 0);
+    return [self frameRectForContentRect: contentRect
+                               styleMask: styleMask].size.width;
 }
 
 + (NSInteger) windowNumberAtPoint: (NSPoint) point
@@ -341,18 +358,60 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 + (void) removeFrameUsingName: (NSString *) name {
-    NSUnimplementedMethod();
+    if ([name length] == 0)
+        return;
+
+    NSString *prefix = [NSString stringWithFormat: @"NSWindow frame %@ ", name];
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSArray *keys = [[defaults dictionaryRepresentation] allKeys];
+    for (NSString *key in keys) {
+        if ([key hasPrefix: prefix])
+            [defaults removeObjectForKey: key];
+    }
 }
 
 + (NSButton *) standardWindowButton: (NSWindowButton) button
                        forStyleMask: (NSWindowStyleMask) styleMask
 {
-    NSUnimplementedMethod();
-    return nil;
+    NSString *title = nil;
+    NSString *toolTip = nil;
+    SEL action = NULL;
+
+    switch (button) {
+    case NSWindowCloseButton:
+        if (!(styleMask & NSClosableWindowMask))
+            return nil;
+        title = @"×";
+        toolTip = @"Close";
+        action = @selector(performClose:);
+        break;
+    case NSWindowMiniaturizeButton:
+        if (!(styleMask & NSMiniaturizableWindowMask))
+            return nil;
+        title = @"−";
+        toolTip = @"Minimize";
+        action = @selector(performMiniaturize:);
+        break;
+    case NSWindowZoomButton:
+        if (!(styleMask & NSResizableWindowMask))
+            return nil;
+        title = @"+";
+        toolTip = @"Zoom";
+        action = @selector(performZoom:);
+        break;
+    default:
+        return nil;
+    }
+
+    NSButton *result = [[[NSButton alloc] initWithFrame: NSMakeRect(0, 0, 16, 16)]
+            autorelease];
+    [result setTitle: title];
+    [result setToolTip: toolTip];
+    [result setAction: action];
+    return result;
 }
 
 + (void) menuChanged: (NSMenu *) menu {
-    NSUnimplementedMethod();
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
@@ -514,7 +573,7 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (NSWindow *) initWithWindowRef: (void *) carbonRef {
-    NSUnimplementedMethod();
+    [self release];
     return nil;
 }
 
@@ -626,17 +685,17 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (void *) windowRef {
-    NSUnimplementedMethod();
     return NULL;
 }
 
 - (BOOL) allowsConcurrentViewDrawing {
-    NSUnimplementedMethod();
-    return NO;
+    NSNumber *value = NSWindowAssociatedValue(self, &NSWindowAllowsConcurrentViewDrawingKey);
+    return value == nil ? YES : [value boolValue];
 }
 
 - (void) setAllowsConcurrentViewDrawing: (BOOL) allows {
-    NSUnimplementedMethod();
+    NSWindowSetAssociatedValue(self, &NSWindowAllowsConcurrentViewDrawingKey,
+                               [NSNumber numberWithBool: allows]);
 }
 
 - (NSView *) contentView {
@@ -680,12 +739,14 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (NSWindowBackingLocation) preferredBackingLocation {
-    NSUnimplementedMethod();
-    return 0;
+    NSNumber *value = NSWindowAssociatedValue(self, &NSWindowPreferredBackingLocationKey);
+    return value == nil ? NSWindowBackingLocationDefault
+                        : (NSWindowBackingLocation) [value integerValue];
 }
 
 - (void) setPreferredBackingLocation: (NSWindowBackingLocation) location {
-    NSUnimplementedMethod();
+    NSWindowSetAssociatedValue(self, &NSWindowPreferredBackingLocationKey,
+                               [NSNumber numberWithInteger: location]);
 }
 
 - (NSWindowBackingLocation) backingLocation {
@@ -726,12 +787,15 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (BOOL) preventsApplicationTerminationWhenModal {
-    NSUnimplementedMethod();
-    return NO;
+    NSNumber *value = NSWindowAssociatedValue(
+            self, &NSWindowPreventsApplicationTerminationWhenModalKey);
+    return value == nil ? YES : [value boolValue];
 }
 
 - (void) setPreventsApplicationTerminationWhenModal: (BOOL) prevents {
-    NSUnimplementedMethod();
+    NSWindowSetAssociatedValue(
+            self, &NSWindowPreventsApplicationTerminationWhenModalKey,
+            [NSNumber numberWithBool: prevents]);
 }
 
 - (BOOL) hidesOnDeactivate {
@@ -839,7 +903,8 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (NSWindowDepth) depthLimit {
-    return 0;
+    NSNumber *value = NSWindowAssociatedValue(self, &NSWindowDepthLimitKey);
+    return value == nil ? 0 : (NSWindowDepth) [value intValue];
 }
 
 - (NSSize) resizeIncrements {
@@ -1142,7 +1207,6 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 
 - (void) setContentMinSize: (NSSize) value {
     _contentMinSize = value;
-    NSUnimplementedMethod();
 }
 
 - (void) setContentMaxSize: (NSSize) value {
@@ -1163,7 +1227,6 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 
 - (void) setBackingType: (NSBackingStoreType) value {
     _backingType = value;
-    NSUnimplementedMethod();
 }
 
 - (void) setDynamicDepthLimit: (BOOL) value {
@@ -1383,7 +1446,8 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (void) setCanBecomeVisibleWithoutLogin: (BOOL) flag {
-    //   NSUnimplementedMethod();
+    NSWindowSetAssociatedValue(self, &NSWindowCanBecomeVisibleWithoutLoginKey,
+                               [NSNumber numberWithBool: flag]);
 }
 
 - (void) setCollectionBehavior: (NSWindowCollectionBehavior) behavior {
@@ -1428,12 +1492,10 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 
 - (void) setShowsResizeIndicator: (BOOL) value {
     _showsResizeIndicator = value;
-    NSUnimplementedMethod();
 }
 
 - (void) setShowsToolbarButton: (BOOL) value {
     _showsToolbarButton = value;
-    NSUnimplementedMethod();
 }
 
 - (void) setContentResizeIncrements: (NSSize) value {
@@ -1441,7 +1503,8 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (void) setDepthLimit: (NSWindowDepth) value {
-    NSUnimplementedMethod();
+    NSWindowSetAssociatedValue(self, &NSWindowDepthLimitKey,
+                               [NSNumber numberWithInt: value]);
 }
 
 - (void) setDisplaysWhenScreenProfileChanges: (BOOL) value {
@@ -1534,8 +1597,7 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (NSEventModifierFlags) resizeFlags {
-    NSUnimplementedMethod();
-    return 0;
+    return [[NSDisplay currentDisplay] currentModifierFlags];
 }
 
 - (CGFloat) userSpaceScaleFactor {
@@ -1618,7 +1680,7 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (int) gState {
-    NSUnimplementedMethod();
+    // The SDK documents this deprecated value as unused.
     return 0;
 }
 
@@ -1735,8 +1797,8 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (BOOL) canBecomeVisibleWithoutLogin {
-    NSUnimplementedMethod();
-    return NO;
+    NSNumber *value = NSWindowAssociatedValue(self, &NSWindowCanBecomeVisibleWithoutLoginKey);
+    return value == nil ? NO : [value boolValue];
 }
 
 - (NSWindowCollectionBehavior) collectionBehavior {
@@ -2018,7 +2080,6 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (NSSelectionDirection) keyViewSelectionDirection {
-    NSUnimplementedMethod();
     return 0;
 }
 
@@ -2216,15 +2277,12 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (void) cacheImageInRect: (NSRect) rect {
-    NSUnimplementedMethod();
 }
 
 - (void) restoreCachedImage {
-    NSUnimplementedMethod();
 }
 
 - (void) discardCachedImage {
-    NSUnimplementedMethod();
 }
 
 - (BOOL) areCursorRectsEnabled {
@@ -2461,7 +2519,7 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 - (void) discardEventsMatchingMask: (NSEventMask) mask
                        beforeEvent: (NSEvent *) event
 {
-    NSUnimplementedMethod();
+    [NSApp discardEventsMatchingMask: mask beforeEvent: event];
 }
 
 - (void) sendEvent: (NSEvent *) event {
@@ -2597,7 +2655,6 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 
     default:
         shouldValidateToolbarItems = NO;
-        NSUnimplementedMethod();
         break;
     }
     if (shouldValidateToolbarItems && [self toolbar]) {
@@ -2706,8 +2763,14 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 - validRequestorForSendType: (NSString *) sendType
                  returnType: (NSString *) returnType
 {
-    NSUnimplementedMethod();
-    return nil;
+    id requestor = nil;
+    if (_firstResponder != self) {
+        requestor = [_firstResponder validRequestorForSendType: sendType
+                                                    returnType: returnType];
+    }
+    if (requestor != nil)
+        return requestor;
+    return [super validRequestorForSendType: sendType returnType: returnType];
 }
 
 - (void) update {

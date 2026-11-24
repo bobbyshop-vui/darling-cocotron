@@ -24,6 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSView.h>
 #import <objc/message.h>
+#import <objc/runtime.h>
 
 NSBitmapImageRepPropertyKey NSImageCompressionFactor =
         @"NSImageCompressionFactor";
@@ -45,6 +46,9 @@ NSBitmapImageRepPropertyKey NSImageLoopCount = @"NSImageLoopCount";
 NSBitmapImageRepPropertyKey NSImageCurrentFrameDuration =
         @"NSImageCurrentFrameDuration";
 NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
+
+static char NSBitmapImageRepIncrementalDataKey;
+static char NSBitmapImageRepCompressionPropertiesKey;
 
 @implementation NSBitmapImageRep
 
@@ -73,12 +77,39 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
 + (void) getTIFFCompressionTypes: (const NSTIFFCompression **) types
                            count: (int *) count
 {
-    NSUnimplementedMethod();
+    static const NSTIFFCompression compressionTypes[] = {
+        NSTIFFCompressionNone, NSTIFFCompressionCCITTFAX3,
+        NSTIFFCompressionCCITTFAX4, NSTIFFCompressionLZW,
+        NSTIFFCompressionPackBits
+    };
+
+    if (types != NULL)
+        *types = compressionTypes;
+    if (count != NULL)
+        *count = sizeof(compressionTypes) / sizeof(compressionTypes[0]);
 }
 
 + (NSString *) localizedNameForTIFFCompressionType: (NSTIFFCompression) type {
-    NSUnimplementedMethod();
-    return nil;
+    switch (type) {
+    case NSTIFFCompressionNone:
+        return NSLocalizedString(@"None", nil);
+    case NSTIFFCompressionCCITTFAX3:
+        return NSLocalizedString(@"CCITT Fax 3", nil);
+    case NSTIFFCompressionCCITTFAX4:
+        return NSLocalizedString(@"CCITT Fax 4", nil);
+    case NSTIFFCompressionLZW:
+        return NSLocalizedString(@"LZW", nil);
+    case NSTIFFCompressionJPEG:
+        return NSLocalizedString(@"JPEG", nil);
+    case NSTIFFCompressionNEXT:
+        return NSLocalizedString(@"NeXT", nil);
+    case NSTIFFCompressionPackBits:
+        return NSLocalizedString(@"PackBits", nil);
+    case NSTIFFCompressionOldJPEG:
+        return NSLocalizedString(@"Old JPEG", nil);
+    default:
+        return nil;
+    }
 }
 
 + (NSData *) TIFFRepresentationOfImageRepsInArray: (NSArray *) array {
@@ -338,8 +369,11 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
 }
 
 - initForIncrementalLoad {
-    NSUnimplementedMethod();
-    return nil;
+    NSMutableData *data = [[NSMutableData alloc] init];
+    objc_setAssociatedObject(self, &NSBitmapImageRepIncrementalDataKey, data,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [data release];
+    return self;
 }
 
 - initWithFocusedViewRect: (NSRect) rect {
@@ -554,8 +588,45 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
 }
 
 - (int) incrementalLoadFromData: (NSData *) data complete: (BOOL) complete {
-    NSUnimplementedMethod();
-    return 0;
+    NSMutableData *incrementalData = objc_getAssociatedObject(
+            self, &NSBitmapImageRepIncrementalDataKey);
+    if (incrementalData == nil) {
+        incrementalData = [NSMutableData data];
+        objc_setAssociatedObject(self, &NSBitmapImageRepIncrementalDataKey,
+                                 incrementalData,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    if (data != nil)
+        [incrementalData appendData: data];
+    if ([incrementalData length] == 0)
+        return complete ? -4 : -1;
+
+    CGImageSourceRef imageSource = CGImageSourceCreateWithData(
+            (CFDataRef) incrementalData, NULL);
+    if (imageSource == NULL)
+        return complete ? -4 : -1;
+
+    CGImageRef cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
+    CFRelease(imageSource);
+    if (cgImage == NULL) {
+        if (complete) {
+            objc_setAssociatedObject(self, &NSBitmapImageRepIncrementalDataKey,
+                                     nil, OBJC_ASSOCIATION_ASSIGN);
+            return -5;
+        }
+        return -2;
+    }
+
+    if (!complete) {
+        CGImageRelease(cgImage);
+        return -3;
+    }
+
+    [self initWithCGImage: cgImage];
+    CGImageRelease(cgImage);
+    objc_setAssociatedObject(self, &NSBitmapImageRepIncrementalDataKey, nil,
+                             OBJC_ASSOCIATION_ASSIGN);
+    return -6;
 }
 
 - (int) bitsPerPixel {
@@ -640,28 +711,88 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
     NSAssert(x >= 0 && x < [self pixelsWide], @"x out of bounds");
     NSAssert(y >= 0 && y < [self pixelsHigh], @"y out of bounds");
 
+    if (pixel == NULL || x < 0 || x >= [self pixelsWide] || y < 0 ||
+        y >= [self pixelsHigh])
+        return;
+
     [self createBitmapIfNeeded];
 
-    if (_isPlanar) {
-        NSUnimplementedMethod();
-    } else {
-        if (_bitsPerPixel / _samplesPerPixel != 8) {
-            NSUnimplementedMethod();
-        }
-        unsigned char *bits =
-                _bitmapPlanes[0] + _bytesPerRow * y + (x * _bitsPerPixel) / 8;
+    NSUInteger sampleBits = (NSUInteger) [self bitsPerSample];
+    if (sampleBits == 0 || sampleBits > sizeof(NSUInteger) * 8)
+        return;
 
-        int i;
+    for (NSUInteger sample = 0; sample < (NSUInteger) _samplesPerPixel;
+         sample++) {
+        unsigned char *plane = _bitmapPlanes[_isPlanar ? sample : 0];
+        NSUInteger startBit = _isPlanar
+                                      ? (NSUInteger) x * sampleBits
+                                      : (NSUInteger) x * _bitsPerPixel +
+                                                sample * sampleBits;
+        plane += (NSUInteger) y * _bytesPerRow;
 
-        for (i = 0; i < _samplesPerPixel; i++) {
-            bits[i] = pixel[i];
+        for (NSUInteger bit = 0; bit < sampleBits; bit++) {
+            NSUInteger bitOffset = startBit + bit;
+            unsigned char mask = (unsigned char) (1 << (7 - bitOffset % 8));
+            NSUInteger value =
+                    (pixel[sample] >> (sampleBits - bit - 1)) & 1;
+            if (value != 0)
+                plane[bitOffset / 8] |= mask;
+            else
+                plane[bitOffset / 8] &= (unsigned char) ~mask;
         }
     }
 }
 
 - (NSColor *) colorAtX: (NSInteger) x y: (NSInteger) y {
-    NSUnimplementedMethod();
-    return nil;
+    if (x < 0 || x >= [self pixelsWide] || y < 0 || y >= [self pixelsHigh] ||
+        _samplesPerPixel <= 0)
+        return nil;
+
+    NSUInteger pixels[_samplesPerPixel];
+    [self getPixel: pixels atX: x y: y];
+
+    NSColorSpace *space = [self colorSpace];
+    NSInteger colorCount = [space numberOfColorComponents];
+    if (colorCount <= 0 || _samplesPerPixel < colorCount + (_hasAlpha ? 1 : 0))
+        return nil;
+
+    NSUInteger sampleBits = (NSUInteger) [self bitsPerSample];
+    if (sampleBits == 0 || sampleBits > sizeof(NSUInteger) * 8)
+        return nil;
+
+    NSUInteger maxValue = sampleBits == sizeof(NSUInteger) * 8
+                                  ? (NSUInteger) -1
+                                  : (((NSUInteger) 1 << sampleBits) - 1);
+    CGFloat components[colorCount + 1];
+    CGFloat alpha = 1.0;
+    NSInteger alphaIndex = _hasAlpha
+                                   ? ((_bitmapFormat & NSAlphaFirstBitmapFormat)
+                                              ? 0
+                                              : colorCount)
+                                   : -1;
+    if (alphaIndex >= 0) {
+        CGFloat sampleValue = (CGFloat) pixels[alphaIndex] / maxValue;
+        if (_bitmapFormat & NSFloatingPointSamplesBitmapFormat)
+            sampleValue = *((float *) &pixels[alphaIndex]);
+        alpha = MAX(0.0, MIN(1.0, sampleValue));
+    }
+
+    for (NSInteger component = 0; component < colorCount; component++) {
+        NSInteger sample = component;
+        if (_hasAlpha && (_bitmapFormat & NSAlphaFirstBitmapFormat))
+            sample++;
+        CGFloat value = (CGFloat) pixels[sample] / maxValue;
+        if (_bitmapFormat & NSFloatingPointSamplesBitmapFormat)
+            value = *((float *) &pixels[sample]);
+        if (_hasAlpha && !(_bitmapFormat & NSAlphaNonpremultipliedBitmapFormat))
+            value = alpha > 0 ? value / alpha : 0;
+        components[component] = MAX(0.0, MIN(1.0, value));
+    }
+    components[colorCount] = alpha;
+
+    return [NSColor colorWithColorSpace: space
+                             components: components
+                                  count: colorCount + 1];
 }
 
 - (void) setColor: (NSColor *) color atX: (NSInteger) x y: (NSInteger) y {
@@ -858,18 +989,45 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
 - (void) getCompression: (NSTIFFCompression *) compression
                  factor: (float *) factor
 {
-    NSUnimplementedMethod();
+    NSDictionary *properties = objc_getAssociatedObject(
+            self, &NSBitmapImageRepCompressionPropertiesKey);
+    NSNumber *compressionValue =
+            [properties objectForKey: NSImageCompressionMethod];
+    NSNumber *factorValue = [properties objectForKey: NSImageCompressionFactor];
+
+    if (compression != NULL)
+        *compression = compressionValue != nil
+                               ? (NSTIFFCompression) [compressionValue intValue]
+                               : NSTIFFCompressionNone;
+    if (factor != NULL)
+        *factor = factorValue != nil ? [factorValue floatValue] : 0.0f;
 }
 
 - (void) setCompression: (NSTIFFCompression) compression
                  factor: (float) factor
 {
-    NSUnimplementedMethod();
+    NSDictionary *properties = [NSDictionary
+            dictionaryWithObjectsAndKeys:
+                    [NSNumber numberWithInt: compression],
+                    NSImageCompressionMethod,
+                    [NSNumber numberWithFloat: factor],
+                    NSImageCompressionFactor, nil];
+    objc_setAssociatedObject(self, &NSBitmapImageRepCompressionPropertiesKey,
+                             properties, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (BOOL) canBeCompressedUsing: (NSTIFFCompression) compression {
-    NSUnimplementedMethod();
-    return NO;
+    switch (compression) {
+    case NSTIFFCompressionNone:
+    case NSTIFFCompressionLZW:
+    case NSTIFFCompressionPackBits:
+        return YES;
+    case NSTIFFCompressionCCITTFAX3:
+    case NSTIFFCompressionCCITTFAX4:
+        return _bitsPerSample == 1 && _samplesPerPixel == 1 && !_hasAlpha;
+    default:
+        return NO;
+    }
 }
 
 - (NSData *) representationUsingType: (NSBitmapImageFileType) type
@@ -959,15 +1117,71 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
     if (_cgImage != NULL)
         return CGImageRetain(_cgImage);
 
-    if (_isPlanar)
-        NSUnimplementedMethod();
+    [self createBitmapIfNeeded];
 
-    CGDataProviderRef provider = CGDataProviderCreateWithData(
-            NULL, _bitmapPlanes[0], _bytesPerRow * _pixelsHigh, NULL);
+    CFDataRef planarData = NULL;
+    const unsigned char *data = _bitmapPlanes[0];
+    size_t bytesPerRow = _bytesPerRow;
+    if (_isPlanar) {
+        if (_samplesPerPixel <= 0 || _bitsPerSample <= 0 ||
+            _bitsPerSample > sizeof(NSUInteger) * 8 ||
+            _bitsPerPixel != _bitsPerSample * _samplesPerPixel)
+            return NULL;
+
+        bytesPerRow = ((size_t) _bitsPerPixel * _pixelsWide + 7) / 8;
+        CFMutableDataRef mutableData = CFDataCreateMutable(
+                kCFAllocatorDefault, bytesPerRow * _pixelsHigh);
+        if (mutableData == NULL)
+            return NULL;
+        CFDataSetLength(mutableData, bytesPerRow * _pixelsHigh);
+        unsigned char *interleaved = CFDataGetMutableBytePtr(mutableData);
+        memset(interleaved, 0, bytesPerRow * _pixelsHigh);
+
+        NSUInteger pixel[_samplesPerPixel];
+        for (NSInteger y = 0; y < _pixelsHigh; y++) {
+            for (NSInteger x = 0; x < _pixelsWide; x++) {
+                [self getPixel: pixel atX: x y: y];
+                for (NSInteger sample = 0; sample < _samplesPerPixel; sample++) {
+                    NSUInteger startBit = (NSUInteger) x * _bitsPerPixel +
+                                          (NSUInteger) sample * _bitsPerSample;
+                    for (NSInteger bit = 0; bit < _bitsPerSample; bit++) {
+                        if ((pixel[sample] >> (_bitsPerSample - bit - 1)) & 1) {
+                            NSUInteger bitOffset = startBit + bit;
+                            interleaved[(NSUInteger) y * bytesPerRow +
+                                        bitOffset / 8] |=
+                                    (unsigned char) (1 << (7 - bitOffset % 8));
+                        }
+                    }
+                }
+            }
+        }
+        planarData = mutableData;
+        data = CFDataGetBytePtr(planarData);
+    }
+
+    CGDataProviderRef provider = planarData != NULL
+                                         ? CGDataProviderCreateWithCFData(
+                                                   planarData)
+                                         : CGDataProviderCreateWithData(
+                                                   NULL, data,
+                                                   bytesPerRow * _pixelsHigh,
+                                                   NULL);
+
+    if (planarData != NULL)
+        CFRelease(planarData);
+
+    if (provider == NULL)
+        return NULL;
+
+    CGColorSpaceRef colorSpace = [self CGColorSpace];
+    if (colorSpace == NULL) {
+        CGDataProviderRelease(provider);
+        return NULL;
+    }
 
     CGImageRef image = CGImageCreate(
             _pixelsWide, _pixelsHigh, _bitsPerPixel / _samplesPerPixel,
-            _bitsPerPixel, _bytesPerRow, [self CGColorSpace],
+            _bitsPerPixel, bytesPerRow, colorSpace,
             [self CGBitmapInfo], provider, NULL, NO, kCGRenderingIntentDefault);
 
     CGDataProviderRelease(provider);

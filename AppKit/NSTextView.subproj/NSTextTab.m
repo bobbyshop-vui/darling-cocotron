@@ -70,9 +70,10 @@ NSString *NSTabColumnTerminatorsAttributeName =
             _type = [aDecoder decodeIntForKey: @"Type"];
             _location = [aDecoder decodeFloatForKey: @"Location"];
         } else {
-            NSUnimplementedMethod();
-            [self release];
-            self = nil;
+            int type;
+            [aDecoder decodeValueOfObjCType: @encode(int) at: &type];
+            [aDecoder decodeValueOfObjCType: @encode(CGFloat) at: &_location];
+            _type = type;
         }
     }
     return self;
@@ -83,7 +84,9 @@ NSString *NSTabColumnTerminatorsAttributeName =
         [aCoder encodeInt: _type forKey: @"Type"];
         [aCoder encodeFloat: _location forKey: @"Location"];
     } else {
-        NSUnimplementedMethod();
+        int type = _type;
+        [aCoder encodeValueOfObjCType: @encode(int) at: &type];
+        [aCoder encodeValueOfObjCType: @encode(CGFloat) at: &_location];
     }
 }
 

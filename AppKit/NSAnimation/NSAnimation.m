@@ -21,8 +21,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSArray.h>
 #import <Foundation/NSRunLoop.h>
 #import <Foundation/NSString.h>
+#import <Foundation/NSThread.h>
 #import <Foundation/NSTimer.h>
 #import <Foundation/NSValue.h>
+#import <objc/runtime.h>
 
 NSString *const NSAnimationProgressMarkNotification =
         @"NSAnimationProgressMarkNotification";
@@ -31,6 +33,11 @@ NSString *NSAnimationTriggerOrderIn = @"NSAnimationTriggerOrderIn";
 NSString *NSAnimationTriggerOrderOut = @"NSAnimationTriggerOrderOut";
 
 NSString *NSAnimationRunLoopMode = @"NSAnimationRunLoopMode";
+
+static char _startAnimationObservationContext;
+static char _stopAnimationObservationContext;
+static char _startAnimationInfoKey;
+static char _stopAnimationInfoKey;
 
 @implementation NSAnimation
 
@@ -92,6 +99,8 @@ NSString *NSAnimationRunLoopMode = @"NSAnimationRunLoopMode";
 }
 
 - (void) dealloc {
+    [self clearStartAnimation];
+    [self clearStopAnimation];
     [_progressMarks release];
     [_runLoopModes release];
     [super dealloc];
@@ -167,11 +176,18 @@ NSString *NSAnimationRunLoopMode = @"NSAnimationRunLoopMode";
         mark = 1;
 
     [_progressMarks addObject: [NSNumber numberWithFloat: mark]];
-    NSUnimplementedMethod();
 }
 
 - (void) removeProgressMark: (NSAnimationProgress) mark {
-    NSUnimplementedMethod();
+    if (mark < 0)
+        mark = 0;
+    else if (mark > 1)
+        mark = 1;
+
+    NSNumber *progressMark = [NSNumber numberWithFloat: mark];
+    NSUInteger index = [_progressMarks indexOfObject: progressMark];
+    if (index != NSNotFound)
+        [_progressMarks removeObjectAtIndex: index];
 }
 
 - (NSAnimationProgress) currentProgress {
@@ -195,11 +211,62 @@ NSString *NSAnimationRunLoopMode = @"NSAnimationRunLoopMode";
 }
 
 - (void) clearStartAnimation {
-    NSUnimplementedMethod();
+    NSDictionary *info = objc_getAssociatedObject(self, &_startAnimationInfoKey);
+    NSAnimation *animation = [info objectForKey: @"animation"];
+    if (animation != nil) {
+        [animation removeObserver: self
+                       forKeyPath: @"currentProgress"
+                          context: &_startAnimationObservationContext];
+        objc_setAssociatedObject(self, &_startAnimationInfoKey, nil,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
 }
 
 - (void) clearStopAnimation {
-    NSUnimplementedMethod();
+    NSDictionary *info = objc_getAssociatedObject(self, &_stopAnimationInfoKey);
+    NSAnimation *animation = [info objectForKey: @"animation"];
+    if (animation != nil) {
+        [animation removeObserver: self
+                       forKeyPath: @"currentProgress"
+                          context: &_stopAnimationObservationContext];
+        objc_setAssociatedObject(self, &_stopAnimationInfoKey, nil,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+}
+
+- (void) observeValueForKeyPath: (NSString *) keyPath
+                       ofObject: (id) object
+                         change: (NSDictionary *) change
+                        context: (void *) context
+{
+    NSDictionary *startInfo = objc_getAssociatedObject(self, &_startAnimationInfoKey);
+    NSAnimation *startAnimation = [startInfo objectForKey: @"animation"];
+    NSAnimationProgress startProgress =
+            [[startInfo objectForKey: @"progress"] floatValue];
+    if (context == &_startAnimationObservationContext &&
+        object == startAnimation &&
+        [object currentProgress] >= startProgress) {
+        [self clearStartAnimation];
+        [self startAnimation];
+        return;
+    }
+
+    NSDictionary *stopInfo = objc_getAssociatedObject(self, &_stopAnimationInfoKey);
+    NSAnimation *stopAnimation = [stopInfo objectForKey: @"animation"];
+    NSAnimationProgress stopProgress =
+            [[stopInfo objectForKey: @"progress"] floatValue];
+    if (context == &_stopAnimationObservationContext &&
+        object == stopAnimation &&
+        [object currentProgress] >= stopProgress) {
+        [self clearStopAnimation];
+        [self stopAnimation];
+        return;
+    }
+
+    [super observeValueForKeyPath: keyPath
+                         ofObject: object
+                           change: change
+                          context: context];
 }
 
 - (void) _setCurrentProgressAndEndIfNeeded: (NSAnimationProgress) progress {
@@ -266,10 +333,29 @@ NSString *NSAnimationRunLoopMode = @"NSAnimationRunLoopMode";
             break;
 
         case NSAnimationNonblockingThreaded:
-            NSUnimplementedMethod();
+            [NSThread detachNewThreadSelector: @selector(_runThreadedAnimation)
+                                     toTarget: self
+                                   withObject: nil];
             break;
         }
     }
+}
+
+- (void) _runThreadedAnimation {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
+    _timer = [NSTimer timerWithTimeInterval: 1.0 / _frameRate
+                                     target: self
+                                   selector: @selector(timer:)
+                                   userInfo: nil
+                                    repeats: YES];
+    [runLoop addTimer: _timer forMode: NSAnimationRunLoopMode];
+
+    while (_isAnimating)
+        [runLoop runMode: NSAnimationRunLoopMode
+              beforeDate: [NSDate dateWithTimeIntervalSinceNow: _duration]];
+
+    [pool drain];
 }
 
 - (void) stopAnimation {
@@ -284,13 +370,57 @@ NSString *NSAnimationRunLoopMode = @"NSAnimationRunLoopMode";
 - (void) startWhenAnimation: (NSAnimation *) animation
             reachesProgress: (NSAnimationProgress) progress
 {
-    NSUnimplementedMethod();
+    [self clearStartAnimation];
+    if (animation == nil)
+        return;
+    if (progress < 0)
+        progress = 0;
+    else if (progress > 1)
+        progress = 1;
+
+    if ([animation currentProgress] >= progress) {
+        [self startAnimation];
+        return;
+    }
+
+    NSDictionary *info = [NSDictionary
+            dictionaryWithObjectsAndKeys: animation, @"animation",
+                                         [NSNumber numberWithFloat: progress],
+                                         @"progress", nil];
+    objc_setAssociatedObject(self, &_startAnimationInfoKey, info,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [animation addObserver: self
+                forKeyPath: @"currentProgress"
+                   options: 0
+                   context: &_startAnimationObservationContext];
 }
 
 - (void) stopWhenAnimation: (NSAnimation *) animation
            reachesProgress: (NSAnimationProgress) progress
 {
-    NSUnimplementedMethod();
+    [self clearStopAnimation];
+    if (animation == nil)
+        return;
+    if (progress < 0)
+        progress = 0;
+    else if (progress > 1)
+        progress = 1;
+
+    if ([animation currentProgress] >= progress) {
+        [self stopAnimation];
+        return;
+    }
+
+    NSDictionary *info = [NSDictionary
+            dictionaryWithObjectsAndKeys: animation, @"animation",
+                                         [NSNumber numberWithFloat: progress],
+                                         @"progress", nil];
+    objc_setAssociatedObject(self, &_stopAnimationInfoKey, info,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [animation addObserver: self
+                forKeyPath: @"currentProgress"
+                   options: 0
+                   context: &_stopAnimationObservationContext];
 }
 
 @end

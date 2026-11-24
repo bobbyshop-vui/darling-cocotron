@@ -108,7 +108,6 @@ static BOOL NSEPSParseBoundingBoxLine(NSString *line, NSString *prefix,
 
 - (BOOL) draw {
     [self prepareGState];
-    NSUnimplementedMethod();
     return NO;
 }
 

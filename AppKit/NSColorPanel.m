@@ -72,7 +72,7 @@ static NSUInteger _pickerMask = 0;
 }
 
 + (void) setPickerMode: (NSColorPanelMode) mode {
-    NSUnimplementedMethod();
+    [[self sharedColorPanel] setMode: mode];
 }
 
 + (BOOL) dragColor: (NSColor *) color

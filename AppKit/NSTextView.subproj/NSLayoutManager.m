@@ -2923,7 +2923,6 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
 
 - (void) setAllowsNonContiguousLayout: (BOOL) value {
     _allowsNonContiguousLayout = value;
-    NSUnimplementedMethod();
 }
 
 #pragma mark - Additional NSLayoutManager API

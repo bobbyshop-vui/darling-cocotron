@@ -431,8 +431,11 @@ static int untitled_document_number = 0;
         break;
 
     case NSChangeReadOtherContents:
+        _changeCount++;
+        break;
+
     case NSChangeAutosaved:
-        NSUnimplementedMethod();
+        // Autosaving does not clear the edited state of the document.
         break;
 
     case NSChangeRedone:
@@ -619,16 +622,42 @@ static int untitled_document_number = 0;
                   didAutosaveSelector: (SEL) selector
                           contextInfo: (void *) info
 {
-    NSError *error;
+    NSError *error = nil;
+    NSURL *url = [self autosavedContentsFileURL];
+    BOOL success = NO;
 
-    if (![self writeToURL: [self autosavedContentsFileURL]
-                             ofType: [self autosavingFileType]
-                   forSaveOperation: NSAutosaveOperation
-                originalContentsURL: [self fileURL]
-                              error: &error]) {
+    if (url != nil) {
+        success = [self writeToURL: url
+                            ofType: [self autosavingFileType]
+                  forSaveOperation: NSAutosaveElsewhereOperation
+               originalContentsURL: [self fileURL]
+                             error: &error];
+    } else {
+        error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                    code: NSFeatureUnsupportedError
+                                userInfo: [NSDictionary dictionaryWithObject:
+                                        @"No autosaved contents URL is available."
+                                                           forKey:
+                                        NSLocalizedDescriptionKey]];
     }
 
-    NSUnimplementedMethod();
+    if (!success && error == nil)
+        error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                    code: NSFileWriteUnknownError
+                                userInfo: nil];
+
+    if (success)
+        [self updateChangeCount: NSChangeAutosaved];
+    else if (error != nil)
+        [self presentError: error];
+
+    if (delegate != nil && selector != NULL &&
+        [delegate respondsToSelector: selector]) {
+        void (*delegateMethod)(id, SEL, id, BOOL, void *);
+        delegateMethod = (void (*)(id, SEL, id, BOOL, void *))
+                [delegate methodForSelector: selector];
+        delegateMethod(delegate, selector, self, success, info);
+    }
 }
 
 - (NSError *) willPresentError: (NSError *) error {
@@ -683,12 +712,10 @@ static int untitled_document_number = 0;
 }
 
 - (BOOL) fileNameExtensionWasHiddenInLastRunSavePanel {
-    NSUnimplementedMethod();
-    return 0;
+    return NO;
 }
 
 - (NSString *) fileTypeFromLastRunSavePanel {
-    NSUnimplementedMethod();
     return nil;
 }
 
@@ -933,7 +960,10 @@ static int untitled_document_number = 0;
                  didRunSelector: (SEL) selector
                     contextInfo: (void *) info
 {
-    NSUnimplementedMethod();
+    [printOperation runOperationModalForWindow: [self windowForSheet]
+                                      delegate: delegate
+                                didRunSelector: selector
+                                   contextInfo: info];
 }
 
 - (NSPrintOperation *) printOperationWithSettings: (NSDictionary *) settings
@@ -1168,7 +1198,9 @@ static int untitled_document_number = 0;
 - (NSString *) fileNameFromRunningSavePanelForSaveOperation:
         (NSSaveOperationType) operation
 {
-    NSUnimplementedMethod();
+    NSWindow *window = [NSApp modalWindow];
+    if ([window isKindOfClass: [NSSavePanel class]])
+        return [(NSSavePanel *) window filename];
     return nil;
 }
 
@@ -1297,8 +1329,10 @@ static int untitled_document_number = 0;
 - (int) runModalSavePanel: (NSSavePanel *) savePanel
         withAccessoryView: (NSView *) accessoryView
 {
-    NSUnimplementedMethod();
-    return 0;
+    if (savePanel == nil)
+        return NSCancelButton;
+    [savePanel setAccessoryView: accessoryView];
+    return (int) [savePanel runModal];
 }
 
 - (int) runModalPageLayoutWithPrintInfo: (NSPrintInfo *) printInfo {
@@ -1365,13 +1399,20 @@ static int untitled_document_number = 0;
          originalFile: (NSString *) original
         saveOperation: (NSSaveOperationType) operation
 {
-    NSUnimplementedMethod();
-    return 0;
+    BOOL success = [self writeToFile: path ofType: type];
+    if (success) {
+        NSDictionary *attributes = [self fileAttributesToWriteToFile: path
+                                                               ofType: type
+                                                        saveOperation: operation];
+        if ([attributes count] > 0)
+            [[NSFileManager defaultManager] changeFileAttributes: attributes
+                                                          atPath: path];
+    }
+    return success;
 }
 
 - (BOOL) writeToURL: (NSURL *) url ofType: (NSString *) type {
-    NSUnimplementedMethod();
-    return 0;
+    return [self writeToURL: url ofType: type error: NULL];
 }
 
 - (BOOL) writeWithBackupToFile: (NSString *) path
@@ -1525,13 +1566,68 @@ static int untitled_document_number = 0;
   forSaveOperation: (NSSaveOperationType) saveOperation
  completionHandler: (void (^)(NSError *errorOrNil)) completionHandler
  {
-    NSUnimplementedMethod();
+    NSError *error = nil;
+    BOOL success = [self saveToURL: url
+                            ofType: typeName
+                  forSaveOperation: saveOperation
+                             error: &error];
+    if (!success && error == nil) {
+        error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                    code: NSFeatureUnsupportedError
+                                userInfo: [NSDictionary dictionaryWithObject:
+                                        @"The document could not be saved."
+                                                           forKey:
+                                        NSLocalizedDescriptionKey]];
+    }
+    if (completionHandler != nil)
+        completionHandler(success ? nil : error);
 }
 
 - (void) autosaveWithImplicitCancellability: (BOOL) autosavingIsImplicitlyCancellable
                           completionHandler: (void (^)(NSError *errorOrNil)) completionHandler
 {
-    NSUnimplementedMethod();
+    if (![self hasUnautosavedChanges]) {
+        if (completionHandler != nil)
+            completionHandler(nil);
+        return;
+    }
+
+    BOOL autosaveInPlace = [[self class] autosavesInPlace] &&
+                           [self fileURL] != nil;
+    NSURL *url = autosaveInPlace ? [self fileURL]
+                                 : [self autosavedContentsFileURL];
+    NSSaveOperationType operation = autosaveInPlace
+            ? NSAutosaveInPlaceOperation : NSAutosaveElsewhereOperation;
+    NSError *error = nil;
+    BOOL success = NO;
+
+    if (url != nil) {
+        success = [self writeToURL: url
+                            ofType: [self autosavingFileType]
+                  forSaveOperation: operation
+               originalContentsURL: [self fileURL]
+                             error: &error];
+    } else {
+        error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                    code: NSFeatureUnsupportedError
+                                userInfo: [NSDictionary dictionaryWithObject:
+                                        @"No autosaved contents URL is available."
+                                                           forKey:
+                                        NSLocalizedDescriptionKey]];
+    }
+
+    if (success) {
+        if (autosaveInPlace)
+            [self setFileModificationDate: [NSDate date]];
+        [self updateChangeCount: NSChangeAutosaved];
+    } else if (error == nil) {
+        error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                    code: NSFileWriteUnknownError
+                                userInfo: nil];
+    }
+
+    if (completionHandler != nil)
+        completionHandler(success ? nil : error);
 }
 
 + (BOOL) autosavesInPlace {

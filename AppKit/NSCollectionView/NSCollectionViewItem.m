@@ -55,8 +55,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - copyWithZone: (NSZone *) zone {
-    NSUnimplementedMethod();
-    return nil;
+    NSCollectionViewItem *copy = NSCopyObject(self, 0, zone);
+
+    copy->_nibName = [_nibName copy];
+    copy->_nibBundle = [_nibBundle retain];
+    copy->_representedObject = [_representedObject retain];
+    copy->_title = [_title copy];
+    copy->_identifier = [_identifier copy];
+    copy->_nextResponder = nil;
+    copy->_vcxParentViewController = nil;
+    copy->_vcxChildViewControllers = nil;
+    copy->_vcxPresentingViewController = nil;
+    copy->_vcxPresentedViewControllers = nil;
+    copy->_editors = [[NSMutableArray alloc] init];
+    copy->_vcxPresentationObject = nil;
+    copy->_collectionView = nil;
+
+    if (_nibName != nil) {
+        copy->_view = nil;
+        copy->_imageView = nil;
+        copy->_textField = nil;
+        copy->_vcxDidLoadView = NO;
+    } else {
+        copy->_view = [_view retain];
+        copy->_imageView = _imageView;
+        copy->_textField = _textField;
+    }
+
+    return copy;
 }
 
 - (NSCollectionView *) collectionView {

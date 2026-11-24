@@ -125,8 +125,26 @@ static NSDocumentController *shared = nil;
 }
 
 - initWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
-    return nil;
+    if (![coder allowsKeyedCoding])
+        [NSException raise: NSInvalidArgumentException
+                    format: @"%@ requires a keyed coder",
+                            [self class]];
+
+    self = [self init];
+    if (self != nil) {
+        NSArray *documents = [coder decodeObjectForKey: @"NSDocuments"];
+        NSArray *fileTypes = [coder decodeObjectForKey: @"NSFileTypes"];
+        if (documents != nil) {
+            [_documents release];
+            _documents = [documents mutableCopy];
+        }
+        if (fileTypes != nil) {
+            [_fileTypes release];
+            _fileTypes = [fileTypes copy];
+        }
+        _autosavingDelay = [coder decodeDoubleForKey: @"NSAutosavingDelay"];
+    }
+    return self;
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
@@ -229,8 +247,6 @@ static NSDocumentController *shared = nil;
 
 - (void) setAutosavingDelay: (NSTimeInterval) value {
     _autosavingDelay = value;
-
-    NSUnimplementedMethod();
 }
 
 - (NSArray *) documents {
@@ -552,8 +568,60 @@ static NSDocumentController *shared = nil;
             withContentsOfURL: (NSURL *) contentsUL
                         error: (NSError **) error
 {
-    NSUnimplementedMethod();
-    return 0;
+    if (contentsUL == nil) {
+        if (error != NULL)
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                          code: NSFeatureUnsupportedError
+                                      userInfo: [NSDictionary dictionaryWithObject:
+                                              @"A contents URL is required to reopen a document."
+                                                                 forKey:
+                                              NSLocalizedDescriptionKey]];
+        return NO;
+    }
+
+    NSError *typeError = nil;
+    NSString *type = nil;
+    if (url != nil)
+        type = [self typeForContentsOfURL: url error: &typeError];
+    if (type == nil)
+        type = [self typeForContentsOfURL: contentsUL error: &typeError];
+    if (type == nil)
+        type = [self typeFromFileExtension: [[(url != nil ? url : contentsUL) path]
+                                                      pathExtension]];
+    if (type == nil && url == nil)
+        type = [self defaultType];
+    if (type == nil) {
+        if (error != NULL)
+            *error = typeError != nil ? typeError :
+                    [NSError errorWithDomain: NSCocoaErrorDomain
+                                         code: NSFeatureUnsupportedError
+                                     userInfo: nil];
+        return NO;
+    }
+
+    NSDocument *document = (url != nil) ? [self documentForURL: url] : nil;
+    if (document != nil) {
+        if (![document revertToContentsOfURL: contentsUL
+                                      ofType: type
+                                       error: error])
+            return NO;
+    } else {
+        document = [self makeDocumentForURL: url
+                          withContentsOfURL: contentsUL
+                                     ofType: type
+                                      error: error];
+        if (document == nil)
+            return NO;
+        [self addDocument: document];
+        [document makeWindowControllers];
+    }
+
+    [document setFileType: type];
+    [document setAutosavedContentsFileURL: contentsUL];
+    if (url == nil || ![url isEqual: contentsUL])
+        [document updateChangeCount: NSChangeReadOtherContents];
+    [document showWindows];
+    return YES;
 }
 
 - (void) _closeDocumentsStartingWith: (NSDocument *) document
@@ -963,15 +1031,18 @@ static BOOL actionIsDocumentController(SEL selector) {
 }
 
 - (BOOL) closeAllDocuments {
-    NSUnimplementedMethod();
-    return NO;
+    [self closeAllDocumentsWithDelegate: nil
+                    didCloseAllSelector: NULL
+                            contextInfo: NULL];
+    return [_documents count] == 0;
 }
 
 - (BOOL) reviewUnsavedDocumentsWithAlertTitle: (NSString *) title
                                   cancellable: (BOOL) cancellable
 {
-    NSUnimplementedMethod();
-    return 0;
+    (void) title;
+    (void) cancellable;
+    return [self closeAllDocuments];
 }
 
 @end

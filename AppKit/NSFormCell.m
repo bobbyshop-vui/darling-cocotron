@@ -69,7 +69,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - initTextCell: (NSString *) value {
     [super initTextCell: value];
-    NSUnimplementedMethod();
+    _titleCell = [[NSTextFieldCell alloc] initTextCell: @""];
     return self;
 }
 

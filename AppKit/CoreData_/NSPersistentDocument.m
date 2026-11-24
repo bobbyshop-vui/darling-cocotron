@@ -75,13 +75,42 @@ NSString *const NSDisplayNameBindingOption = @"NSDisplayNameBindingOption";
                                               (NSDictionary *) storeOptions
                                              error: (NSError **) error
 {
-    NSUnimplementedMethod();
-    return NO;
+    NSPersistentStoreCoordinator *coordinator =
+            [_context persistentStoreCoordinator];
+    if (url == nil || coordinator == nil) {
+        if (error != NULL)
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                          code: NSFeatureUnsupportedError
+                                      userInfo: nil];
+        return NO;
+    }
+
+    if ([coordinator persistentStoreForURL: url] != nil)
+        return YES;
+
+    NSString *storeType = [self persistentStoreTypeForFileType: fileType];
+    return [coordinator addPersistentStoreWithType: storeType
+                                     configuration: configuration
+                                               URL: url
+                                           options: storeOptions
+                                             error: error] != nil;
 }
 
 - (NSString *) persistentStoreTypeForFileType: (NSString *) fileType {
-    NSUnimplementedMethod();
-    return nil;
+    NSArray *documentTypes = [[[NSBundle mainBundle] infoDictionary]
+            objectForKey: @"CFBundleDocumentTypes"];
+    for (NSDictionary *documentType in documentTypes) {
+        if ([[documentType objectForKey: @"CFBundleTypeName"]
+                    isEqualToString: fileType]) {
+            NSString *storeType =
+                    [documentType objectForKey: @"NSPersistentStoreType"];
+            if ([storeType isKindOfClass: [NSString class]] &&
+                [storeType length] > 0)
+                return storeType;
+            break;
+        }
+    }
+    return NSXMLStoreType;
 }
 
 - (BOOL) hasUndoManager {

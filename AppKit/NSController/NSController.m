@@ -58,7 +58,9 @@ BOOL NSIsControllerMarker(id object) {
 }
 
 - initWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    if ((self = [super init])) {
+        _editors = [[NSMutableArray alloc] init];
+    }
     return self;
 }
 

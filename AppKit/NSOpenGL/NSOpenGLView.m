@@ -58,7 +58,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     if ([coder allowsKeyedCoding])
         _pixelFormat = [[coder decodeObjectForKey: @"NSPixelFormat"] retain];
     else
-        NSUnimplementedMethod();
+        _pixelFormat = [[coder decodeObject] retain];
 
     return self;
 }

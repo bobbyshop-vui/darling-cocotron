@@ -43,14 +43,12 @@
             withFrame: (NSRect) frame
                inView: (NSView *) view
 {
-    NSUnimplementedMethod();
 }
 
 - (void) mouseExited: (NSEvent *) event
            withFrame: (NSRect) frame
               inView: (NSView *) view
 {
-    NSUnimplementedMethod();
 }
 
 - (NSArray *) allowedTypes {

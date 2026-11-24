@@ -19,12 +19,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/AppKit.h>
 #import <AppKit/NSGraphicsStyle.h>
 #import <AppKit/NSRaise.h>
+#import <AppKit/NSStringDrawer.h>
 
 @implementation NSTableHeaderCell
 
 - (NSRect) sortIndicatorRectForBounds: (NSRect) bounds {
-    NSUnimplementedMethod();
-    return bounds;
+    CGFloat width = MIN(8.0, MAX(0.0, bounds.size.width));
+    CGFloat height = MIN(6.0, MAX(0.0, bounds.size.height));
+    CGFloat x = MAX(bounds.origin.x, NSMaxX(bounds) - width - 3.0);
+    CGFloat y = bounds.origin.y + (bounds.size.height - height) / 2.0;
+
+    return NSMakeRect(x, y, width, height);
 }
 
 - (void) drawSortIndicatorWithFrame: (NSRect) frame
@@ -32,7 +37,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                           ascending: (BOOL) ascending
                            priority: (NSInteger) priority
 {
-    NSUnimplementedMethod();
+    NSRect indicator = [self sortIndicatorRectForBounds: frame];
+    CGFloat midX = NSMidX(indicator);
+    BOOL apexAtMaxY = ascending != [controlView isFlipped];
+    NSBezierPath *path;
+
+    (void) priority;
+    if (NSIsEmptyRect(indicator))
+        return;
+
+    path = [NSBezierPath bezierPath];
+    if (apexAtMaxY) {
+        [path moveToPoint: NSMakePoint(NSMinX(indicator), NSMinY(indicator))];
+        [path lineToPoint: NSMakePoint(midX, NSMaxY(indicator))];
+        [path lineToPoint: NSMakePoint(NSMaxX(indicator), NSMinY(indicator))];
+    } else {
+        [path moveToPoint: NSMakePoint(NSMinX(indicator), NSMaxY(indicator))];
+        [path lineToPoint: NSMakePoint(midX, NSMinY(indicator))];
+        [path lineToPoint: NSMakePoint(NSMaxX(indicator), NSMaxY(indicator))];
+    }
+    [path closePath];
+    [[NSColor controlTextColor] setFill];
+    [path fill];
 }
 
 - (NSRect) titleRectForBounds: (NSRect) rect {

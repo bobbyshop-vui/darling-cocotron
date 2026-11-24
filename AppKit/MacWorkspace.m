@@ -3,6 +3,40 @@
 #import <AppKit/NSRunningApplication.h>
 #import <AppKit/NSRaise.h>
 #include <LaunchServices/LaunchServices.h>
+#include <sys/mount.h>
+#include <stdlib.h>
+
+static NSArray *MacWorkspaceMountedVolumePaths(unsigned long requiredFlags) {
+    int count = getfsstat(NULL, 0, MNT_NOWAIT);
+    if (count <= 0)
+        return [NSArray array];
+
+    struct statfs *filesystems = calloc((size_t) count, sizeof(struct statfs));
+    if (filesystems == NULL)
+        return [NSArray array];
+
+    int mountedCount = getfsstat(filesystems,
+                                 count * (int) sizeof(struct statfs),
+                                 MNT_NOWAIT);
+    if (mountedCount < 0)
+        mountedCount = 0;
+    if (mountedCount > count)
+        mountedCount = count;
+
+    NSMutableArray *paths = [NSMutableArray arrayWithCapacity: mountedCount];
+    for (int index = 0; index < mountedCount; index++) {
+        if ((filesystems[index].f_flags & requiredFlags) != requiredFlags)
+            continue;
+
+        NSString *path = [NSString stringWithUTF8String:
+                                  filesystems[index].f_mntonname];
+        if (path != nil)
+            [paths addObject: path];
+    }
+
+    free(filesystems);
+    return paths;
+}
 
 @implementation NSWorkspace (macos)
 
@@ -32,7 +66,11 @@
 
 - (NSString *) localizedDescriptionForType: (NSString *) type {
     // TODO: call UTTypeCopyDescription()
-    NSUnimplementedMethod();
+    if (type != nil) {
+        CFStringRef description = UTTypeCopyDescription((CFStringRef) type);
+        if (description != NULL)
+            return [(NSString *) description autorelease];
+    }
     return NULL;
 }
 
@@ -40,13 +78,38 @@
             isValidForType: (NSString *) type
 {
     // TODO: call UTTypeCreateAllIdentifiersForTag
-    NSUnimplementedMethod();
+    if (extension == nil || type == nil)
+        return NO;
+
+    CFArrayRef identifiers = UTTypeCreateAllIdentifiersForTag(
+            kUTTagClassFilenameExtension, (CFStringRef) [extension lowercaseString],
+            NULL);
+    if (identifiers == NULL)
+        return NO;
+
+    BOOL valid = NO;
+    CFIndex count = CFArrayGetCount(identifiers);
+    for (CFIndex index = 0; index < count; index++) {
+        CFStringRef identifier = CFArrayGetValueAtIndex(identifiers, index);
+        if ([self type: (NSString *) identifier conformsToType: type]) {
+            valid = YES;
+            break;
+        }
+    }
+    CFRelease(identifiers);
+    if (valid)
+        return YES;
     return NO;
 }
 
 - (NSString *) preferredFilenameExtensionForType: (NSString *) type {
     // TODO: call UTTypeCopyPreferredTagWithClass(kUTTagClassFilenameExtension)
-    NSUnimplementedMethod();
+    if (type != nil) {
+        CFStringRef extension = UTTypeCopyPreferredTagWithClass(
+                (CFStringRef) type, kUTTagClassFilenameExtension);
+        if (extension != NULL)
+            return [(NSString *) extension autorelease];
+    }
     return NULL;
 }
 
@@ -113,7 +176,7 @@
                at: (NSPoint) point
            inView: (NSView *) view
 {
-    NSUnimplementedMethod();
+    return [self openFile: path];
     return NO;
 }
 
@@ -122,7 +185,38 @@
           andDeactivate: (BOOL) deactivate
 {
     // TODO: call LSOpenFromURLSpec()
-    NSUnimplementedMethod();
+    NSURL *applicationURL = nil;
+    if (application != nil) {
+        NSString *applicationPath = [self fullPathForApplication: application];
+        if (applicationPath == nil)
+            return NO;
+        applicationURL = [NSURL fileURLWithPath: applicationPath
+                                    isDirectory: YES];
+    }
+
+    NSUInteger launchOptions = deactivate ? 0 : 0x00000200;
+    if (path == nil) {
+        return applicationURL != nil &&
+               [self launchApplicationAtURL: applicationURL
+                                    options: launchOptions
+                              configuration: nil
+                                      error: NULL] != nil;
+    }
+
+    NSURL *fileURL = [NSURL fileURLWithPath: path];
+    if (applicationURL == nil &&
+        [[[path pathExtension] lowercaseString] isEqualToString: @"app"])
+        return [self openURL: fileURL];
+    if (applicationURL == nil)
+        applicationURL = [self URLForApplicationToOpenURL: fileURL];
+    if (applicationURL == nil)
+        return NO;
+
+    return [self openURLs: [NSArray arrayWithObject: fileURL]
+       withApplicationAtURL: applicationURL
+                    options: launchOptions
+              configuration: nil
+                      error: NULL] != nil;
     return NO;
 }
 
@@ -168,7 +262,54 @@
                         files: (NSArray *) files
                           tag: (NSInteger *) tag
 {
-    NSUnimplementedMethod();
+    if (tag != NULL)
+        *tag = 0;
+    if (operation == nil || source == nil || files == nil)
+        return NO;
+
+    BOOL copy = [operation isEqualToString: @"NSWorkspaceCopyOperation"];
+    BOOL move = [operation isEqualToString: @"NSWorkspaceMoveOperation"];
+    BOOL link = [operation isEqualToString: @"NSWorkspaceLinkOperation"];
+    BOOL destroy = [operation isEqualToString: @"NSWorkspaceDestroyOperation"];
+    BOOL recycle = [operation isEqualToString: NSWorkspaceRecycleOperation];
+    if ((!copy && !move && !link && !destroy && !recycle) ||
+        ((!destroy && !recycle) && destination == nil))
+        return NO;
+
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    for (NSString *file in files) {
+        if (![file isKindOfClass: [NSString class]])
+            return NO;
+
+        NSString *sourcePath = [source stringByAppendingPathComponent: file];
+        NSString *destinationPath =
+                [destination stringByAppendingPathComponent: file];
+        NSError *error = nil;
+        BOOL succeeded;
+        if (copy)
+            succeeded = [fileManager copyItemAtPath: sourcePath
+                                             toPath: destinationPath
+                                              error: &error];
+        else if (move)
+            succeeded = [fileManager moveItemAtPath: sourcePath
+                                             toPath: destinationPath
+                                              error: &error];
+        else if (link)
+            succeeded = [fileManager linkItemAtPath: sourcePath
+                                             toPath: destinationPath
+                                              error: &error];
+        else if (destroy)
+            succeeded = [fileManager removeItemAtPath: sourcePath error: &error];
+        else
+            succeeded = [fileManager trashItemAtURL:
+                                         [NSURL fileURLWithPath: sourcePath]
+                                    resultingItemURL: NULL
+                                                error: &error];
+
+        if (!succeeded)
+            return NO;
+    }
+    return YES;
 }
 
 - (BOOL) getFileSystemInfoForPath: (NSString *) path
@@ -178,13 +319,36 @@
                       description: (NSString **) description
                              type: (NSString **) type
 {
+    // TODO: call statfs() to get filesystem information
+    // Use DiskArbitration for the rest.
+    if (isRemovable != NULL)
+        *isRemovable = NO;
+    if (isWritable != NULL)
+        *isWritable = NO;
+    if (isUnmountable != NULL)
+        *isUnmountable = NO;
+    if (description != NULL)
+        *description = nil;
+    if (type != NULL)
+        *type = nil;
     if (!path)
         return NO;
 
-    // TODO: call statfs() to get filesystem information
-    // Use DiskArbitration for the rest.
-    NSUnimplementedMethod();
-    return NO;
+    struct statfs filesystem;
+    if (statfs([path fileSystemRepresentation], &filesystem) != 0)
+        return NO;
+
+    if (isRemovable != NULL)
+        *isRemovable = (filesystem.f_flags & MNT_REMOVABLE) != 0;
+    if (isWritable != NULL)
+        *isWritable = (filesystem.f_flags & MNT_RDONLY) == 0;
+    NSString *filesystemType = [NSString stringWithUTF8String:
+                                        filesystem.f_fstypename];
+    if (description != NULL)
+        *description = filesystemType;
+    if (type != NULL)
+        *type = filesystemType;
+    return YES;
 }
 
 - (BOOL) getInfoForFile: (NSString *) path
@@ -222,7 +386,7 @@
     // TODO: call [[NSFileManager defaultManager]
     // mountedVolumeURLsIncludingResourceValuesForKeys:@[NSURLVolumeIsRemovableKey]
     // options:NSVolumeEnumerationSkipHiddenVolumes]
-    NSUnimplementedMethod();
+    return MacWorkspaceMountedVolumePaths(MNT_REMOVABLE);
     return @[];
 }
 
@@ -230,13 +394,12 @@
     // TODO: call [[NSFileManager defaultManager]
     // mountedVolumeURLsIncludingResourceValuesForKeys:@[]
     // options:NSVolumeEnumerationSkipHiddenVolumes]
-    NSUnimplementedMethod();
+    return MacWorkspaceMountedVolumePaths(MNT_LOCAL);
     return @[];
 }
 
 - (BOOL) unmountAndEjectDeviceAtPath: (NSString *) path {
     // TODO: call FSEjectVolumeSync()
-    NSUnimplementedMethod();
     return NO;
 }
 
@@ -254,7 +417,6 @@
 
 - (void) noteFileSystemChanged: (NSString *) path {
     // TODO: call FNNotifyByPath()
-    NSUnimplementedMethod();
 }
 
 - (void) noteUserDefaultsChanged {
@@ -288,7 +450,10 @@
 - (NSString *) absolutePathForAppBundleWithIdentifier: (NSString *) identifier {
     // TODO: call LSFindApplicationForInfo() /
     // LSCopyApplicationURLsForBundleIdentifier()
-    NSUnimplementedMethod();
+    NSURL *applicationURL = [self URLForApplicationWithBundleIdentifier:
+                                      identifier];
+    if (applicationURL != nil)
+        return [applicationURL path];
     return NULL;
 }
 
@@ -299,7 +464,6 @@
 
 - (NSArray *) launchedApplications {
     // TODO: call _LSCopyRunningApplicationArray()
-    NSUnimplementedMethod();
     return @[];
 }
 
@@ -324,7 +488,6 @@
 
 - (NSDictionary *) activeApplication {
     // TODO: call _LSCopyFrontApplication() and _LSCopyApplicationInformation()
-    NSUnimplementedMethod();
     return NULL;
 }
 
@@ -345,7 +508,6 @@
     // FSCreateResFile/FSOpenResFile, FSSetCatalogInfo and other historical
     // functions. But none of these would have effect when viewed from Linux
     // desktop environments...
-    NSUnimplementedMethod();
     return NO;
 }
 

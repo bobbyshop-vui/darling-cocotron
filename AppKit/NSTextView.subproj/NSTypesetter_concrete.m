@@ -1126,7 +1126,11 @@ static void loadGlyphAndCharacterCacheForLocation(NSTypesetter_concrete *self,
                    value: (NSInteger) value
          forGlyphAtIndex: (NSUInteger) glyphIndex;
 {
-    NSUnimplementedMethod();
+    if (intAttribute == 2) {
+        unsigned char bidiLevel = (unsigned char) value;
+        [self setBidiLevels: &bidiLevel
+              forGlyphRange: NSMakeRange(glyphIndex, 1)];
+    }
 }
 
 - (NSUInteger) getGlyphsInRange: (NSRange) glyphRange

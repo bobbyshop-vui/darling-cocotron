@@ -118,6 +118,8 @@ static NSNibFontNameTranslator *_nibFontTranslator = nil;
 static NSUInteger _fontCacheCapacity = 0;
 static NSUInteger _fontCacheSize = 0;
 static NSFont **_fontCache = NULL;
+static NSFont *_userFontPreference = nil;
+static NSFont *_userFixedPitchFontPreference = nil;
 
 static NSLock *_cacheLock = nil;
 
@@ -319,23 +321,51 @@ static NSLock *_cacheLock = nil;
 }
 
 + (NSFont *) userFontOfSize: (CGFloat) size {
+    NSFont *preference;
+    @synchronized([NSFont class]) {
+        preference = [_userFontPreference retain];
+    }
+    if (preference != nil) {
+        NSFont *font = [NSFont fontWithName: [preference fontName]
+                                       size: (size == 0) ? 12.0 : size];
+        [preference release];
+        return font;
+    }
     return [NSFont fontWithName: [O2Font postscriptNameForDisplayName:
                                                  @"San Francisco"]
                            size: (size == 0) ? 12.0 : size];
 }
 
 + (NSFont *) userFixedPitchFontOfSize: (CGFloat) size {
+    NSFont *preference;
+    @synchronized([NSFont class]) {
+        preference = [_userFixedPitchFontPreference retain];
+    }
+    if (preference != nil) {
+        NSFont *font = [NSFont fontWithName: [preference fontName]
+                                       size: (size == 0) ? 12.0 : size];
+        [preference release];
+        return font;
+    }
     return [NSFont
             fontWithName: [O2Font postscriptNameForDisplayName: @"Courier New"]
                     size: (size == 0) ? 12.0 : size];
 }
 
 + (void) setUserFont: (NSFont *) value {
-    NSUnimplementedMethod();
+    value = [value retain];
+    @synchronized([NSFont class]) {
+        [_userFontPreference release];
+        _userFontPreference = value;
+    }
 }
 
 + (void) setUserFixedPitchFont: (NSFont *) value {
-    NSUnimplementedMethod();
+    value = [value retain];
+    @synchronized([NSFont class]) {
+        [_userFixedPitchFontPreference release];
+        _userFixedPitchFontPreference = value;
+    }
 }
 
 + (NSArray *) preferredFontNames {
@@ -578,8 +608,33 @@ static NSLock *_cacheLock = nil;
                            size: (CGFloat) size
                   textTransform: (NSAffineTransform *) transform
 {
-    NSUnimplementedMethod();
-    return 0;
+    if (descriptor == nil)
+        return nil;
+
+    CGFloat fontSize = size > 0 ? size : [descriptor pointSize];
+    if (fontSize == 0)
+        fontSize = [self systemFontSize];
+    NSFont *font = [self fontWithDescriptor: descriptor size: fontSize];
+    if (font == nil)
+        return nil;
+
+    if (transform == nil)
+        transform = [descriptor matrix];
+    if (transform == nil)
+        return font;
+
+    NSAffineTransformStruct fields = [transform transformStruct];
+    NSFont *copy = NSCopyObject(font, 0, NULL);
+    copy->_name = [font->_name copy];
+    copy->_cgFont = CGFontRetain(font->_cgFont);
+    copy->_ctFont = (CTFontRef) CFRetain(font->_ctFont);
+    copy->_matrix[0] = fields.m11;
+    copy->_matrix[1] = fields.m12;
+    copy->_matrix[2] = fields.m21;
+    copy->_matrix[3] = fields.m22;
+    copy->_matrix[4] = fields.tX;
+    copy->_matrix[5] = fields.tY;
+    return [copy autorelease];
 }
 
 + (NSFont *) fontWithDescriptor: (NSFontDescriptor *) descriptor
@@ -718,8 +773,7 @@ static NSLock *_cacheLock = nil;
 }
 
 - (NSFont *) printerFont {
-    NSUnimplementedMethod();
-    return nil;
+    return [self screenFontWithRenderingMode: NSFontAntialiasedRenderingMode];
 }
 
 - (NSFont *) screenFont {
@@ -921,7 +975,8 @@ static NSLock *_cacheLock = nil;
                 forGlyphs: (const NSGlyph *) glyphs
                     count: (NSUInteger) count
 {
-    NSUnimplementedMethod();
+    for (NSUInteger i = 0; i < count; i++)
+        rects[i] = [self boundingRectForGlyph: glyphs[i]];
 }
 
 - (NSUInteger) getGlyphs: (NSGlyph *) glyphs

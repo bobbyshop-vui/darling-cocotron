@@ -26,6 +26,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSIndexSet.h>
 #import <Foundation/NSKeyValueCoding.h>
 #import <Foundation/NSKeyValueObserving.h>
+#import <Foundation/NSComparisonPredicate.h>
+#import <Foundation/NSCompoundPredicate.h>
+#import <Foundation/NSExpression.h>
 #import <Foundation/NSPredicate.h>
 #import <Foundation/NSSet.h>
 #import <Foundation/NSSortDescriptor.h>
@@ -233,7 +236,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) _setContentArrayForMultipleSelection: (id) value {
-    NSUnimplementedMethod();
+    [self setContent: value];
 }
 
 - (void) _setContentArray: (id) value {
@@ -664,12 +667,47 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSArray *) automaticRearrangementKeyPaths {
-    NSUnimplementedMethod();
-    return nil;
+    NSMutableArray *keyPaths = [NSMutableArray array];
+
+    for (NSSortDescriptor *descriptor in [self sortDescriptors]) {
+        NSString *keyPath = [descriptor key];
+        if (keyPath != nil && ![keyPaths containsObject: keyPath])
+            [keyPaths addObject: keyPath];
+    }
+
+    NSMutableArray *predicates = [NSMutableArray array];
+    if ([self filterPredicate] != nil)
+        [predicates addObject: [self filterPredicate]];
+
+    NSUInteger index = 0;
+    while (index < [predicates count]) {
+        id predicate = [predicates objectAtIndex: index++];
+
+        if ([predicate respondsToSelector: @selector(subpredicates)]) {
+            NSArray *subpredicates = [predicate subpredicates];
+            if (subpredicates != nil)
+                [predicates addObjectsFromArray: subpredicates];
+        } else if ([predicate respondsToSelector: @selector(leftExpression)] &&
+                   [predicate respondsToSelector: @selector(rightExpression)]) {
+            id expressions[] = {[predicate leftExpression],
+                                [predicate rightExpression]};
+            NSUInteger expressionIndex;
+            for (expressionIndex = 0; expressionIndex < 2; expressionIndex++) {
+                id expression = expressions[expressionIndex];
+                if ([expression expressionType] == NSKeyPathExpressionType) {
+                    NSString *keyPath = [expression keyPath];
+                    if (keyPath != nil && ![keyPaths containsObject: keyPath])
+                        [keyPaths addObject: keyPath];
+                }
+            }
+        }
+    }
+
+    return keyPaths;
 }
 
 - (void) didChangeArrangementCriteria {
-    NSUnimplementedMethod();
+    [self rearrangeObjects];
 }
 
 #pragma mark -

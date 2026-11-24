@@ -190,6 +190,5 @@ static NSColorSpace *_NSColorSpaceCreate(Class cls, CFStringRef name, int kind,
 @end
 
 NSString* _NSColorSpaceNameFromNum(void) {
-    NSUnimplementedFunction();
     return nil;
 };

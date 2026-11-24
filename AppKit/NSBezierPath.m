@@ -990,7 +990,6 @@ static inline CGFloat degreesToRadians(CGFloat degrees) {
     // FIX, unpack glyphs
     // does this use the current font?
     //   [self appendBezierPathWithGlyphs:glyphs count:count inFont:font];
-    NSUnimplementedMethod();
 }
 
 - (void) appendBezierPath: (NSBezierPath *) other {

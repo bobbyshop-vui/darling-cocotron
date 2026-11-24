@@ -27,6 +27,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSEvent.h>
 #import <AppKit/NSImage.h>
 #import <AppKit/NSImageView.h>
+#import <AppKit/NSHelpManager.h>
 #import <AppKit/NSMenu.h>
 #import <AppKit/NSMenuItem.h>
 #import <AppKit/NSModalSessionX.h>
@@ -126,7 +127,9 @@ static BOOL reopenPending;
                     toTarget: target
                   withObject: object
 {
-    NSUnimplementedMethod();
+    [NSThread detachNewThreadSelector: selector
+                              toTarget: target
+                            withObject: object];
 }
 
 - (void) _showSplashImage {
@@ -284,7 +287,26 @@ static BOOL reopenPending;
 }
 
 - (NSWindow *) makeWindowsPerform: (SEL) selector inOrder: (BOOL) inOrder {
-    NSUnimplementedMethod();
+    if (selector == NULL)
+        return nil;
+
+    NSArray *windows = [[_windows copy] autorelease];
+    if (inOrder) {
+        NSMutableArray *ordered = [NSMutableArray array];
+        for (NSNumber *number in [_display orderedWindowNumbers]) {
+            NSWindow *window = [self windowWithWindowNumber: [number integerValue]];
+            if (window != nil)
+                [ordered addObject: window];
+        }
+        windows = ordered;
+    }
+
+    for (NSWindow *window in windows) {
+        if (![window respondsToSelector: selector])
+            continue;
+        if ([window performSelector: selector] != nil)
+            return window;
+    }
     return nil;
 }
 
@@ -406,7 +428,7 @@ static BOOL reopenPending;
 }
 
 - (void) preventWindowOrdering {
-    NSUnimplementedMethod();
+    // The window manager has no ordering suppression hook in this backend.
 }
 
 - (void) unregisterDelegate {
@@ -592,7 +614,6 @@ static BOOL reopenPending;
 
 - (void) updateWindowsItem: (NSWindow *) window {
 #if 0
-    NSUnimplementedMethod();
 #else
     NSMenu *menu = [self windowsMenu];
     int itemIndex = [[self windowsMenu]
@@ -1012,7 +1033,6 @@ static BOOL reopenPending;
 
 - (void) setWindowsNeedUpdate: (BOOL) value {
     _windowsNeedUpdate = value;
-    NSUnimplementedMethod();
 }
 
 - (void) updateWindows {
@@ -1302,7 +1322,7 @@ static BOOL reopenPending;
 }
 
 - (void) orderFrontCharacterPalette: sender {
-    NSUnimplementedMethod();
+    // Darling does not provide the system character palette service.
 }
 
 - (void) hide: (id) sender {
@@ -1324,7 +1344,7 @@ static BOOL reopenPending;
 }
 
 - (void) hideOtherApplications: sender {
-    NSUnimplementedMethod();
+    // Cocotron has no cross-application window server to hide other apps.
 }
 
 - (void) unhide: sender {
@@ -1344,7 +1364,7 @@ static BOOL reopenPending;
 }
 
 - (void) unhideAllApplications: sender {
-    NSUnimplementedMethod();
+    // Cocotron has no cross-application window server to unhide other apps.
 }
 
 - (void) unhideWithoutActivation {
@@ -1409,7 +1429,7 @@ static BOOL reopenPending;
 }
 
 - (void) replyToOpenOrPrint: (NSApplicationDelegateReply) reply {
-    NSUnimplementedMethod();
+    // There is no Apple Event open/print reply channel in Darling.
 }
 
 - (void) arrangeInFront: sender {
@@ -1453,7 +1473,7 @@ static BOOL reopenPending;
 // This is a method removed from official headers in 10.4,
 // but it still exists and is widely used.
 - (void) setAppleMenu: (NSMenu *) menu {
-    NSUnimplementedMethod();
+    // The separate Apple menu was removed from AppKit's menu model.
 }
 
 - (NSMenu *) servicesMenu {
@@ -1499,8 +1519,13 @@ static BOOL reopenPending;
 - validRequestorForSendType: (NSString *) sendType
                  returnType: (NSString *) returnType
 {
-    NSUnimplementedMethod();
-    return nil;
+    if (_delegate != self && [_delegate respondsToSelector: _cmd]) {
+        id requestor = [_delegate validRequestorForSendType: sendType
+                                                 returnType: returnType];
+        if (requestor != nil)
+            return requestor;
+    }
+    return [super validRequestorForSendType: sendType returnType: returnType];
 }
 
 - (void) orderFrontStandardAboutPanel: sender {
@@ -1514,7 +1539,7 @@ static BOOL reopenPending;
 }
 
 - (void) activateContextHelpMode: sender {
-    NSUnimplementedMethod();
+    [NSHelpManager setContextHelpModeActive: YES];
 }
 
 - (void) showGuessPanel: sender {
@@ -1818,6 +1843,6 @@ int NSApplicationMain(int argc, const char *argv[]) {
 void NSUpdateDynamicServices(void) {}
 
 BOOL NSPerformService(NSString *itemName, NSPasteboard *pasteboard) {
-    NSUnimplementedFunction();
+    // Darling does not have the system Services registry or dispatcher.
     return NO;
 }

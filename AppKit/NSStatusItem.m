@@ -501,7 +501,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) drawStatusBarBackgroundInRect: (NSRect) rect
                          withHighlight: (BOOL) highlight
 {
-    NSUnimplementedMethod();
 }
 
 @end

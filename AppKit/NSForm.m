@@ -184,7 +184,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) selectTextAtIndex: (NSInteger) index {
-    NSUnimplementedMethod();
+    if (index < 0 || index >= [self numberOfRows])
+        return;
+
+    [self selectCellAtRow: index column: 0];
+    if ([[self cellAtRow: index column: 0] isEditable])
+        [self selectText: self];
 }
 
 - (void) drawCellAtIndex: (NSInteger) index {

@@ -18,15 +18,23 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSGraphicsContext.h>
 #import <AppKit/NSOpenGLContext.h>
+#import <AppKit/NSBitmapImageRep.h>
 #import <AppKit/NSOpenGLPixelFormat.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSView.h>
 #import <AppKit/NSWindow-Private.h>
+#import <Foundation/NSNumber.h>
 #import <OpenGL/OpenGL.h>
+#import <objc/runtime.h>
 
 @interface NSOpenGLContext (private)
 - (void) _clearCurrentContext;
 @end
+
+static char NSOpenGLContextPixelBufferKey;
+static char NSOpenGLContextPixelBufferCubeMapFaceKey;
+static char NSOpenGLContextPixelBufferMipMapLevelKey;
+static char NSOpenGLContextCurrentVirtualScreenKey;
 
 @implementation NSOpenGLContext
 
@@ -103,18 +111,19 @@ static inline void _clearCurrentContext() {
 }
 
 - (NSOpenGLPixelBuffer *) pixelBuffer {
-    NSUnimplementedMethod();
-    return nil;
+    return objc_getAssociatedObject(self, &NSOpenGLContextPixelBufferKey);
 }
 
 - (unsigned long) pixelBufferCubeMapFace {
-    NSUnimplementedMethod();
-    return 0;
+    return [(NSNumber *) objc_getAssociatedObject(
+                    self, &NSOpenGLContextPixelBufferCubeMapFaceKey)
+            unsignedLongValue];
 }
 
 - (long) pixelBufferMipMapLevel {
-    NSUnimplementedMethod();
-    return 0;
+    return [(NSNumber *) objc_getAssociatedObject(
+                    self, &NSOpenGLContextPixelBufferMipMapLevelKey)
+            longValue];
 }
 
 - (void *) CGLContextObj {
@@ -202,19 +211,22 @@ static inline void _clearCurrentContext() {
 }
 
 - (int) currentVirtualScreen {
-    NSUnimplementedMethod();
-    return 0;
+    return [(NSNumber *) objc_getAssociatedObject(
+                    self, &NSOpenGLContextCurrentVirtualScreenKey)
+            intValue];
 }
 
 - (void) setCurrentVirtualScreen: (int) screen {
-    NSUnimplementedMethod();
+    objc_setAssociatedObject(self, &NSOpenGLContextCurrentVirtualScreenKey,
+                             [NSNumber numberWithInt: screen],
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (void) setFullScreen {
     if (_view != nil)
         NSLog(@"NSOpenGLContext has view, full-screen not allowed");
 
-    NSUnimplementedMethod();
+    // The EGL CGL backend does not provide exclusive full-screen rendering.
 }
 
 - (void) setOffscreen: (void *) bytes
@@ -222,7 +234,7 @@ static inline void _clearCurrentContext() {
                height: (long) height
              rowbytes: (long) rowbytes
 {
-    NSUnimplementedMethod();
+    // The EGL CGL backend does not provide the legacy software offscreen path.
 }
 
 - (void) setPixelBuffer: (NSOpenGLPixelBuffer *) pixelBuffer
@@ -230,13 +242,21 @@ static inline void _clearCurrentContext() {
                   mipMapLeve: (long) mipMapLevel
         currentVirtualScreen: (int) screen
 {
-    NSUnimplementedMethod();
+    objc_setAssociatedObject(self, &NSOpenGLContextPixelBufferKey, pixelBuffer,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(self, &NSOpenGLContextPixelBufferCubeMapFaceKey,
+                             [NSNumber numberWithUnsignedLong: cubeMapFace],
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(self, &NSOpenGLContextPixelBufferMipMapLevelKey,
+                             [NSNumber numberWithLong: mipMapLevel],
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self setCurrentVirtualScreen: screen];
 }
 
 - (void) setTextureImageToPixelBuffer: (NSOpenGLPixelBuffer *) pixelBuffer
                           colorBuffer: (unsigned long) source
 {
-    NSUnimplementedMethod();
+    // Darling's CGL backend does not implement CGLTexImagePBuffer.
 }
 
 - (void) update {
@@ -250,14 +270,37 @@ static inline void _clearCurrentContext() {
 - (void) copyAttributesFromContext: (NSOpenGLContext *) context
                           withMask: (unsigned long) mask
 {
-    NSUnimplementedMethod();
+    // The CGL backend has no context-state copy operation.
 }
 
 - (void) createTexture: (unsigned long) identifier
               fromView: (NSView *) view
         internalFormat: (unsigned long) internalFormat
 {
-    NSUnimplementedMethod();
+    NSRect bounds = [view bounds];
+    NSBitmapImageRep *image = [view bitmapImageRepForCachingDisplayInRect: bounds];
+    if (image == nil)
+        return;
+
+    [view cacheDisplayInRect: bounds toBitmapImageRep: image];
+
+    NSOpenGLContext *previousContext = [NSOpenGLContext currentContext];
+    [self makeCurrentContext];
+    if (identifier == GL_TEXTURE_1D) {
+        glTexImage1D((GLenum) identifier, 0, (GLint) internalFormat,
+                     (GLsizei) [image pixelsWide], 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                     [image bitmapData]);
+    } else {
+        glTexImage2D((GLenum) identifier, 0, (GLint) internalFormat,
+                     (GLsizei) [image pixelsWide], (GLsizei) [image pixelsHigh],
+                     0, GL_RGBA, GL_UNSIGNED_BYTE, [image bitmapData]);
+    }
+    if (previousContext != self) {
+        if (previousContext != nil)
+            [previousContext makeCurrentContext];
+        else
+            [NSOpenGLContext clearCurrentContext];
+    }
 }
 
 - (void) flushBuffer {

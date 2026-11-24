@@ -609,7 +609,7 @@ static BOOL isStandardItemIdentifier(NSString *identifier) {
 
 - initWithCoder: (NSCoder *) coder {
     if (![coder allowsKeyedCoding])
-        NSUnimplementedMethod();
+        return [self initWithIdentifier: @""];
     else {
         _identifier =
                 [[coder decodeObjectForKey: @"NSToolbarIdentifier"] retain];

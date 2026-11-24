@@ -1,6 +1,10 @@
 #import <AppKit/NSPathControl.h>
 
 #import "AppKit/NSRaise.h"
+#import <objc/runtime.h>
+
+static char NSPathControlLocalDraggingMaskKey;
+static char NSPathControlRemoteDraggingMaskKey;
 
 @implementation NSPathControl
 
@@ -122,18 +126,32 @@
 }
 
 - (id<NSPathControlDelegate>) delegate; {
-    NSUnimplementedMethod();
-    return nil;
+    NSPathCell *cell = [self cell];
+    return [cell delegate];
 }
 
 - (void) setDelegate: (id<NSPathControlDelegate>) delegate; {
-    NSUnimplementedMethod();
+    NSPathCell *cell = [self cell];
+    [cell setDelegate: delegate];
 }
 
 - (void) setDraggingSourceOperationMask: (NSDragOperation) mask
                                forLocal: (BOOL) isLocal;
 {
-    NSUnimplementedMethod();
+    objc_setAssociatedObject(self,
+                             isLocal ? &NSPathControlLocalDraggingMaskKey
+                                     : &NSPathControlRemoteDraggingMaskKey,
+                             [NSNumber numberWithUnsignedInteger: mask],
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (NSDragOperation) draggingSourceOperationMaskForLocal: (BOOL) isLocal {
+    const void *key = isLocal ? &NSPathControlLocalDraggingMaskKey
+                              : &NSPathControlRemoteDraggingMaskKey;
+    NSNumber *mask = objc_getAssociatedObject(self, key);
+    if (mask != nil)
+        return [mask unsignedIntegerValue];
+    return isLocal ? NSDragOperationEvery : NSDragOperationNone;
 }
 
 - (NSMenu *) menu; {

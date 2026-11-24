@@ -262,9 +262,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     r.size.width -= _lineFragmentPadding;
     result = NSIntersectionRect(r, result);
 
-    if (sweep != NSLineSweepRight || movement != NSLineMovesDown)
-        NSUnimplementedMethod();
-
     if (result.origin.x + result.size.width > _size.width)
         result.size.width = _size.width - result.origin.x;
 

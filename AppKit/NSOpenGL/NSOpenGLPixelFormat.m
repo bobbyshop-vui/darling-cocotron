@@ -149,8 +149,10 @@ static NSData *terminatedAttributeData(NSData *data) {
         }
 
         return [self initWithAttributes: attributes];
-    } else
-        NSUnimplementedMethod();
+    } else {
+        NSData *data = [coder decodeObject];
+        return [self initWithData: data];
+    }
 
     return self;
 }

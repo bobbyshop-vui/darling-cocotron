@@ -25,7 +25,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRichTextReader.h>
 #import <AppKit/NSRichTextWriter.h>
 #import <AppKit/NSStringDrawer.h>
+#import <AppKit/NSPasteboard.h>
 #import <AppKit/NSTextAttachment.h>
+#import <AppKit/NSTextList.h>
+#import <AppKit/NSTextTable.h>
+#import <AppKit/NSTextTableBlock.h>
+#import <CoreFoundation/CFLocale.h>
+#import <CoreFoundation/CFString.h>
 #import <Foundation/NSFileWrapper.h>
 
 NSAttributedStringKey NSFontAttributeName = @"NSFontAttributeName";
@@ -150,6 +156,83 @@ static BOOL NSAttributedStringRangeContainsAttachments(
     return NO;
 }
 
+static void NSAttributedStringSetImportError(NSError **error, NSInteger code,
+                                             NSString *description)
+{
+    if (error != NULL)
+        *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                     code: code
+                                 userInfo: [NSDictionary dictionaryWithObject:
+                                                    description
+                                                                      forKey:
+                                                    NSLocalizedDescriptionKey]];
+}
+
+typedef enum {
+    NSAttributedStringParagraphBlock,
+    NSAttributedStringParagraphList,
+    NSAttributedStringParagraphTable
+} NSAttributedStringParagraphItemKind;
+
+static BOOL NSAttributedStringParagraphContainsItem(
+        NSAttributedString *string, NSRange paragraph, id item,
+        NSAttributedStringParagraphItemKind kind)
+{
+    NSParagraphStyle *style = [string attribute: NSParagraphStyleAttributeName
+                                         atIndex: paragraph.location
+                                  effectiveRange: NULL];
+    if (style == nil)
+        return NO;
+
+    NSArray *items = kind == NSAttributedStringParagraphList
+            ? [style textLists] : [style textBlocks];
+    for (id candidate in items) {
+        if (kind == NSAttributedStringParagraphTable) {
+            if ([candidate isKindOfClass: [NSTextTableBlock class]] &&
+                [(NSTextTableBlock *) candidate table] == item)
+                return YES;
+        } else if (candidate == item) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+static NSRange NSAttributedStringRangeOfParagraphItem(
+        NSAttributedString *string, NSUInteger index, id item,
+        NSAttributedStringParagraphItemKind kind)
+{
+    NSString *text = [string string];
+    NSUInteger length = [text length];
+    if (index >= length)
+        return NSMakeRange(0, 0);
+
+    NSRange paragraph = [text paragraphRangeForRange: NSMakeRange(index, 0)];
+    if (paragraph.length == 0 ||
+        !NSAttributedStringParagraphContainsItem(string, paragraph, item, kind))
+        return NSMakeRange(0, 0);
+
+    NSUInteger start = paragraph.location;
+    NSUInteger end = NSMaxRange(paragraph);
+    while (start > 0) {
+        NSRange previous = [text paragraphRangeForRange:
+                                    NSMakeRange(start - 1, 0)];
+        if (previous.length == 0 || NSMaxRange(previous) > start ||
+            !NSAttributedStringParagraphContainsItem(string, previous, item,
+                                                     kind))
+            break;
+        start = previous.location;
+    }
+    while (end < length) {
+        NSRange next = [text paragraphRangeForRange: NSMakeRange(end, 0)];
+        if (next.length == 0 || next.location < end ||
+            !NSAttributedStringParagraphContainsItem(string, next, item, kind))
+            break;
+        end = NSMaxRange(next);
+    }
+    return NSMakeRange(start, end - start);
+}
+
 static BOOL NSAttributedStringCharacterIsCJK(unichar character)
 {
     return (character >= 0x2e80 && character <= 0x9fff) ||
@@ -182,96 +265,133 @@ static BOOL NSAttributedStringCharacterIsCJK(unichar character)
         documentAttributes: (NSDictionary **) attributes
                      error: (NSError **) error
 {
-    NSUnimplementedMethod();
-    NSString *docType = [options objectForKey:NSDocumentTypeDocumentAttribute];
-   
-    //Infer the document format if not provided
-    if(docType == nil){
-        //Extract a prefix from the document to identify the type
-        //FIXME: use 64 bit ready types and check encoding
-        char prefix[14];
-        NSUInteger dataLength = [data length];
-        
-        if(dataLength < sizeof(prefix))
-        {
-            [data getBytes: prefix length: dataLength];
-            prefix[dataLength] = 0;
-        }
-        else
-        {
-            [data getBytes: prefix length: sizeof(prefix)];
-        }
+    if (error != NULL)
+        *error = nil;
+    if (attributes != NULL)
+        *attributes = nil;
+    if (data == nil) {
+        NSAttributedStringSetImportError(error, NSFileReadNoSuchFileError,
+                                         @"No document data was supplied.");
+        [self release];
+        return nil;
+    }
 
-        //Use the prefix to determine the document format
-        // FIXME extend the list
-        if (strncmp(prefix, "{\\rtf", 5) == 0)
-        {
+    NSString *docType = [options objectForKey: NSDocumentTypeDocumentOption];
+    if (docType == nil)
+        docType = [options objectForKey: NSDocumentTypeDocumentAttribute];
+    if (docType == nil)
+        docType = [options objectForKey: NSFileTypeDocumentOption];
+
+    if (docType == nil) {
+        char prefix[64] = {0};
+        NSUInteger prefixLength = [data length] < sizeof(prefix) - 1
+                ? [data length] : sizeof(prefix) - 1;
+        if (prefixLength > 0)
+            [data getBytes: prefix length: prefixLength];
+        NSUInteger first = 0;
+        while (first < prefixLength &&
+               (prefix[first] == ' ' || prefix[first] == '\t' ||
+                prefix[first] == '\r' || prefix[first] == '\n'))
+            first++;
+        const char *start = prefix + first;
+        if (strncmp(start, "{\\rtf", 5) == 0)
             docType = NSRTFTextDocumentType;
-        }
-        else if (strncasecmp(prefix, "<!doctype html", 14) == 0 ||
-                 strncasecmp(prefix, "<head", 5) == 0 ||
-                 strncasecmp(prefix, "<title", 6) == 0 ||
-                 strncasecmp(prefix, "<html", 5) == 0 ||
-                 strncmp(prefix, "<!--", 4) == 0 ||
-                 strncasecmp(prefix, "<h1", 3) == 0)
-        {
+        else if (strncasecmp(start, "<!doctype html", 14) == 0 ||
+                 strncasecmp(start, "<head", 5) == 0 ||
+                 strncasecmp(start, "<title", 6) == 0 ||
+                 strncasecmp(start, "<html", 5) == 0 ||
+                 strncmp(start, "<!--", 4) == 0 ||
+                 strncasecmp(start, "<h1", 3) == 0)
             docType = NSHTMLTextDocumentType;
-        }
         else
-        {
             docType = NSPlainTextDocumentType;
-        }
     }
 
-    //Read the document based on its type
-    //TODO: Implement reading for all types
-    if([docType isEqual: NSDocFormatTextDocumentType]){
+    if ([docType isEqual: NSRTFTextDocumentType] ||
+        [docType isEqual: @"public.rtf"]) {
+        NSDictionary *documentAttributes = nil;
+        NSAttributedString *result = [self initWithRTF: data
+                                   documentAttributes: &documentAttributes];
+        if (result != nil && attributes != NULL)
+            *attributes = documentAttributes;
+        if (result == nil)
+            NSAttributedStringSetImportError(error, NSFileReadCorruptFileError,
+                                             @"The RTF document could not be read.");
+        return result;
+    }
+
+    if ([docType isEqual: NSRTFDTextDocumentType] ||
+        [docType isEqual: @"public.rtfd"]) {
+        NSDictionary *documentAttributes = nil;
+        NSAttributedString *result = [self initWithRTFD: data
+                                    documentAttributes: &documentAttributes];
+        if (result != nil && attributes != NULL)
+            *attributes = documentAttributes;
+        if (result == nil)
+            NSAttributedStringSetImportError(error, NSFileReadCorruptFileError,
+                                             @"The RTFD document could not be read.");
+        return result;
+    }
+
+    if ([docType isEqual: NSHTMLTextDocumentType] ||
+        [docType isEqual: @"public.html"]) {
+        NSAttributedStringSetImportError(error, NSFileReadUnknownError,
+                                         @"HTML import requires WebKit, which is unavailable.");
+        [self release];
         return nil;
     }
-    else if([docType isEqual: NSHTMLTextDocumentType]){
-        NSLog(@"NSAttributedString initFromData - dont know how to parse %@", docType);
+
+    if (![docType isEqual: NSPlainTextDocumentType] &&
+        ![docType isEqual: @"public.plain-text"] &&
+        ![docType isEqual: NSMacSimpleTextDocumentType]) {
+        NSAttributedStringSetImportError(error, NSFileReadUnknownError,
+                [NSString stringWithFormat: @"Unsupported attributed string document type %@.", docType]);
+        [self release];
         return nil;
     }
-    else if([docType isEqual: NSMacSimpleTextDocumentType]){
-        NSLog(@"NSAttributedString initFromData - dont know how to parse %@", docType);
+
+    NSNumber *encodingNumber = [options objectForKey:
+            NSCharacterEncodingDocumentOption];
+    NSStringEncoding encoding = encodingNumber != nil
+            ? (NSStringEncoding) [encodingNumber unsignedIntegerValue]
+            : NSUTF8StringEncoding;
+    NSString *string = [[[NSString alloc] initWithData: data encoding: encoding]
+            autorelease];
+    if (string == nil && encodingNumber == nil) {
+        string = [[[NSString alloc] initWithData: data
+                                        encoding: NSUTF16StringEncoding]
+                autorelease];
+        if (string == nil)
+            string = [[[NSString alloc] initWithData: data
+                                            encoding: NSMacOSRomanStringEncoding]
+                    autorelease];
+    }
+    if (string == nil) {
+        NSAttributedStringSetImportError(error, NSFileReadCorruptFileError,
+                                         @"The plain-text document encoding is invalid.");
+        [self release];
         return nil;
     }
-    else if([docType isEqual: NSOfficeOpenXMLTextDocumentType]){
-        NSLog(@"NSAttributedString initFromData - dont know how to parse %@", docType);
-        return nil;
+
+    NSDictionary *defaultAttributes = [options objectForKey:
+            NSDefaultAttributesDocumentOption];
+    NSAttributedString *result = [self initWithString: string
+                                           attributes: defaultAttributes];
+    if (attributes != NULL) {
+        NSMutableDictionary *documentAttributes = [NSMutableDictionary
+                dictionaryWithObject: docType
+                              forKey: NSDocumentTypeDocumentAttribute];
+        [documentAttributes setObject: [NSNumber numberWithUnsignedInteger: encoding]
+                               forKey: NSCharacterEncodingDocumentAttribute];
+        *attributes = documentAttributes;
     }
-    else if([docType isEqual: NSOpenDocumentTextDocumentType]){
-        NSLog(@"NSAttributedString initFromData - dont know how to parse %@", docType);
-        return nil;
-    }
-    else if([docType isEqual: NSPlainTextDocumentType]){
-        NSLog(@"NSAttributedString initFromData - dont know how to parse %@", docType);
-        return nil;
-    }
-    else if([docType isEqual: NSRTFTextDocumentType]){
-        return [self initWithRTF: data documentAttributes: attributes];
-    }
-    else if([docType isEqual: NSRTFDTextDocumentType]){
-        NSLog(@"NSAttributedString initFromData - dont know how to parse %@", docType);
-        return nil;
-    }
-    else if([docType isEqual: NSWebArchiveTextDocumentType]){
-        NSLog(@"NSAttributedString initFromData - dont know how to parse %@", docType);
-        return nil;
-    }
-    else if([docType isEqual: NSWordMLTextDocumentType]){
-        NSLog(@"NSAttributedString initFromData - dont know how to parse %@", docType);
-        return nil;
-    }
-    else {
-    return nil;
-    }
+    return result;
 }
 
 - initWithDocFormat: (NSData *) werd
         documentAttributes: (NSDictionary **) attributes
 {
-    NSUnimplementedMethod();
+    [self release];
     return nil;
 }
 
@@ -279,23 +399,28 @@ static BOOL NSAttributedStringCharacterIsCJK(unichar character)
                    baseURL: (NSURL *) url
         documentAttributes: (NSDictionary **) attributes
 {
-    NSUnimplementedMethod();
-    return nil;
+    return [self initWithHTML: html options: nil
+            documentAttributes: attributes];
 }
 
 - initWithHTML: (NSData *) html
         documentAttributes: (NSDictionary **) attributes
 {
-    NSUnimplementedMethod();
-    return nil;
+    return [self initWithHTML: html baseURL: nil
+            documentAttributes: attributes];
 }
 
 - initWithHTML: (NSData *) html
                    options: (NSDictionary *) options
         documentAttributes: (NSDictionary **) attributes
 {
-    NSUnimplementedMethod();
-    return nil;
+    NSMutableDictionary *htmlOptions = options != nil
+            ? [[options mutableCopy] autorelease]
+            : [NSMutableDictionary dictionary];
+    [htmlOptions setObject: NSHTMLTextDocumentType
+                    forKey: NSDocumentTypeDocumentOption];
+    return [self initWithData: html options: htmlOptions
+            documentAttributes: attributes error: NULL];
 }
 
 - initWithPath: (NSString *) path
@@ -325,20 +450,42 @@ static BOOL NSAttributedStringCharacterIsCJK(unichar character)
 - initWithRTFD: (NSData *) rtfd
         documentAttributes: (NSDictionary **) attributes
 {
-    NSUnimplementedMethod();
-    return nil;
+    if (rtfd == nil) {
+        [self release];
+        return nil;
+    }
+    NSFileWrapper *wrapper = [[[NSFileWrapper alloc]
+            initWithSerializedRepresentation: rtfd] autorelease];
+    return [self initWithRTFDFileWrapper: wrapper
+                      documentAttributes: attributes];
 }
 
 - initWithRTFDFileWrapper: (NSFileWrapper *) wrapper
         documentAttributes: (NSDictionary **) attributes
 {
-    NSUnimplementedMethod();
-    return nil;
+    NSDictionary *children = [wrapper fileWrappers];
+    NSFileWrapper *rtfFile = [children objectForKey: @"TXT.rtf"];
+    if (![wrapper isDirectory] || ![rtfFile isRegularFile] ||
+        [children count] != 1) {
+        [self release];
+        return nil;
+    }
+
+    NSAttributedString *string = [NSRichTextReader attributedStringWithData:
+            [rtfFile regularFileContents]];
+    if (string == nil) {
+        [self release];
+        return nil;
+    }
+    if (attributes != NULL)
+        *attributes = [NSDictionary dictionaryWithObject: NSRTFDTextDocumentType
+                                                  forKey: NSDocumentTypeDocumentAttribute];
+    return [self initWithAttributedString: string];
 }
 
 - initWithURL: (NSURL *) url documentAttributes: (NSDictionary **) attributes {
-    NSUnimplementedMethod();
-    return nil;
+    return [self initWithURL: url options: nil documentAttributes: attributes
+                       error: NULL];
 }
 
 - initWithURL: (NSURL *) url
@@ -370,8 +517,17 @@ static BOOL NSAttributedStringCharacterIsCJK(unichar character)
 }
 
 - (NSDictionary *) rulerAttributesInRange: (NSRange) range {
-    NSUnimplementedMethod();
-    return nil;
+    NSUInteger length = [self length];
+    if (!NSAttributedStringRangeIsValid(self, range) || range.location >= length)
+        return nil;
+
+    id paragraphStyle = [self attribute: NSParagraphStyleAttributeName
+                                atIndex: range.location
+                         effectiveRange: NULL];
+    if (paragraphStyle == nil)
+        return [NSDictionary dictionary];
+    return [NSDictionary dictionaryWithObject: paragraphStyle
+                                       forKey: NSParagraphStyleAttributeName];
 }
 
 #pragma mark -
@@ -465,8 +621,41 @@ static BOOL NSAttributedStringCharacterIsCJK(unichar character)
 - (NSUInteger) lineBreakByHyphenatingBeforeIndex: (NSUInteger) index
                                      withinRange: (NSRange) range
 {
-    NSUnimplementedMethod();
-    return 0;
+    NSString *string = [self string];
+    NSUInteger length = [string length];
+    if (!NSAttributedStringRangeIsValid(self, range))
+        [NSException raise: NSRangeException
+                    format: @"lineBreakByHyphenatingBeforeIndex:withinRange: received an invalid range %@",
+                            NSStringFromRange(range)];
+    if (range.length == 0)
+        return NSNotFound;
+    if (index > NSMaxRange(range))
+        index = NSMaxRange(range);
+    if (index > length)
+        index = length;
+    if (index <= range.location)
+        return NSNotFound;
+
+    // Darling's CoreFoundation has no hyphenation dictionaries: use a simple
+    // vowel/consonant rule that keeps at least two letters on each side of the break.
+    NSCharacterSet *letters = [NSCharacterSet letterCharacterSet];
+    NSCharacterSet *vowels = [NSCharacterSet characterSetWithCharactersInString: @"aeiouyAEIOUY"];
+    NSUInteger position;
+
+    for (position = index; position >= range.location + 2; position--) {
+        unichar before = [string characterAtIndex: position - 1];
+        unichar after = position < NSMaxRange(range) ? [string characterAtIndex: position] : 0;
+
+        if (position + 2 > NSMaxRange(range))
+            continue;
+        if (![letters characterIsMember: before] || ![letters characterIsMember: after])
+            continue;
+        if ([vowels characterIsMember: before] && ![vowels characterIsMember: after] &&
+            [letters characterIsMember: [string characterAtIndex: position - 2]] &&
+            [letters characterIsMember: [string characterAtIndex: position + 1]])
+            return position;
+    }
+    return NSNotFound;
 }
 
 /* as usual, the documentation says one thing and the system behaves
@@ -552,27 +741,45 @@ static BOOL NSAttributedStringCharacterIsCJK(unichar character)
 - (NSInteger) itemNumberInTextList: (NSTextList *) list
                            atIndex: (NSUInteger) index
 {
-    NSUnimplementedMethod();
-    return 0;
+    NSRange textListRange = [self rangeOfTextList: list atIndex: index];
+    if (textListRange.length == 0 || index < textListRange.location)
+        return 0;
+
+    NSString *string = [self string];
+    NSRange paragraph = [string paragraphRangeForRange: NSMakeRange(index, 0)];
+    NSInteger itemNumber = 0;
+    NSUInteger cursor = textListRange.location;
+    NSUInteger end = MIN(NSMaxRange(paragraph), NSMaxRange(textListRange));
+    while (cursor < end) {
+        NSRange candidate = [string paragraphRangeForRange:
+                                     NSMakeRange(cursor, 0)];
+        if (candidate.length == 0 || NSMaxRange(candidate) <= cursor)
+            break;
+        if (NSAttributedStringParagraphContainsItem(
+                    self, candidate, list, NSAttributedStringParagraphList))
+            itemNumber++;
+        cursor = NSMaxRange(candidate);
+    }
+    return itemNumber;
 }
 
 - (NSRange) rangeOfTextBlock: (NSTextBlock *) block
                      atIndex: (NSUInteger) index
 {
-    NSUnimplementedMethod();
-    return NSMakeRange(0, 0);
+    return NSAttributedStringRangeOfParagraphItem(
+            self, index, block, NSAttributedStringParagraphBlock);
 }
 
 - (NSRange) rangeOfTextList: (NSTextList *) list atIndex: (NSUInteger) index {
-    NSUnimplementedMethod();
-    return NSMakeRange(0, 0);
+    return NSAttributedStringRangeOfParagraphItem(
+            self, index, list, NSAttributedStringParagraphList);
 }
 
 - (NSRange) rangeOfTextTable: (NSTextTable *) table
                      atIndex: (NSUInteger) index
 {
-    NSUnimplementedMethod();
-    return NSMakeRange(0, 0);
+    return NSAttributedStringRangeOfParagraphItem(
+            self, index, table, NSAttributedStringParagraphTable);
 }
 
 #pragma mark -
@@ -678,8 +885,7 @@ static BOOL NSAttributedStringCharacterIsCJK(unichar character)
 - (NSData *) docFormatFromRange: (NSRange) range
              documentAttributes: (NSDictionary *) attributes
 {
-    NSUnimplementedMethod();
-    return 0;
+    return nil;
 }
 
 - (NSFileWrapper *) fileWrapperFromRange: (NSRange) range
@@ -759,36 +965,32 @@ static BOOL NSAttributedStringCharacterIsCJK(unichar character)
 #pragma mark Testing String Data Sources
 
 + (NSArray *) textTypes {
-    NSUnimplementedMethod();
-    return nil;
+    return [NSArray arrayWithObjects: NSPasteboardTypeRTF,
+                                     NSPasteboardTypeRTFD,
+                                     NSPasteboardTypeString, nil];
 }
 
 + (NSArray *) textUnfilteredTypes {
-    NSUnimplementedMethod();
-    return nil;
+    return [self textTypes];
 }
 
 #pragma mark -
 #pragma mark Deprecated in 10.5
 
 + (NSArray *) textFileTypes {
-    NSUnimplementedMethod();
-    return nil;
+    return [self textTypes];
 }
 
 + (NSArray *) textPasteboardTypes {
-    NSUnimplementedMethod();
-    return nil;
+    return [self textTypes];
 }
 
 + (NSArray *) textUnfilteredFileTypes {
-    NSUnimplementedMethod();
-    return nil;
+    return [self textUnfilteredTypes];
 }
 
 + (NSArray *) textUnfilteredPasteboardTypes {
-    NSUnimplementedMethod();
-    return nil;
+    return [self textUnfilteredTypes];
 }
 
 @end

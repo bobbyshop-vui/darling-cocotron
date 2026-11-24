@@ -690,7 +690,7 @@ extern NSSize _NSToolbarIconSizeSmall;
 
 - initWithCoder: (NSCoder *) coder {
     if (![coder allowsKeyedCoding])
-        NSUnimplementedMethod();
+        return [self initWithItemIdentifier: @""];
     else {
         _itemIdentifier =
                 [[coder decodeObjectForKey: @"NSToolbarItemIdentifier"] retain];

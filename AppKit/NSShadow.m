@@ -42,7 +42,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - initWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    self = [self init];
+    if (self == nil)
+        return nil;
+
+    if (![coder allowsKeyedCoding])
+        [NSException raise: NSInvalidArgumentException
+                    format: @"%@ can not decodeWithCoder:%@", [self class],
+                            [coder class]];
+
+    if ([coder containsValueForKey: @"NSOffset"])
+        _offset = [coder decodeSizeForKey: @"NSOffset"];
+    NSColor *color = [coder decodeObjectForKey: @"NSColor"];
+    if (color != nil)
+        [self setShadowColor: color];
+    if ([coder containsValueForKey: @"NSBlurRadius"])
+        _blurRadius = [coder decodeDoubleForKey: @"NSBlurRadius"];
     return self;
 }
 
