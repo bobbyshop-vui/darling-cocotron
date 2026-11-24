@@ -287,6 +287,14 @@ set(AppKit_sources
 	NSMenuItemCell+XcodeAdditions.m
 	NSObject+XcodeAdditions.m
 	NSResponder+XcodeAccessibility.m
+	NSResponder+XcodeProtocols.m
+	NSTextView+XcodeProtocols.m
+	NSInputManager+XcodeProtocols.m
+	NSDraggingSource+XcodeProtocols.m
+	NSPasteboard+XcodeProtocols.m
+	XcodeProtocolsMisc.m
+	XcodeCodingAppKit1.m
+	XcodeSecureCodingAppKit.m
 	NSPDFInfo.m
 	NSPDFPanel.m
 	NSPICTImageRep.m
