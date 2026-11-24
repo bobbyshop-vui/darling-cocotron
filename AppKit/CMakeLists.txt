@@ -286,6 +286,7 @@ set(AppKit_sources
 	NSMediaLibraryBrowserController.m
 	NSMenuItemCell+XcodeAdditions.m
 	NSObject+XcodeAdditions.m
+	NSResponder+XcodeAccessibility.m
 	NSPDFInfo.m
 	NSPDFPanel.m
 	NSPICTImageRep.m
