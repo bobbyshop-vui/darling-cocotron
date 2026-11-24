@@ -460,6 +460,7 @@ set(AppKit_sources
 
 	NSSharingService.m
 	MacWorkspace.m
+	XcodeLazySymbols.m
 	NSCoder+AppKit.m
 	NSXcodeCompatibility.m
 

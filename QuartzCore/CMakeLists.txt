@@ -23,6 +23,7 @@ include_directories(
 
 set(QuartzCore_sources
 	CAAnimationGroup.m
+	XcodeLazySymbols.m
 	CAAnimation.m
 	CABase.m
 	CABasicAnimation.m

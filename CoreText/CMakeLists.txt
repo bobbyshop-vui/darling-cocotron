@@ -28,6 +28,7 @@ set(CoreText_sources
 	KTFont.m
 	KTFont_FT.m
 	constants.c
+	XcodeLazySymbols.m
 	stubs.c
 )
 

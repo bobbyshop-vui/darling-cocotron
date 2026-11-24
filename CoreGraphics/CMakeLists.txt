@@ -17,6 +17,8 @@ pkg_check_modules(PC_CAIRO cairo)
 
 set_property(SOURCE 
 	CGAffineTransform.m
+	XcodeLazySymbols.m
+	XcodeLazySymbolsCGS.m
 	CGBitmapContext.m
 	CGColor.m
 	CGColorSpace.m
@@ -68,6 +70,8 @@ include_directories(
 
 set(CoreGraphics_sources
 	CGAffineTransform.m
+	XcodeLazySymbols.m
+	XcodeLazySymbolsCGS.m
 	CGBitmapContext.m
 	CGColor.m
 	CGColorSpace.m
