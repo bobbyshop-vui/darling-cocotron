@@ -20,5 +20,15 @@
 #import <AppKit/AppKitExport.h>
 #import <Foundation/NSObject.h>
 
-@interface NSKeyBindingManager : NSObject
+@class NSDictionary;
+
+// Holds the key binding dictionary (StandardKeyBinding.dict plus the user's
+// DefaultKeyBinding.dict). Xcode's IDETextKeyBindingSet reads it with -dictionary
+// and installs its own with -setDictionary:.
+@interface NSKeyBindingManager : NSObject {
+	NSDictionary *_dictionary;
+}
++ (NSKeyBindingManager *) sharedKeyBindingManager;
+- (NSDictionary *) dictionary;
+- (void) setDictionary: (NSDictionary *) dictionary;
 @end

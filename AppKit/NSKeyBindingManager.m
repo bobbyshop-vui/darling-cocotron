@@ -18,6 +18,65 @@
 */
 
 #import <AppKit/NSKeyBindingManager.h>
+#import <Foundation/Foundation.h>
 
 @implementation NSKeyBindingManager
+
+static NSKeyBindingManager *sharedManager = nil;
+
++ (NSKeyBindingManager *) sharedKeyBindingManager
+{
+	@synchronized(self) {
+		if (sharedManager == nil)
+			sharedManager = [[self alloc] init];
+	}
+	return sharedManager;
+}
+
+- (instancetype) init
+{
+	if ((self = [super init])) {
+		NSMutableDictionary *bindings = [NSMutableDictionary dictionary];
+		NSMutableArray *paths = [NSMutableArray array];
+
+		NSString *standard = [[NSBundle bundleForClass: [NSKeyBindingManager class]]
+			pathForResource: @"StandardKeyBinding" ofType: @"dict"];
+		if (standard != nil)
+			[paths addObject: standard];
+		[paths addObject: [NSHomeDirectory() stringByAppendingPathComponent:
+			@"Library/KeyBindings/DefaultKeyBinding.dict"]];
+
+		for (NSString *path in paths) {
+			NSDictionary *loaded = [NSDictionary dictionaryWithContentsOfFile: path];
+			if ([loaded isKindOfClass: [NSDictionary class]])
+				[bindings addEntriesFromDictionary: loaded];
+		}
+		_dictionary = [bindings copy];
+	}
+	return self;
+}
+
+- (void) dealloc
+{
+	[_dictionary release];
+	[super dealloc];
+}
+
+- (NSDictionary *) dictionary
+{
+	@synchronized(self) {
+		return [[_dictionary retain] autorelease];
+	}
+}
+
+- (void) setDictionary: (NSDictionary *) dictionary
+{
+	@synchronized(self) {
+		if (dictionary != _dictionary) {
+			[_dictionary release];
+			_dictionary = [dictionary copy];
+		}
+	}
+}
+
 @end
