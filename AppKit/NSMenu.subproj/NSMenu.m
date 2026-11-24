@@ -70,6 +70,10 @@ NSString *const _NSWindowsMenuName = @"Window";
                   forView: (NSView *) view
                  withFont: (NSFont *) font
 {
+    // Views without a context menu pass nil (menuForEvent: returned nil).
+    if (menu == nil)
+        return;
+
     NSFont *savedFont = [[menu->_font retain] autorelease];
 
     if (font != nil)

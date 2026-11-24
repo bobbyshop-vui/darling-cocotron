@@ -3120,9 +3120,16 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (void) rightMouseDown: (NSEvent *) event {
-    [NSMenu popUpContextMenu: [self menuForEvent: event]
-                   withEvent: event
-                     forView: self];
+    NSMenu *menu = [self menuForEvent: event];
+
+    // Like AppKit: a view with no context menu passes the click up the
+    // responder chain instead of popping up nothing.
+    if (menu == nil) {
+        [super rightMouseDown: event];
+        return;
+    }
+
+    [NSMenu popUpContextMenu: menu withEvent: event forView: self];
 }
 
 // default NSDraggingDestination
