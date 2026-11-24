@@ -636,10 +636,62 @@ static NSData *makeWindowIcon() {
     CGLSetCurrentContext(prevContext);
 }
 
+// Draw log: what the first flushes of each window push to the screen (surface
+// size, how many sampled pixels are non-zero / opaque) plus the window's
+// configuration, to tell "nothing was drawn" apart from "drawn but not shown".
+// Set DARLING_X11_FLUSH_DEBUG=1 to log every flush.
+static void X11WindowLogFlush(NSWindow *nsWindow, O2Surface *surface, Window window) {
+    static NSMutableDictionary *counts = nil;
+    static int everyFlush = -1;
+    if (everyFlush < 0)
+        everyFlush = getenv("DARLING_X11_FLUSH_DEBUG") != NULL;
+    if (surface == nil)
+        return;
+    if (counts == nil)
+        counts = [[NSMutableDictionary alloc] init];
+
+    NSNumber *key = [NSNumber numberWithUnsignedLong: (unsigned long) window];
+    NSUInteger count = [[counts objectForKey: key] unsignedIntegerValue] + 1;
+    [counts setObject: [NSNumber numberWithUnsignedInteger: count] forKey: key];
+    if (!everyFlush && count > 3 && count % 200 != 0)
+        return;
+
+    size_t width = O2ImageGetWidth(surface);
+    size_t height = O2ImageGetHeight(surface);
+    size_t bpr = O2ImageGetBytesPerRow(surface);
+    uint8_t *bytes = O2SurfaceGetPixelBytes(surface);
+    unsigned long nonzero = 0, opaque = 0, total = 0;
+
+    if (bytes != NULL) {
+        for (size_t y = 0; y < height; y += 4) {
+            uint32_t *row = (uint32_t *) (bytes + y * bpr);
+            for (size_t x = 0; x < width; x += 4) {
+                uint32_t p = row[x];
+                total++;
+                if (p & 0x00FFFFFF)
+                    nonzero++;
+                if ((p >> 24) == 0xFF)
+                    opaque++;
+            }
+        }
+    }
+    NSLog(@"X11 flush #%lu window=0x%lx surface=%zux%zu nonzero=%lu opaque=%lu of %lu",
+          (unsigned long) count, (unsigned long) window, width, height, nonzero,
+          opaque, total);
+    if (count == 1)
+        NSLog(@"X11 flush window=0x%lx is %@ style=0x%lx opaque=%d alpha=%g bg=%@ "
+              @"content=%@ wantsLayer=%d",
+              (unsigned long) window, [nsWindow class],
+              (unsigned long) [nsWindow styleMask], (int) [nsWindow isOpaque],
+              (double) [nsWindow alphaValue], [nsWindow backgroundColor],
+              [[nsWindow contentView] class], (int) [[nsWindow contentView] wantsLayer]);
+}
+
 - (void) flushBuffer {
     if (_context == nil)
         return;
     O2ContextFlush(_context);
+    X11WindowLogFlush(_delegate, [_context surface], _window);
     [self openGLFlushBuffer];
 }
 
