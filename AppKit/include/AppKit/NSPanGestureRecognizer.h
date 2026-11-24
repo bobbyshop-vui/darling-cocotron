@@ -24,11 +24,19 @@
 @interface NSPanGestureRecognizer : NSGestureRecognizer <NSCoding> {
     NSInteger _numberOfTouchesRequired;
     NSPoint _translation;
+    NSUInteger _buttonMask;
+    BOOL _tracking;
+    NSPoint _lastLocation;
+    NSTimeInterval _lastTime;
+    NSPoint _velocity;
 }
+
+@property NSUInteger buttonMask;
 
 @property NSInteger numberOfTouchesRequired;
 
 - (NSPoint) translationInView: (NSView *) view;
 - (void) setTranslation: (NSPoint) translation inView: (NSView *) view;
+- (NSPoint) velocityInView: (NSView *) view;
 
 @end

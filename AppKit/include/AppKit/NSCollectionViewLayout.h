@@ -38,6 +38,8 @@ APPKIT_EXPORT NSCollectionViewSupplementaryElementKind const
 - (void) prepareLayout;
 - (NSArray<NSCollectionViewLayoutAttributes *> *) layoutAttributesForElementsInRect: (NSRect) rect;
 - (NSCollectionViewLayoutAttributes *) layoutAttributesForItemAtIndexPath: (NSIndexPath *) indexPath;
+- (NSCollectionViewLayoutAttributes *) layoutAttributesForSupplementaryViewOfKind: (NSString *) kind
+                                                                      atIndexPath: (NSIndexPath *) indexPath;
 - (BOOL) shouldInvalidateLayoutForBoundsChange: (NSRect) newBounds;
 - (NSSize) collectionViewContentSize;
 

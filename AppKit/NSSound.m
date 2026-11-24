@@ -27,6 +27,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSNumber.h>
 #import <Foundation/NSPathUtilities.h>
 #import <Foundation/NSString.h>
+#import <Foundation/NSFileManager.h>
+#import <Foundation/NSCoder.h>
 
 static NSMutableDictionary *sSounds = nil;
 static NSString *const NSSoundPasteboardType = @"NXSoundPboardType";
@@ -54,31 +56,55 @@ static NSString *const NSSoundPasteboardType = @"NXSoundPboardType";
 }
 
 + (NSSound *) soundNamed: (NSString *) name {
+    if (name == nil)
+        return nil;
 
     if (sSounds == nil) {
         sSounds = [[NSMutableDictionary dictionaryWithCapacity: 10] retain];
     }
 
-    NSSound *sound = [sSounds objectForKey: name];
-    if (sound == nil) {
-        @synchronized(sSounds) {
-            // Look for the sound in the bundle
-            // FIXME: We really have to search in other places too, like the
-            // docs say
+    NSSound *sound = nil;
+    @synchronized(sSounds) {
+        sound = [sSounds objectForKey: name];
+        if (sound == nil) {
+            NSArray *types = [NSSound soundUnfilteredTypes];
+            NSString *path = nil;
+            NSUInteger i, count = [types count];
 
-            NSArray *types = [NSSound soundUnfilteredFileTypes];
-            NSString *type;
-            NSEnumerator *enumerator = [types objectEnumerator];
-            while ((sound == nil) && (type = [enumerator nextObject])) {
-                if ([[NSBundle mainBundle] pathForResource: name
-                                                    ofType: type]) {
-                    sound = [[[NSSound alloc]
-                            initWithContentsOfFile:
-                                    [[NSBundle mainBundle]
-                                            pathForResource: name
-                                                     ofType: type]
-                                       byReference: NO] autorelease];
-                    // Store it for quick access if asked again
+            // Main bundle first
+            for (i = 0; path == nil && i < count; i++)
+                path = [[NSBundle mainBundle]
+                        pathForResource: name
+                                 ofType: [types objectAtIndex: i]];
+
+            // Then the standard sound directories
+            NSArray *dirs = [NSArray
+                    arrayWithObjects: [NSHomeDirectory()
+                                              stringByAppendingPathComponent:
+                                                      @"Library/Sounds"],
+                                      @"/Library/Sounds",
+                                      @"/System/Library/Sounds", nil];
+            NSFileManager *fm = [NSFileManager defaultManager];
+            NSUInteger d;
+            for (d = 0; path == nil && d < [dirs count]; d++) {
+                NSString *dir = [dirs objectAtIndex: d];
+                for (i = 0; path == nil && i < count; i++) {
+                    NSString *candidate = [[dir stringByAppendingPathComponent:
+                                                        name]
+                            stringByAppendingPathExtension: [types
+                                                                    objectAtIndex:
+                                                                            i]];
+                    if ([fm fileExistsAtPath: candidate])
+                        path = candidate;
+                }
+            }
+
+            if (path != nil) {
+                sound = [[[NSSound alloc] initWithContentsOfFile: path
+                                                     byReference: YES]
+                        autorelease];
+                if (sound != nil) {
+                    sound->_name = [name copy];
                     [sSounds setObject: sound forKey: name];
                 }
             }
@@ -86,6 +112,40 @@ static NSString *const NSSoundPasteboardType = @"NXSoundPboardType";
     }
     return sound;
 }
+
+- (id) copyWithZone: (NSZone *) zone {
+    NSSound *copy = [[NSSound allocWithZone: zone] init];
+    copy->_data = [_data copy];
+    copy->_volume = _volume;
+    copy->_loops = _loops;
+    copy->_delegate = _delegate;
+    return copy;
+}
+
+- (void) encodeWithCoder: (NSCoder *) coder {
+    if ([coder allowsKeyedCoding]) {
+        [coder encodeObject: _name forKey: @"NSName"];
+        [coder encodeObject: _data forKey: @"NSData"];
+    } else {
+        [coder encodeObject: _name];
+        [coder encodeObject: _data];
+    }
+}
+
+- (id) initWithCoder: (NSCoder *) coder {
+    self = [self init];
+    if (self) {
+        if ([coder allowsKeyedCoding]) {
+            _name = [[coder decodeObjectForKey: @"NSName"] copy];
+            _data = [[coder decodeObjectForKey: @"NSData"] retain];
+        } else {
+            _name = [[coder decodeObject] copy];
+            _data = [[coder decodeObject] retain];
+        }
+    }
+    return self;
+}
+
 - (id) init {
     self = [super init];
     if (self) {
@@ -218,46 +278,22 @@ static NSString *const NSSoundPasteboardType = @"NXSoundPboardType";
     return 0;
 }
 
+// Darling currently has no working audio output backend (AudioQueue and
+// AudioServices are stubs), so playback honestly never starts.
 - (BOOL) play {
-    if (_data == nil)
-        return NO;
-
-    // Darling has no audio output backend; preserve the playback state that
-    // NSSound clients observe so play/pause/resume/stop still compose.
-    _currentTime = 0.0;
-    _playing = YES;
-    _paused = NO;
-    return YES;
+    return NO;
 }
 
 - (BOOL) pause {
-    if (_data == nil || !_playing)
-        return NO;
-    _playing = NO;
-    _paused = YES;
-    return YES;
+    return NO;
 }
 
 - (BOOL) resume {
-    if (_data == nil || !_paused)
-        return NO;
-    _paused = NO;
-    _playing = YES;
-    return YES;
+    return NO;
 }
 
 - (BOOL) stop {
-    BOOL hadActivePlayback = _playing || _paused;
-    BOOL hasData = (_data != nil);
-    _playing = NO;
-    _paused = NO;
-    _currentTime = 0.0;
-
-    if (hadActivePlayback &&
-        [_delegate respondsToSelector: @selector(sound:didFinishPlaying:)])
-        [_delegate sound: self didFinishPlaying: NO];
-
-    return hasData;
+    return NO;
 }
 
 @end
@@ -265,7 +301,7 @@ static NSString *const NSSoundPasteboardType = @"NXSoundPboardType";
 @implementation NSBundle (NSSound)
 
 - (NSString *) pathForSoundResource: (NSString *) name {
-    NSArray *types = [NSSound soundUnfilteredFileTypes];
+    NSArray *types = [NSSound soundUnfilteredTypes];
     int i, count = [types count];
 
     for (i = 0; i < count; i++) {

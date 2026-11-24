@@ -23,6 +23,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @interface NSSavePanel (Private)
 - (void) _setFilename: (NSString *) filename;
+- (void) _setSelectedURLs: (NSArray *) urls;
+- (void) _prepareOutline;
 @end
 
 @implementation NSOpenPanel
@@ -85,15 +87,44 @@ static NSOpenPanel *_newPanel = nil;
     NSMutableArray *result = [NSMutableArray arrayWithCapacity: [paths count]];
     int i, count = [paths count];
 
-    for (i = 0; i < count; i++)
-        [result addObject: [NSURL fileURLWithPath: [paths objectAtIndex: i]]];
+    for (i = 0; i < count; i++) {
+        NSString *path = [paths objectAtIndex: i];
+        BOOL isDirectory = NO;
+        [[NSFileManager defaultManager] fileExistsAtPath: path
+                                             isDirectory: &isDirectory];
+        [result addObject: [NSURL fileURLWithPath: path
+                                      isDirectory: isDirectory]];
+    }
 
     return result;
 }
 
 - (void) _setFilename: (NSString *) filename {
     [super _setFilename: filename];
-    _filenames = [@[ filename ] retain];
+    @synchronized(self) {
+        [_filenames release];
+        _filenames = [([filename length] > 0 ? @[ filename ] : @[]) retain];
+    }
+}
+
+- (void) _setSelectedURLs: (NSArray *) urls {
+    NSMutableArray *paths = [NSMutableArray arrayWithCapacity: [urls count]];
+    for (NSURL *url in urls)
+        [paths addObject: [url path]];
+    [super _setFilename: [paths objectAtIndex: 0]];
+    @synchronized(self) {
+        [_filenames release];
+        _filenames = [paths copy];
+    }
+}
+
+- (void) _prepareOutline {
+    // A new run starts without the previous run's selection.
+    @synchronized(self) {
+        [_filenames release];
+        _filenames = [NSArray new];
+    }
+    [super _prepareOutline];
 }
 
 - (NSInteger) runModalForDirectory: (NSString *) directory

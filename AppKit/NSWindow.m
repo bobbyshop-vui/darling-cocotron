@@ -229,6 +229,16 @@ static void NSWindowSetAssociatedValue(NSWindow *window, const void *key,
 
 @end
 
+@interface NSView (NSGestureRecognizerDispatch)
+- (BOOL) _gestureRecognizersHandleEvent: (NSEvent *) event;
+@end
+
+// Gesture recognizers attached to the view (or its superviews) see mouse events
+// first; YES means one of them recognized and delays the event for the view.
+static BOOL NSWindowGestureRecognizersConsume(NSView *view, NSEvent *event) {
+    return view != nil && [view _gestureRecognizersHandleEvent: event];
+}
+
 @implementation NSWindow
 
 @synthesize identifier = _identifier;
@@ -607,6 +617,8 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
     [_tabbingIdentifier release];
     [_tab setWindow: nil];
     [_tab release];
+    [_tabGroup removeWindow: self];
+    [_tabGroup release];
     [_queuedSheets release];
     [super dealloc];
 }
@@ -2574,25 +2586,37 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
         }
 
         // Event goes to view, not first responder.
-        [view mouseDown: event];
+        if (!NSWindowGestureRecognizersConsume(view, event))
+            [view mouseDown: event];
         _mouseDownLocationInWindow = [event locationInWindow];
         break;
     }
 
-    case NSLeftMouseUp:
-        [[_backgroundView hitTest: _mouseDownLocationInWindow] mouseUp: event];
+    case NSLeftMouseUp: {
+        NSView *view = [_backgroundView hitTest: _mouseDownLocationInWindow];
+
+        if (!NSWindowGestureRecognizersConsume(view, event))
+            [view mouseUp: event];
+    }
         _mouseDownLocationInWindow = NSMakePoint(NAN, NAN);
         break;
 
     case NSRightMouseDown:
         _mouseDownLocationInWindow = [event locationInWindow];
-        [[_backgroundView hitTest: [event locationInWindow]]
-                rightMouseDown: event];
+        {
+            NSView *view = [_backgroundView hitTest: [event locationInWindow]];
+
+            if (!NSWindowGestureRecognizersConsume(view, event))
+                [view rightMouseDown: event];
+        }
         break;
 
-    case NSRightMouseUp:
-        [[_backgroundView hitTest: _mouseDownLocationInWindow]
-                rightMouseUp: event];
+    case NSRightMouseUp: {
+        NSView *view = [_backgroundView hitTest: _mouseDownLocationInWindow];
+
+        if (!NSWindowGestureRecognizersConsume(view, event))
+            [view rightMouseUp: event];
+    }
         _mouseDownLocationInWindow = NSMakePoint(NAN, NAN);
         break;
 
@@ -2607,15 +2631,21 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
         break;
     }
 
-    case NSLeftMouseDragged:
-        [[_backgroundView hitTest: _mouseDownLocationInWindow]
-                mouseDragged: event];
-        break;
+    case NSLeftMouseDragged: {
+        NSView *view = [_backgroundView hitTest: _mouseDownLocationInWindow];
 
-    case NSRightMouseDragged:
-        [[_backgroundView hitTest: _mouseDownLocationInWindow]
-                rightMouseDragged: event];
+        if (!NSWindowGestureRecognizersConsume(view, event))
+            [view mouseDragged: event];
         break;
+    }
+
+    case NSRightMouseDragged: {
+        NSView *view = [_backgroundView hitTest: _mouseDownLocationInWindow];
+
+        if (!NSWindowGestureRecognizersConsume(view, event))
+            [view rightMouseDragged: event];
+        break;
+    }
 
     case NSMouseEntered:
         [[_backgroundView hitTest: [event locationInWindow]]
@@ -3704,6 +3734,11 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (BOOL) validateMenuItem: (NSMenuItem *) item {
+    if ([item action] == @selector(closeWindowAsTab:) || [item action] == @selector(selectNextTab:) ||
+        [item action] == @selector(selectPreviousTab:) || [item action] == @selector(moveTabToNewWindow:) ||
+        [item action] == @selector(mergeAllWindows:) || [item action] == @selector(toggleTabBar:) ||
+        [item action] == @selector(toggleTabOverview:))
+        return [self _validateTabAction: [item action]];
     if ([item action] == @selector(undo:))
         return [[self undoManager] canUndo];
     if ([item action] == @selector(redo:))
@@ -3955,29 +3990,12 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
     _tabbingIdentifier = [identifier copy];
 }
 
-// There is no tab bar, so a window is never part of a tab group and there is
-// no tab to select or tab bar to toggle.
-- (void) selectNextTab: (id) sender {
-}
-
-- (void) selectPreviousTab: (id) sender {
-}
-
-- (void) toggleTabBar: (id) sender {
-}
-
-- (void) toggleTabOverview: (id) sender {
-}
-
-- (NSArray<NSWindow *> *) tabbedWindows {
-    // nil when the window is not showing a tab bar
-    return nil;
-}
-
-- (void) addTabbedWindow: (NSWindow *) window ordered: (NSWindowOrderingMode) ordered {
-    // Without tab support, the window is shown as a separate window
-    // positioned relative to this one.
-    [window orderWindow: ordered relativeTo: [self windowNumber]];
+- (void) _setTabGroup: (NSWindowTabGroup *) group {
+    if (group == _tabGroup)
+        return;
+    [group retain];
+    [_tabGroup release];
+    _tabGroup = group;
 }
 
 - (NSWindowTab *) tab {
@@ -3987,7 +4005,118 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (NSWindowTabGroup *) tabGroup {
-    return nil;
+    if (_tabGroup == nil) {
+        NSWindowTabGroup *group = [[NSWindowTabGroup alloc] initWithIdentifier: [self tabbingIdentifier]];
+        [self _setTabGroup: group];
+        [group addWindow: self];
+        [group release];
+    }
+    return _tabGroup;
+}
+
+- (NSArray<NSWindow *> *) tabbedWindows {
+    // nil when the window is not showing a tab bar
+    if (_tabGroup == nil || [[_tabGroup windows] count] < 2)
+        return nil;
+    return [_tabGroup windows];
+}
+
+- (void) addTabbedWindow: (NSWindow *) window ordered: (NSWindowOrderingMode) ordered {
+    if (window == nil || window == self)
+        return;
+    NSWindowTabGroup *group = [self tabGroup];
+    NSArray *windows = [group windows];
+    NSUInteger index = [windows indexOfObjectIdenticalTo: self];
+    BOOL visible = [self isVisible];
+    [group insertWindow: window atIndex: (ordered == NSWindowBelow) ? index : index + 1];
+    if (visible) {
+        // The new tab becomes the selected one and takes over the frame.
+        [group setSelectedWindow: self];
+        [group setSelectedWindow: window];
+    }
+}
+
+- (void) _selectTabAtOffset: (NSInteger) offset {
+    NSArray *windows = [[self tabGroup] windows];
+    NSUInteger count = [windows count];
+    if (count < 2)
+        return;
+    NSUInteger index = [windows indexOfObjectIdenticalTo: self];
+    if (index == NSNotFound)
+        return;
+    index = (index + count + offset) % count;
+    [[self tabGroup] setSelectedWindow: [windows objectAtIndex: index]];
+}
+
+- (void) selectNextTab: (id) sender {
+    [self _selectTabAtOffset: 1];
+}
+
+- (void) selectPreviousTab: (id) sender {
+    [self _selectTabAtOffset: -1];
+}
+
+- (void) toggleTabBar: (id) sender {
+    // There is no tab bar UI.
+}
+
+- (void) toggleTabOverview: (id) sender {
+}
+
+- (void) closeWindowAsTab: (id) sender {
+    NSWindowTabGroup *group = _tabGroup;
+    [self performClose: sender];
+    if (group != nil && [[group windows] count] > 1 && _tabGroup == group)
+        [group removeWindow: self];
+}
+
+- (void) moveTabToNewWindow: (id) sender {
+    if ([[_tabGroup windows] count] < 2)
+        return;
+    NSWindowTabGroup *group = _tabGroup;
+    BOOL visible = [self isVisible];
+    [group removeWindow: self];
+    if (visible) {
+        [self makeKeyAndOrderFront: nil];
+        [[group selectedWindow] makeKeyAndOrderFront: nil];
+    }
+}
+
+- (void) mergeAllWindows: (id) sender {
+    NSWindowTabGroup *group = [self tabGroup];
+    NSString *identifier = [self tabbingIdentifier];
+    for (NSWindow *other in [NSApp windows]) {
+        if (other == self || [other tabbingMode] == NSWindowTabbingModeDisallowed)
+            continue;
+        if ([other tabGroup] == group || ![other isVisible])
+            continue;
+        if (![[other tabbingIdentifier] isEqualToString: identifier])
+            continue;
+        [group addWindow: other];
+        [other orderOut: nil];
+    }
+}
+
+- (BOOL) _validateTabAction: (SEL) action {
+    NSUInteger count = [[_tabGroup windows] count];
+    if (action == @selector(closeWindowAsTab:))
+        return count > 1;
+    if (action == @selector(selectNextTab:) || action == @selector(selectPreviousTab:) ||
+        action == @selector(moveTabToNewWindow:))
+        return count > 1;
+    if (action == @selector(toggleTabBar:) || action == @selector(toggleTabOverview:))
+        return count > 1;
+    if (action == @selector(mergeAllWindows:)) {
+        if ([self tabbingMode] == NSWindowTabbingModeDisallowed)
+            return NO;
+        for (NSWindow *other in [NSApp windows]) {
+            if (other != self && [other isVisible] && [other tabGroup] != [self tabGroup] &&
+                [other tabbingMode] != NSWindowTabbingModeDisallowed)
+                return YES;
+        }
+        return NO;
+    }
+    return YES;
 }
 
 #pragma mark - Sheets

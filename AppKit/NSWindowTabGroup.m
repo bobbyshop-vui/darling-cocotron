@@ -51,9 +51,28 @@
     return _identifier;
 }
 
+- (NSWindow *)_windowAtIndex:(NSUInteger)index
+{
+    return [[_windows objectAtIndex:index] nonretainedObjectValue];
+}
+
+- (NSUInteger)_indexOfWindow:(NSWindow *)window
+{
+    NSUInteger i, count = [_windows count];
+    for (i = 0; i < count; i++) {
+        if ([self _windowAtIndex:i] == window)
+            return i;
+    }
+    return NSNotFound;
+}
+
 - (NSArray *)windows
 {
-    return [[_windows copy] autorelease];
+    NSMutableArray *result = [NSMutableArray array];
+    NSUInteger i, count = [_windows count];
+    for (i = 0; i < count; i++)
+        [result addObject:[self _windowAtIndex:i]];
+    return result;
 }
 
 - (NSWindow *)selectedWindow
@@ -63,15 +82,24 @@
 
 - (void)setSelectedWindow:(NSWindow *)window
 {
-    if (window != nil && ![_windows containsObject:window]) {
+    if (window != nil && [self _indexOfWindow:window] == NSNotFound) {
         [NSException raise:NSInvalidArgumentException
                     format:@"-[NSWindowTabGroup setSelectedWindow:]: window is not in the tab group"];
     }
     if (window == _selectedWindow)
         return;
+    NSWindow *old = _selectedWindow;
     [self willChangeValueForKey:@"selectedWindow"];
     _selectedWindow = window;
     [self didChangeValueForKey:@"selectedWindow"];
+
+    // Without a tab bar, tabs are shown by sharing one frame and ordering
+    // only the selected window in.
+    if (old != nil && window != nil && [old isVisible]) {
+        [window setFrame:[old frame] display:NO];
+        [window makeKeyAndOrderFront:nil];
+        [old orderOut:nil];
+    }
 }
 
 - (BOOL)isTabBarVisible
@@ -88,25 +116,22 @@
 {
     if (window == nil)
         return;
-    NSWindowTabGroup *oldGroup = [window respondsToSelector:@selector(tabGroup)] ? [window performSelector:@selector(tabGroup)] : nil;
+    NSWindowTabGroup *oldGroup = [window tabGroup];
     if (oldGroup != nil && oldGroup != self)
         [oldGroup removeWindow:window];
 
     [self willChangeValueForKey:@"windows"];
-    NSUInteger existing = [_windows indexOfObjectIdenticalTo:window];
+    NSUInteger existing = [self _indexOfWindow:window];
     if (existing != NSNotFound) {
-        [window retain];
         [_windows removeObjectAtIndex:existing];
         if ((NSUInteger)index > existing && index > 0)
             index--;
-    } else {
-        [window retain];
     }
     if (index < 0 || (NSUInteger)index > [_windows count])
         index = [_windows count];
-    [_windows insertObject:window atIndex:index];
-    [window release];
+    [_windows insertObject:[NSValue valueWithNonretainedObject:window] atIndex:index];
     [self didChangeValueForKey:@"windows"];
+    [window _setTabGroup:self];
 
     if (_selectedWindow == nil)
         [self setSelectedWindow:window];
@@ -114,7 +139,7 @@
 
 - (void)removeWindow:(NSWindow *)window
 {
-    NSUInteger index = [_windows indexOfObjectIdenticalTo:window];
+    NSUInteger index = [self _indexOfWindow:window];
     if (index == NSNotFound)
         return;
     [self willChangeValueForKey:@"windows"];
@@ -123,9 +148,16 @@
     if (_selectedWindow == window) {
         NSWindow *next = nil;
         if ([_windows count] > 0)
-            next = [_windows objectAtIndex:MIN(index, [_windows count] - 1)];
-        [self setSelectedWindow:next];
+            next = [self _windowAtIndex:MIN(index, [_windows count] - 1)];
+        if (next != nil && [window isVisible])
+            [self setSelectedWindow:next];
+        else {
+            [self willChangeValueForKey:@"selectedWindow"];
+            _selectedWindow = next;
+            [self didChangeValueForKey:@"selectedWindow"];
+        }
     }
+    [window _setTabGroup:nil];
 }
 
 @end

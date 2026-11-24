@@ -322,7 +322,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 // -setSelectionIndexes: returns BOOL (as in real AppKit), which KVO cannot auto-notify; it posts
 // willChange/didChange itself, so switch the automatic notification off.
-+ (BOOL) automaticallyNotifiesObserversForSelectionIndexes {
++ (BOOL) automaticallyNotifiesObserversOfSelectionIndexes {
+    return NO;
+}
+
++ (BOOL) automaticallyNotifiesObserversOfSelectionIndex {
+    return NO;
+}
+
++ (BOOL) automaticallyNotifiesObserversOfSelectedObjects {
     return NO;
 }
 

@@ -57,6 +57,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSGestureRecognizer.h>
 #import <AppKit/NSLayoutGuide.h>
 #import <Foundation/NSLayoutAnchor.h>
+#import <Foundation/NSLayoutConstraint.h>
 #import <objc/runtime.h>
 #import <limits.h>
 #import <math.h>
@@ -3412,30 +3413,50 @@ static NSView *viewBeingPrinted = nil;
     return [self baselineOffsetFromBottom];
 }
 
-#define NSVIEW_LAZY_ANCHOR(name, ivar, cls)                                    \
-    - (cls *) name {                                                           \
+// Anchors carry their view and attribute (Foundation's NSLayoutAnchor holds the
+// item without retaining it, so caching them here makes no retain cycle).
+#define NSVIEW_LAZY_ANCHOR(getter, ivar, cls, attr)                            \
+    - (NSLayoutAnchor *) getter {                                              \
         if (ivar == nil)                                                       \
-            ivar = [[cls alloc] init];                                         \
+            ivar = (id) [[cls alloc] initWithItem: self                        \
+                                        attribute: attr                        \
+                                             name: nil];                       \
         return ivar;                                                           \
     }
 
-NSVIEW_LAZY_ANCHOR(leadingAnchor, _leadingAnchor, NSLayoutAnchor)
-NSVIEW_LAZY_ANCHOR(trailingAnchor, _trailingAnchor, NSLayoutAnchor)
-NSVIEW_LAZY_ANCHOR(leftAnchor, _leftAnchor, NSLayoutAnchor)
-NSVIEW_LAZY_ANCHOR(rightAnchor, _rightAnchor, NSLayoutAnchor)
-NSVIEW_LAZY_ANCHOR(topAnchor, _topAnchor, NSLayoutAnchor)
-NSVIEW_LAZY_ANCHOR(bottomAnchor, _bottomAnchor, NSLayoutAnchor)
-NSVIEW_LAZY_ANCHOR(centerXAnchor, _centerXAnchor, NSLayoutAnchor)
-NSVIEW_LAZY_ANCHOR(centerYAnchor, _centerYAnchor, NSLayoutAnchor)
-NSVIEW_LAZY_ANCHOR(firstBaselineAnchor, _firstBaselineAnchor, NSLayoutAnchor)
-NSVIEW_LAZY_ANCHOR(widthAnchor, _widthAnchor, NSLayoutDimension)
-NSVIEW_LAZY_ANCHOR(heightAnchor, _heightAnchor, NSLayoutDimension)
+NSVIEW_LAZY_ANCHOR(leadingAnchor, _leadingAnchor, NSLayoutXAxisAnchor, NSLayoutAttributeLeading)
+NSVIEW_LAZY_ANCHOR(trailingAnchor, _trailingAnchor, NSLayoutXAxisAnchor, NSLayoutAttributeTrailing)
+NSVIEW_LAZY_ANCHOR(leftAnchor, _leftAnchor, NSLayoutXAxisAnchor, NSLayoutAttributeLeft)
+NSVIEW_LAZY_ANCHOR(rightAnchor, _rightAnchor, NSLayoutXAxisAnchor, NSLayoutAttributeRight)
+NSVIEW_LAZY_ANCHOR(topAnchor, _topAnchor, NSLayoutYAxisAnchor, NSLayoutAttributeTop)
+NSVIEW_LAZY_ANCHOR(bottomAnchor, _bottomAnchor, NSLayoutYAxisAnchor, NSLayoutAttributeBottom)
+NSVIEW_LAZY_ANCHOR(centerXAnchor, _centerXAnchor, NSLayoutXAxisAnchor, NSLayoutAttributeCenterX)
+NSVIEW_LAZY_ANCHOR(centerYAnchor, _centerYAnchor, NSLayoutYAxisAnchor, NSLayoutAttributeCenterY)
+NSVIEW_LAZY_ANCHOR(firstBaselineAnchor, _firstBaselineAnchor, NSLayoutYAxisAnchor, NSLayoutAttributeFirstBaseline)
 
 #undef NSVIEW_LAZY_ANCHOR
 
+- (NSLayoutDimension *) widthAnchor {
+    if (_widthAnchor == nil)
+        _widthAnchor = [[NSLayoutDimension alloc] initWithItem: self
+                                                     attribute: NSLayoutAttributeWidth
+                                                          name: nil];
+    return _widthAnchor;
+}
+
+- (NSLayoutDimension *) heightAnchor {
+    if (_heightAnchor == nil)
+        _heightAnchor = [[NSLayoutDimension alloc] initWithItem: self
+                                                      attribute: NSLayoutAttributeHeight
+                                                           name: nil];
+    return _heightAnchor;
+}
+
 - (NSLayoutAnchor *) lastBaselineAnchor {
-    // The last baseline is tracked together with the first one.
-    return [self firstBaselineAnchor];
+    // No ivar for it: anchors don't retain the view, so a fresh one is fine.
+    return [[[NSLayoutYAxisAnchor alloc] initWithItem: self
+                                            attribute: NSLayoutAttributeLastBaseline
+                                                 name: nil] autorelease];
 }
 
 - (NSArray *) layoutGuides {
@@ -3450,6 +3471,8 @@ NSVIEW_LAZY_ANCHOR(heightAnchor, _heightAnchor, NSLayoutDimension)
         _layoutGuides = [[NSMutableArray alloc] init];
     if (![_layoutGuides containsObject: guide])
         [_layoutGuides addObject: guide];
+    if ([guide respondsToSelector: @selector(setOwningView:)])
+        [(id) guide setOwningView: self];
     [self setNeedsUpdateConstraints: YES];
 }
 
@@ -3489,6 +3512,58 @@ NSVIEW_LAZY_ANCHOR(heightAnchor, _heightAnchor, NSLayoutDimension)
     [updated removeObject: recognizer];
     [self setGestureRecognizers: updated];
     [updated release];
+}
+
+/* Called by NSWindow before it delivers a mouse/magnify event to this view.
+   Gives the enabled recognizers of this view and its superviews the event first.
+   Returns YES if a recognizer that delays the event's button has just recognized
+   its gesture, in which case the view must not receive the event itself. */
+- (BOOL) _gestureRecognizersHandleEvent: (NSEvent *) event {
+    SEL selector = NULL;
+    NSInteger button = 0;
+    BOOL isUp = NO, isMagnify = NO;
+
+    switch ((int)[event type]) {
+    case 1: selector = @selector(mouseDown:); break;
+    case 2: selector = @selector(mouseUp:); isUp = YES; break;
+    case 3: selector = @selector(rightMouseDown:); button = 1; break;
+    case 4: selector = @selector(rightMouseUp:); button = 1; isUp = YES; break;
+    case 6: selector = @selector(mouseDragged:); break;
+    case 7: selector = @selector(rightMouseDragged:); button = 1; break;
+    case 25: selector = @selector(otherMouseDown:); button = 2; break;
+    case 26: selector = @selector(otherMouseUp:); button = 2; isUp = YES; break;
+    case 27: selector = @selector(otherMouseDragged:); button = 2; break;
+    case 30: selector = @selector(magnifyWithEvent:); isMagnify = YES; break;
+    default: return NO; // scrollWheel and the rest have no recognizer entry point
+    }
+
+    BOOL consumed = NO;
+    for (NSView *view = self; view != nil; view = [view superview]) {
+        if (view->_gestureRecognizers == nil)
+            continue;
+        for (NSGestureRecognizer *recognizer in [[view->_gestureRecognizers copy] autorelease]) {
+            if (![recognizer isEnabled])
+                continue;
+            NSGestureRecognizerState before = [recognizer state];
+            if (before == NSGestureRecognizerStateFailed) {
+                if (isUp)
+                    [recognizer reset];
+                continue;
+            }
+            [recognizer performSelector: selector withObject: event];
+            NSGestureRecognizerState after = [recognizer state];
+            if (before == NSGestureRecognizerStatePossible &&
+                (after == NSGestureRecognizerStateBegan || after == NSGestureRecognizerStateEnded) &&
+                [recognizer _delaysEventsForButton: button])
+                consumed = YES;
+            else if (isMagnify && after == NSGestureRecognizerStateBegan && [recognizer delaysMagnificationEvents])
+                consumed = YES;
+            if (after == NSGestureRecognizerStateEnded || after == NSGestureRecognizerStateCancelled ||
+                (after == NSGestureRecognizerStateFailed && isUp))
+                [recognizer reset];
+        }
+    }
+    return consumed;
 }
 
 - (NSUInteger) allowedTouchTypes {

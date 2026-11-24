@@ -90,7 +90,24 @@
 - (SEL)action { return _action; }
 - (void)setAction:(SEL)action { _action = action; }
 - (NSGestureRecognizerState)state { return _state; }
-- (void)setState:(NSGestureRecognizerState)state { _state = state; }
+- (void)setState:(NSGestureRecognizerState)state
+{
+    NSGestureRecognizerState previous = _state;
+    if (state == NSGestureRecognizerStateBegan || (state == NSGestureRecognizerStateEnded &&
+                                                   previous == NSGestureRecognizerStatePossible)) {
+        // Transition out of Possible: give the delegate a chance to veto.
+        if (previous == NSGestureRecognizerStatePossible && [_delegate respondsToSelector:@selector(gestureRecognizerShouldBegin:)] &&
+            ![_delegate gestureRecognizerShouldBegin:self]) {
+            _state = NSGestureRecognizerStateFailed;
+            return;
+        }
+    }
+    _state = state;
+    if ((state == NSGestureRecognizerStateBegan || state == NSGestureRecognizerStateChanged ||
+         state == NSGestureRecognizerStateEnded) && _action != NULL && _target != nil &&
+        [_target respondsToSelector:_action])
+        [_target performSelector:_action withObject:self];
+}
 - (id<NSGestureRecognizerDelegate>)delegate { return _delegate; }
 - (void)setDelegate:(id<NSGestureRecognizerDelegate>)delegate { _delegate = delegate; }
 - (BOOL)isEnabled { return _enabled; }
@@ -125,6 +142,17 @@
 - (void)setDelaysRotationEvents:(BOOL)value { _delaysRotationEvents = value; }
 - (NSUInteger)allowedTouchTypes { return _allowedTouchTypes; }
 - (void)setAllowedTouchTypes:(NSUInteger)value { _allowedTouchTypes = value; }
+
+/* Whether a recognizer that has just recognized an event of the given button
+   (0 primary, 1 secondary, other) keeps it from the view. */
+- (BOOL)_delaysEventsForButton:(NSInteger)button
+{
+    if (button == 0)
+        return [self delaysPrimaryMouseButtonEvents];
+    if (button == 1)
+        return [self delaysSecondaryMouseButtonEvents];
+    return [self delaysOtherMouseButtonEvents];
+}
 
 - (void)_noteEvent:(NSEvent *)event
 {
@@ -205,10 +233,29 @@
     [super reset];
 }
 
+- (BOOL)_delaysEventsForButton:(NSInteger)button
+{
+    return [self delaysMagnificationEvents];
+}
+
 - (void)magnifyWithEvent:(NSEvent *)event
 {
-    if ([event respondsToSelector:@selector(magnification)])
-        _magnification += [(id)event magnification];
+    [self _noteEvent:event];
+    if (_state == NSGestureRecognizerStateFailed)
+        return;
+    NSEventPhase phase = [event phase];
+    _magnification += [event magnification];
+    if (phase & NSEventPhaseBegan || (phase == NSEventPhaseNone && _state == NSGestureRecognizerStatePossible))
+        [self setState:NSGestureRecognizerStateBegan];
+    else if (phase & NSEventPhaseEnded)
+        [self setState:_state == NSGestureRecognizerStatePossible ? NSGestureRecognizerStateFailed
+                                                                   : NSGestureRecognizerStateEnded];
+    else if (phase & NSEventPhaseCancelled)
+        [self setState:NSGestureRecognizerStateCancelled];
+    else if (_state == NSGestureRecognizerStatePossible)
+        [self setState:NSGestureRecognizerStateBegan];
+    else
+        [self setState:NSGestureRecognizerStateChanged];
 }
 
 @end

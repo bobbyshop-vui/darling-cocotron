@@ -124,7 +124,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _title = [title copy];
     _target = nil;
     _action = action;
-    _keyEquivalent = [keyEquivalent copy];
+    _keyEquivalent = [(keyEquivalent ? keyEquivalent : @"") copy];
     _keyEquivalentModifierMask = 0;
     _mnemonic = @"";
     _mnemonicLocation = 0;
@@ -267,7 +267,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSString *) keyEquivalent {
-    return _keyEquivalent;
+    return _keyEquivalent ? _keyEquivalent : @"";
 }
 
 - (unsigned) keyEquivalentModifierMask {
@@ -358,7 +358,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setKeyEquivalent: (NSString *) keyEquivalent {
-    keyEquivalent = [keyEquivalent copy];
+    keyEquivalent = [(keyEquivalent ? keyEquivalent : @"") copy];
     [_keyEquivalent release];
     _keyEquivalent = keyEquivalent;
 }

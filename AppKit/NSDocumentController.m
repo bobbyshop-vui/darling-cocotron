@@ -791,10 +791,18 @@ static NSDocumentController *shared = nil;
     return result;
 }
 
-- (NSOpenPanel *) _runOpenPanel {
+// Private AppKit hook: subclasses (Xcode's IDEDocumentController) override it,
+// call super and customise the panel (e.g. setCanChooseDirectories:YES).
+- (NSOpenPanel *) _setupOpenPanel {
     NSOpenPanel *openPanel = [NSOpenPanel openPanel];
 
+    [openPanel setCanChooseFiles: YES];
     [openPanel setAllowsMultipleSelection: YES];
+    return openPanel;
+}
+
+- (NSOpenPanel *) _runOpenPanel {
+    NSOpenPanel *openPanel = [self _setupOpenPanel];
 
     if ([self runModalOpenPanel: openPanel
                        forTypes: [self _allFileExtensions]]) {

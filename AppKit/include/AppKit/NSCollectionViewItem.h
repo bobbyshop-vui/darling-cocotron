@@ -25,6 +25,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     BOOL _isSelected;
     NSImageView *_imageView;
     NSTextField *_textField;
+    NSInteger _highlightState;
 }
 
 - (NSCollectionView *) collectionView;
@@ -38,6 +39,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) setImageView: (NSImageView *) value;
 - (NSTextField *) textField;
 - (void) setTextField: (NSTextField *) value;
+
+- (NSInteger) highlightState;
+- (void) setHighlightState: (NSInteger) value;
+- (void) prepareForReuse;
 
 - (void) _setCollectionView: (NSCollectionView *) value;
 

@@ -1011,7 +1011,7 @@ static NSColorSpaceName NSColorSpaceNameForComponentCount(NSInteger count) {
                                    green: green
                                     blue: blue
                                    alpha: alpha
-                               spaceName: NSNamedColorSpace];
+                               spaceName: NSCalibratedRGBColorSpace];
 }
 
 + (NSColor *) colorWithDeviceHue: (CGFloat) hue

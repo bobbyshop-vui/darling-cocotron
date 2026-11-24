@@ -24,7 +24,13 @@
 @interface NSClickGestureRecognizer : NSGestureRecognizer <NSCoding> {
     NSInteger _numberOfClicksRequired;
     NSInteger _numberOfTouchesRequired;
+    NSUInteger _buttonMask;
+    BOOL _tracking;
+    NSPoint _downLocation;
 }
+
+- (NSUInteger) buttonMask;
+- (void) setButtonMask: (NSUInteger) mask;
 
 - (NSInteger) numberOfClicksRequired;
 - (void) setNumberOfClicksRequired: (NSInteger) value;

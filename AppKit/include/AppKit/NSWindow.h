@@ -296,6 +296,7 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
     NSWindowTabbingMode _tabbingMode;
     NSString *_tabbingIdentifier;
     NSWindowTab *_tab;
+    NSWindowTabGroup *_tabGroup;
     NSWindow *_sheetParent;
     NSMutableArray *_queuedSheets;
 }
@@ -696,6 +697,11 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 - (void) addTabbedWindow: (NSWindow *) window ordered: (NSWindowOrderingMode) ordered;
 - (NSWindowTab *) tab;
 - (NSWindowTabGroup *) tabGroup;
+- (void) _setTabGroup: (NSWindowTabGroup *) group;
+- (void) closeWindowAsTab: (id) sender;
+- (void) moveTabToNewWindow: (id) sender;
+- (void) mergeAllWindows: (id) sender;
+- (BOOL) _validateTabAction: (SEL) action;
 
 - (id) handleCloseScriptCommand: (id) command;
 

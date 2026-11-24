@@ -22,7 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @class NSPasteboard;
 @protocol NSSoundDelegate;
 
-@interface NSSound : NSObject {
+@interface NSSound : NSObject <NSCoding, NSCopying> {
     NSString *_name;
     NSData *_data;
     id<NSSoundDelegate> _delegate;

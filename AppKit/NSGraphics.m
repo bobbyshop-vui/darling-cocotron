@@ -520,7 +520,11 @@ void NSCopyBits(int gState, NSRect rect, NSPoint point) {
 }
 
 void NSBeep() {
-    [[NSDisplay currentDisplay] beep];
+    @try {
+        [[NSDisplay currentDisplay] beep];
+    } @catch (NSException *exception) {
+        // No audible bell available on this display
+    }
 }
 
 void NSEnableScreenUpdates(void) {

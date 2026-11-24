@@ -75,12 +75,14 @@ NSColor *NSColorGetCatalogColor(NSColorListName catalogName,
 + (NSColor *) colorWithCatalogName: (NSColorListName) catalogName
                          colorName: (NSColorName) colorName
 {
-    return [[[self alloc]
-            initWithCatalogName: catalogName
-                      colorName: colorName
-                          color: [[NSDisplay currentDisplay]
-                                         colorWithName: colorName]]
-            autorelease];
+    NSColor *color = NSColorGetCatalogColor(catalogName, colorName);
+
+    if (color == nil)
+        color = [[NSDisplay currentDisplay] colorWithName: colorName];
+
+    return [[[self alloc] initWithCatalogName: catalogName
+                                    colorName: colorName
+                                        color: color] autorelease];
 }
 
 + (NSColor *) colorWithCatalogName: (NSColorListName) catalogName
@@ -125,10 +127,83 @@ NSColor *NSColorGetCatalogColor(NSColorListName catalogName,
 - (NSColor *) colorUsingColorSpaceName: (NSColorSpaceName) colorSpace
                                 device: (NSDictionary *) device
 {
-    if ([colorSpace isEqualToString: [self colorSpaceName]])
+    if (colorSpace == nil || [colorSpace isEqualToString: [self colorSpaceName]])
         return self;
 
     return [_color colorUsingColorSpaceName: colorSpace device: device];
+}
+
+- (NSInteger) numberOfComponents {
+    return [_color numberOfComponents];
+}
+
+- (void) getComponents: (CGFloat *) components {
+    [_color getComponents: components];
+}
+
+- (CGFloat) alphaComponent {
+    return [_color alphaComponent];
+}
+
+- (NSColor *) colorWithAlphaComponent: (CGFloat) alpha {
+    return [_color colorWithAlphaComponent: alpha];
+}
+
+- (void) getWhite: (CGFloat *) white alpha: (CGFloat *) alpha {
+    [[_color colorUsingColorSpaceName: NSCalibratedWhiteColorSpace]
+            getWhite: white
+               alpha: alpha];
+}
+
+- (void) getRed: (CGFloat *) red
+          green: (CGFloat *) green
+           blue: (CGFloat *) blue
+          alpha: (CGFloat *) alpha
+{
+    [[_color colorUsingColorSpaceName: NSCalibratedRGBColorSpace] getRed: red
+                                                                   green: green
+                                                                    blue: blue
+                                                                   alpha: alpha];
+}
+
+- (void) getHue: (CGFloat *) hue
+        saturation: (CGFloat *) saturation
+        brightness: (CGFloat *) brightness
+             alpha: (CGFloat *) alpha
+{
+    [[_color colorUsingColorSpaceName: NSCalibratedRGBColorSpace]
+            getHue: hue
+        saturation: saturation
+        brightness: brightness
+             alpha: alpha];
+}
+
+- (void) getCyan: (CGFloat *) cyan
+         magenta: (CGFloat *) magenta
+          yellow: (CGFloat *) yellow
+           black: (CGFloat *) black
+           alpha: (CGFloat *) alpha
+{
+    [[_color colorUsingColorSpaceName: NSDeviceCMYKColorSpace]
+            getCyan: cyan
+            magenta: magenta
+             yellow: yellow
+              black: black
+              alpha: alpha];
+}
+
+- (NSColor *) blendedColorWithFraction: (CGFloat) fraction
+                               ofColor: (NSColor *) color
+{
+    return [_color blendedColorWithFraction: fraction ofColor: color];
+}
+
+- (NSColor *) highlightWithLevel: (CGFloat) level {
+    return [_color highlightWithLevel: level];
+}
+
+- (NSColor *) shadowWithLevel: (CGFloat) level {
+    return [_color shadowWithLevel: level];
 }
 
 - (CGColorRef) CGColorRef {

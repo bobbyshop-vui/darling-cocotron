@@ -18,12 +18,21 @@
 */
 
 #import <AppKit/NSLayoutGuide.h>
+#import <Foundation/NSLayoutConstraint.h>
 
-#define NSLAYOUTGUIDE_LAZY_ANCHOR(name, ivar, cls)                             \
-    - (cls *) name {                                                           \
-        if (ivar == nil)                                                       \
-            ivar = [[cls alloc] init];                                         \
-        return ivar;                                                           \
+@interface NSLayoutAnchor (NSLayoutGuideAnchorInternal)
+- (instancetype) initWithItem: (id) item
+                    attribute: (NSLayoutAttribute) attribute
+                         name: (NSString *) name;
+@end
+
+// Anchors retain their item, so they are created on demand instead of being
+// cached in ivars, which would make a retain cycle with the guide.
+#define NSLAYOUTGUIDE_ANCHOR(getter, cls, attr)                                  \
+    - (cls *) getter {                                                          \
+        return [[[cls alloc] initWithItem: self                                \
+                                attribute: attr                                \
+                                     name: nil] autorelease];                  \
     }
 
 @implementation NSLayoutGuide
@@ -44,16 +53,6 @@
 
 - (void) dealloc {
     [_identifier release];
-    [_leadingAnchor release];
-    [_trailingAnchor release];
-    [_leftAnchor release];
-    [_rightAnchor release];
-    [_topAnchor release];
-    [_bottomAnchor release];
-    [_centerXAnchor release];
-    [_centerYAnchor release];
-    [_widthAnchor release];
-    [_heightAnchor release];
     [super dealloc];
 }
 
@@ -67,16 +66,34 @@
     _identifier = identifier;
 }
 
-NSLAYOUTGUIDE_LAZY_ANCHOR(leadingAnchor, _leadingAnchor, NSLayoutAnchor)
-NSLAYOUTGUIDE_LAZY_ANCHOR(trailingAnchor, _trailingAnchor, NSLayoutAnchor)
-NSLAYOUTGUIDE_LAZY_ANCHOR(leftAnchor, _leftAnchor, NSLayoutAnchor)
-NSLAYOUTGUIDE_LAZY_ANCHOR(rightAnchor, _rightAnchor, NSLayoutAnchor)
-NSLAYOUTGUIDE_LAZY_ANCHOR(topAnchor, _topAnchor, NSLayoutAnchor)
-NSLAYOUTGUIDE_LAZY_ANCHOR(bottomAnchor, _bottomAnchor, NSLayoutAnchor)
-NSLAYOUTGUIDE_LAZY_ANCHOR(centerXAnchor, _centerXAnchor, NSLayoutAnchor)
-NSLAYOUTGUIDE_LAZY_ANCHOR(centerYAnchor, _centerYAnchor, NSLayoutAnchor)
-NSLAYOUTGUIDE_LAZY_ANCHOR(widthAnchor, _widthAnchor, NSLayoutDimension)
-NSLAYOUTGUIDE_LAZY_ANCHOR(heightAnchor, _heightAnchor, NSLayoutDimension)
+NSLAYOUTGUIDE_ANCHOR(leadingAnchor, NSLayoutAnchor, NSLayoutAttributeLeading)
+NSLAYOUTGUIDE_ANCHOR(trailingAnchor, NSLayoutAnchor, NSLayoutAttributeTrailing)
+NSLAYOUTGUIDE_ANCHOR(leftAnchor, NSLayoutAnchor, NSLayoutAttributeLeft)
+NSLAYOUTGUIDE_ANCHOR(rightAnchor, NSLayoutAnchor, NSLayoutAttributeRight)
+NSLAYOUTGUIDE_ANCHOR(topAnchor, NSLayoutAnchor, NSLayoutAttributeTop)
+NSLAYOUTGUIDE_ANCHOR(bottomAnchor, NSLayoutAnchor, NSLayoutAttributeBottom)
+NSLAYOUTGUIDE_ANCHOR(centerXAnchor, NSLayoutAnchor, NSLayoutAttributeCenterX)
+NSLAYOUTGUIDE_ANCHOR(centerYAnchor, NSLayoutAnchor, NSLayoutAttributeCenterY)
+NSLAYOUTGUIDE_ANCHOR(widthAnchor, NSLayoutDimension, NSLayoutAttributeWidth)
+NSLAYOUTGUIDE_ANCHOR(heightAnchor, NSLayoutDimension, NSLayoutAttributeHeight)
+
+#undef NSLAYOUTGUIDE_ANCHOR
+
+- (NSView *) owningView {
+    return _owningView;
+}
+
+- (void) setOwningView: (NSView *) view {
+    _owningView = view; // weak, like AppKit
+}
+
+- (NSRect) frame {
+    return _frame;
+}
+
+- (void) _setFrame: (NSRect) frame {
+    _frame = frame;
+}
 
 - (BOOL) hasAmbiguousLayout {
     // There is no constraint solver, so layout is never ambiguous.

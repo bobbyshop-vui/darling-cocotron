@@ -50,6 +50,7 @@ enum {
     void (^_completionHandler)(NSModalResponse result);
 
     BOOL _treatsFilePackagesAsDirectories;
+    BOOL _expanded;
     NSView *_accessoryView;
 
     IBOutlet NSOutlineView *_outlineView;
@@ -117,12 +118,30 @@ enum {
 - (BOOL) showsTagField;
 - (void) setShowsTagField: (BOOL) flag;
 
+- (void) beginSheetModalForWindow: (NSWindow *) window
+               completionHandler: (void (^)(NSModalResponse result)) handler;
+
+- (BOOL) isExpanded;
+- (void) setExpanded: (BOOL) flag;
+- (void) validateVisibleColumns;
+- (IBAction) ok: (id) sender;
+
 - (IBAction) _selectFile: (id) sender;
 - (IBAction) _cancel: (id) sender;
 @end
 
 @protocol NSOpenSavePanelDelegate <NSObject>
+@optional
+- (BOOL) panel: (id) sender shouldEnableURL: (NSURL *) url;
+- (BOOL) panel: (id) sender validateURL: (NSURL *) url error: (NSError **) error;
+- (void) panel: (id) sender didChangeToDirectoryURL: (NSURL *) url;
+- (NSString *) panel: (id) sender
+        userEnteredFilename: (NSString *) filename
+                  confirmed: (BOOL) okFlag;
+- (void) panel: (id) sender willExpand: (BOOL) expanding;
+- (void) panelSelectionDidChange: (id) sender;
+@end
 
-// TODO
-
+@interface NSObject (NSSavePanelDelegateDeprecated)
+- (BOOL) panel: (id) sender shouldShowFilename: (NSString *) filename;
 @end

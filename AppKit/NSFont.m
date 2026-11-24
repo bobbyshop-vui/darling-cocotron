@@ -734,7 +734,11 @@ static NSLock *_cacheLock = nil;
     [traitsDictionary setObject: [NSNumber numberWithInt: symbolicTraits]
                          forKey: NSFontSymbolicTrait];
     [traitsDictionary
-            setObject: [NSNumber numberWithInt: [fm weightOfFont: self]]
+            setObject: [NSNumber numberWithDouble:
+                                         (([fm weightOfFont: self] >= 9 ||
+                                           (symbolicTraits & NSBoldFontMask))
+                                                 ? NSFontWeightBold
+                                                 : NSFontWeightRegular)]
                forKey: NSFontWeightTrait];
     //	[traitsDictionary setObject: [NSNumber numberWithInt: ??] forKey:
     // NSFontWidthTrait]; // not sure what's put here

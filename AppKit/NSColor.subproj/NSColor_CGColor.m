@@ -184,7 +184,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #define REC601_LUMINANCE_B 0.114f
 
 static inline CGFloat calibratedWhiteFromRGB(CGFloat r, CGFloat g, CGFloat b) {
-    return (REC601_LUMINANCE_R * r, REC601_LUMINANCE_G * g,
+    return (REC601_LUMINANCE_R * r + REC601_LUMINANCE_G * g +
             REC601_LUMINANCE_B * b);
 }
 
@@ -367,6 +367,17 @@ static inline CGFloat calibratedWhiteFromRGB(CGFloat r, CGFloat g, CGFloat b) {
         CGFloat red = components[0], green = components[1],
                 blue = components[2], alpha = components[3];
 
+        if ([otherSpaceName isEqualToString: NSCalibratedRGBColorSpace])
+            return [NSColor colorWithCalibratedRed: red
+                                             green: green
+                                              blue: blue
+                                             alpha: alpha];
+
+        if ([otherSpaceName isEqualToString: NSCalibratedWhiteColorSpace])
+            return [NSColor colorWithCalibratedWhite: calibratedWhiteFromRGB(
+                                                              red, green, blue)
+                                               alpha: alpha];
+
         if ([otherSpaceName isEqualToString: NSPatternColorSpace]) {
             CGColorSpaceRef currentColorSpace = CGColorGetColorSpace(_colorRef);
             CGColorSpaceRef patternColorSpace =
@@ -391,6 +402,18 @@ static inline CGFloat calibratedWhiteFromRGB(CGFloat r, CGFloat g, CGFloat b) {
                                          alpha: alpha];
     } else if ([_colorSpaceName isEqualToString: NSCustomColorSpace]) {
         CGFloat white = components[0], alpha = components[1];
+
+        if ([otherSpaceName isEqualToString: NSCalibratedRGBColorSpace])
+            return [NSColor colorWithCalibratedRed: white
+                                             green: white
+                                              blue: white
+                                             alpha: alpha];
+
+        if ([otherSpaceName isEqualToString: NSCalibratedWhiteColorSpace])
+            return [NSColor colorWithCalibratedWhite: white alpha: alpha];
+
+        if ([otherSpaceName isEqualToString: NSDeviceWhiteColorSpace])
+            return [NSColor colorWithDeviceWhite: white alpha: alpha];
 
         if ([otherSpaceName isEqualToString: NSDeviceRGBColorSpace])
             return [NSColor colorWithDeviceRed: white

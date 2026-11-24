@@ -19,6 +19,7 @@
 
 #import <AppKit/NSCollectionViewLayout.h>
 #import <AppKit/NSColor.h>
+#import <AppKit/NSCollectionView.h>
 
 NSCollectionViewSupplementaryElementKind const
         NSCollectionElementKindInterItemGapIndicator =
@@ -42,6 +43,7 @@ NSCollectionViewSupplementaryElementKind const
 }
 
 - (void) invalidateLayout {
+    [_collectionView _layoutDidInvalidate];
 }
 
 - (void) prepareLayout {
@@ -52,6 +54,11 @@ NSCollectionViewSupplementaryElementKind const
 }
 
 - (NSCollectionViewLayoutAttributes *) layoutAttributesForItemAtIndexPath: (NSIndexPath *) indexPath {
+    return nil;
+}
+
+- (NSCollectionViewLayoutAttributes *) layoutAttributesForSupplementaryViewOfKind: (NSString *) kind
+                                                                      atIndexPath: (NSIndexPath *) indexPath {
     return nil;
 }
 

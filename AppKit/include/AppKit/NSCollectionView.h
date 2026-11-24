@@ -18,11 +18,33 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSCollectionViewItem.h>
 #import <AppKit/NSView.h>
+#import <AppKit/NSDragging.h>
 #import <AppKit/NSUserInterfaceItemIdentification.h>
 
 @class NSCollectionViewLayout, NSCollectionViewLayoutAttributes, NSNib, NSCollectionView;
 
 typedef NSString *NSCollectionViewSupplementaryElementKind;
+
+typedef NS_OPTIONS(NSUInteger, NSCollectionViewScrollPosition) {
+    NSCollectionViewScrollPositionNone = 0,
+    NSCollectionViewScrollPositionTop = 1 << 0,
+    NSCollectionViewScrollPositionCenteredVertically = 1 << 1,
+    NSCollectionViewScrollPositionBottom = 1 << 2,
+    NSCollectionViewScrollPositionNearestHorizontalEdge = 1 << 9,
+    NSCollectionViewScrollPositionLeft = 1 << 3,
+    NSCollectionViewScrollPositionCenteredHorizontally = 1 << 4,
+    NSCollectionViewScrollPositionRight = 1 << 5,
+    NSCollectionViewScrollPositionLeadingEdge = 1 << 6,
+    NSCollectionViewScrollPositionTrailingEdge = 1 << 7,
+    NSCollectionViewScrollPositionNearestVerticalEdge = 1 << 8,
+};
+
+typedef NS_ENUM(NSInteger, NSCollectionViewItemHighlightState) {
+    NSCollectionViewItemHighlightNone = 0,
+    NSCollectionViewItemHighlightForSelection = 1,
+    NSCollectionViewItemHighlightForDeselection = 2,
+    NSCollectionViewItemHighlightAsDropTarget = 3,
+};
 
 @protocol NSCollectionViewDataSource <NSObject>
 @required
@@ -73,6 +95,14 @@ typedef NSString *NSCollectionViewSupplementaryElementKind;
     NSMutableDictionary *_registeredSupplementaryClasses;
     NSMutableDictionary *_registeredSupplementaryNibs;
     NSMutableDictionary *_itemsByIndexPath;
+    id _delegate;
+    NSMutableDictionary *_supplementaryViews;
+    NSView *_backgroundView;
+    NSInteger _batchUpdateDepth;
+    BOOL _inLayout;
+    BOOL _needsReload;
+    BOOL _needsRelayout;
+    BOOL _pendingScheduled;
 }
 
 - (NSArray *) content;
@@ -140,9 +170,83 @@ typedef NSString *NSCollectionViewSupplementaryElementKind;
                             forIndexPath: (NSIndexPath *) indexPath;
 - (NSCollectionViewItem *) itemAtIndexPath: (NSIndexPath *) indexPath;
 - (NSArray<NSCollectionViewItem *> *) visibleItems;
+- (NSCollectionViewItem *) itemAtIndex: (NSUInteger) index;
+- (NSSet<NSIndexPath *> *) indexPathsForVisibleItems;
+- (NSIndexPath *) indexPathForItem: (NSCollectionViewItem *) item;
+- (NSIndexPath *) indexPathForItemAtPoint: (NSPoint) point;
+- (NSView *) supplementaryViewForElementKind: (NSCollectionViewSupplementaryElementKind) elementKind
+                                 atIndexPath: (NSIndexPath *) indexPath;
+- (NSArray *) visibleSupplementaryViewsOfKind: (NSCollectionViewSupplementaryElementKind) elementKind;
+- (NSCollectionViewLayoutAttributes *) layoutAttributesForSupplementaryElementOfKind: (NSCollectionViewSupplementaryElementKind) kind
+                                                                         atIndexPath: (NSIndexPath *) indexPath;
+- (NSRect) frameForItemAtIndex: (NSUInteger) index;
+- (NSRect) frameForItemAtIndex: (NSUInteger) index withNumberOfItems: (NSUInteger) numberOfItems;
+
+- (id) delegate;
+- (void) setDelegate: (id) value;
+- (NSView *) backgroundView;
+- (void) setBackgroundView: (NSView *) value;
+
+- (void) selectItemsAtIndexPaths: (NSSet<NSIndexPath *> *) indexPaths
+                  scrollPosition: (NSCollectionViewScrollPosition) scrollPosition;
+- (void) deselectItemsAtIndexPaths: (NSSet<NSIndexPath *> *) indexPaths;
+- (void) scrollToItemsAtIndexPaths: (NSSet<NSIndexPath *> *) indexPaths
+                    scrollPosition: (NSCollectionViewScrollPosition) scrollPosition;
+
+- (void) insertSections: (NSIndexSet *) sections;
+- (void) deleteSections: (NSIndexSet *) sections;
+- (void) reloadSections: (NSIndexSet *) sections;
+- (void) insertItemsAtIndexPaths: (NSSet<NSIndexPath *> *) indexPaths;
+- (void) deleteItemsAtIndexPaths: (NSSet<NSIndexPath *> *) indexPaths;
+- (void) reloadItemsAtIndexPaths: (NSSet<NSIndexPath *> *) indexPaths;
+- (void) performBatchUpdates: (void (^)(void)) updates
+           completionHandler: (void (^)(BOOL finished)) completionHandler;
+
+- (void) _layoutDidInvalidate;
+- (void) setDraggingSourceOperationMask: (NSDragOperation) dragOperationMask forLocal: (BOOL) localDestination;
 
 @end
 
 @protocol NSCollectionViewDelegate <NSObject>
-// TODO
+@optional
+- (NSSet<NSIndexPath *> *) collectionView: (NSCollectionView *) collectionView
+            shouldSelectItemsAtIndexPaths: (NSSet<NSIndexPath *> *) indexPaths;
+- (NSSet<NSIndexPath *> *) collectionView: (NSCollectionView *) collectionView
+          shouldDeselectItemsAtIndexPaths: (NSSet<NSIndexPath *> *) indexPaths;
+- (void) collectionView: (NSCollectionView *) collectionView
+        didSelectItemsAtIndexPaths: (NSSet<NSIndexPath *> *) indexPaths;
+- (void) collectionView: (NSCollectionView *) collectionView
+        didDeselectItemsAtIndexPaths: (NSSet<NSIndexPath *> *) indexPaths;
+- (void) collectionView: (NSCollectionView *) collectionView
+        willDisplayItem: (NSCollectionViewItem *) item
+        forRepresentedObjectAtIndexPath: (NSIndexPath *) indexPath;
+- (void) collectionView: (NSCollectionView *) collectionView
+        didEndDisplayingItem: (NSCollectionViewItem *) item
+        forRepresentedObjectAtIndexPath: (NSIndexPath *) indexPath;
+- (void) collectionView: (NSCollectionView *) collectionView
+        willDisplaySupplementaryView: (NSView *) view
+        forElementKind: (NSCollectionViewSupplementaryElementKind) elementKind
+        atIndexPath: (NSIndexPath *) indexPath;
+@end
+
+@protocol NSCollectionViewDelegateFlowLayout <NSCollectionViewDelegate>
+@optional
+- (NSSize) collectionView: (NSCollectionView *) collectionView
+                   layout: (NSCollectionViewLayout *) collectionViewLayout
+   sizeForItemAtIndexPath: (NSIndexPath *) indexPath;
+- (NSEdgeInsets) collectionView: (NSCollectionView *) collectionView
+                         layout: (NSCollectionViewLayout *) collectionViewLayout
+         insetForSectionAtIndex: (NSInteger) section;
+- (CGFloat) collectionView: (NSCollectionView *) collectionView
+                         layout: (NSCollectionViewLayout *) collectionViewLayout
+    minimumLineSpacingForSectionAtIndex: (NSInteger) section;
+- (CGFloat) collectionView: (NSCollectionView *) collectionView
+                         layout: (NSCollectionViewLayout *) collectionViewLayout
+    minimumInteritemSpacingForSectionAtIndex: (NSInteger) section;
+- (NSSize) collectionView: (NSCollectionView *) collectionView
+                         layout: (NSCollectionViewLayout *) collectionViewLayout
+    referenceSizeForHeaderInSection: (NSInteger) section;
+- (NSSize) collectionView: (NSCollectionView *) collectionView
+                         layout: (NSCollectionViewLayout *) collectionViewLayout
+    referenceSizeForFooterInSection: (NSInteger) section;
 @end

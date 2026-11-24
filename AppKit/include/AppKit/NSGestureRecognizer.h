@@ -106,6 +106,8 @@ typedef NS_ENUM(NSInteger, NSGestureRecognizerState) {
 
 /* Used by NSView when a recognizer is added to / removed from it. */
 - (void)_setView:(NSView *)view;
+- (BOOL)_delaysEventsForButton:(NSInteger)button;
+- (void)_noteEvent:(NSEvent *)event;
 
 @end
 

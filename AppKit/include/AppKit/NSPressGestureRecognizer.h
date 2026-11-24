@@ -25,7 +25,13 @@
     NSTimeInterval _minimumPressDuration;
     CGFloat _allowableMovement;
     NSInteger _numberOfTouchesRequired;
+    NSUInteger _buttonMask;
+    BOOL _tracking;
+    NSPoint _downLocation;
 }
+
+- (NSUInteger) buttonMask;
+- (void) setButtonMask: (NSUInteger) mask;
 
 - (NSTimeInterval) minimumPressDuration;
 - (void) setMinimumPressDuration: (NSTimeInterval) value;

@@ -21,16 +21,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSDisplay.h>
 #import <AppKit/NSRaise.h>
+#import <AppKit/NSButton.h>
+#import <AppKit/NSOutlineView.h>
 #import <AppKit/NSSavePanel.h>
 #import <AppKit/NSView.h>
-
-@interface NSObject (_NSSavePanelOutlineAccess)
-- (NSInteger) selectedRow;
-- (id) itemAtRow: (NSInteger) row;
-@end
+#import "_NSFileSystemDataSource.h"
 
 @interface NSSavePanel ()
 - (void) _completeWithResult: (NSModalResponse) result;
+- (void) _setSelectedURLs: (NSArray *) urls;
+- (void) _prepareOutline;
 @end
 
 @implementation NSSavePanel
@@ -58,7 +58,104 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _canSelectHiddenExtension = NO;
     _extensionHidden = NO;
     _showsTagField = YES;
+    _expanded = NO;
     return self;
+}
+
+- (void) awakeFromNib {
+    [super awakeFromNib];
+    id dataSource = [_outlineView dataSource];
+    if ([dataSource isKindOfClass: [_NSFileSystemDataSource class]])
+        [dataSource setPanel: self];
+    [_outlineView setTarget: self];
+    [_outlineView setDoubleAction: @selector(_doubleClick:)];
+}
+
+- (void) _doubleClick: (id) sender {
+    NSInteger row = [_outlineView clickedRow];
+    if (row < 0)
+        return;
+    id item = [_outlineView itemAtRow: row];
+    _NSFileSystemDataSource *dataSource = [_outlineView dataSource];
+    if (![dataSource isKindOfClass: [_NSFileSystemDataSource class]])
+        return;
+    // Folders expand/collapse on their own, everything else is chosen.
+    if ([_outlineView isExpandable: item])
+        return;
+    if ([dataSource isEnabledItem: item])
+        [self _selectFile: sender];
+}
+
+- (void) _prepareOutline {
+    id dataSource = [_outlineView dataSource];
+    if (![dataSource isKindOfClass: [_NSFileSystemDataSource class]])
+        return;
+
+    [dataSource setPanel: self];
+    [dataSource reset];
+    if ([_prompt length] > 0) {
+        for (NSView *view in [[self contentView] subviews])
+            if ([view isKindOfClass: [NSButton class]] &&
+                [(NSButton *) view action] == @selector(_selectFile:))
+                [(NSButton *) view setTitle: _prompt];
+    }
+    [_outlineView setAllowsMultipleSelection: [self respondsToSelector:
+                                    @selector(allowsMultipleSelection)] &&
+                                    [(id) self allowsMultipleSelection]];
+    [_outlineView reloadData];
+
+    // Expand down to the initial directory and select the initial file.
+    NSString *path = [_filename length] > 0 ? _filename : _directory;
+    if ([path length] == 0)
+        return;
+    if (![path isAbsolutePath])
+        path = [_directory stringByAppendingPathComponent: path];
+
+    NSString *walk = @"/";
+    NSArray *components = [path pathComponents];
+    id target = nil;
+    for (NSString *component in components) {
+        if ([component isEqualToString: @"/"])
+            continue;
+        walk = [walk stringByAppendingPathComponent: component];
+        id item = [dataSource itemForPath: walk];
+        if (![[NSFileManager defaultManager] fileExistsAtPath: walk])
+            break;
+        if (![_outlineView isExpandable: item]) {
+            target = item;
+            break;
+        }
+        target = item;
+        if (![walk isEqualToString: path])
+            [_outlineView expandItem: item];
+    }
+    if (target != nil) {
+        NSInteger row = [_outlineView rowForItem: target];
+        if (row >= 0) {
+            [_outlineView selectRowIndexes: [NSIndexSet indexSetWithIndex: row]
+                      byExtendingSelection: NO];
+            [_outlineView scrollRowToVisible: row];
+        }
+    }
+}
+
+- (void) _setSelectedURLs: (NSArray *) urls {
+    [self _setFilename: [[urls objectAtIndex: 0] path]];
+}
+
+- (BOOL) isExpanded {
+    return _expanded;
+}
+
+- (void) setExpanded: (BOOL) flag {
+    _expanded = flag;
+}
+
+- (void) validateVisibleColumns {
+}
+
+- (IBAction) ok: (id) sender {
+    [self _selectFile: sender];
 }
 
 static NSSavePanel *_newPanel = nil;
@@ -137,9 +234,40 @@ static NSSavePanel *_newPanel = nil;
 }
 
 - (IBAction) _selectFile: (id) sender {
-    id outline = _outlineView;
-    NSURL *url = [outline itemAtRow: [outline selectedRow]];
-    [self _setFilename: [url path]];
+    _NSFileSystemDataSource *dataSource = [_outlineView dataSource];
+    BOOL filtered = [dataSource isKindOfClass: [_NSFileSystemDataSource class]];
+    NSMutableArray *urls = [NSMutableArray array];
+    NSIndexSet *rows = [_outlineView selectedRowIndexes];
+
+    for (NSUInteger row = [rows firstIndex]; row != NSNotFound;
+         row = [rows indexGreaterThanIndex: row]) {
+        NSURL *url = [_outlineView itemAtRow: row];
+        if (![url isKindOfClass: [NSURL class]])
+            continue;
+        if (filtered && ![dataSource isEnabledItem: url])
+            continue;
+        [urls addObject: url];
+    }
+
+    // Nothing selectable is selected: the panel stays up.
+    if ([urls count] == 0) {
+        NSBeep();
+        return;
+    }
+
+    id delegate = [self delegate];
+    if ([delegate respondsToSelector: @selector(panel:validateURL:error:)]) {
+        for (NSURL *url in urls) {
+            NSError *error = nil;
+            if (![delegate panel: self validateURL: url error: &error]) {
+                if (error != nil)
+                    [self presentError: error];
+                return;
+            }
+        }
+    }
+
+    [self _setSelectedURLs: urls];
 
     if (_completionHandler != nil && !_usesModalCompletionHandler) {
         [self orderOut: nil];
@@ -217,8 +345,16 @@ static NSSavePanel *_newPanel = nil;
         [self _completeWithResult: (NSModalResponse) result];
     } else {
         _usesModalCompletionHandler = NO;
+        [self _prepareOutline];
         [self makeKeyAndOrderFront: nil];
     }
+}
+
+- (void) beginSheetModalForWindow: (NSWindow *) window
+                completionHandler: (void (^)(NSModalResponse result)) handler
+{
+    // There is no sheet presentation here, the panel is shown on its own.
+    [self beginWithCompletionHandler: handler];
 }
 
 - (void) _completeWithResult: (NSModalResponse) result {
@@ -256,6 +392,7 @@ static NSSavePanel *_newPanel = nil;
                                runModalForDirectory: [self directory]
                                                file: [self filename]];
     } else {
+        [self _prepareOutline];
         res = [NSApp runModalForWindow: self];
         [self close];
     }
@@ -278,6 +415,7 @@ static NSSavePanel *_newPanel = nil;
     title = [title copy];
     [_dialogTitle release];
     _dialogTitle = title;
+    [super setTitle: title];
 }
 
 - (void) setDirectory: (NSString *) directory {

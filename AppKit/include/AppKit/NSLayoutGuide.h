@@ -22,13 +22,17 @@
 #import <Foundation/NSLayoutAnchor.h>
 #import <AppKit/NSLayoutConstraint.h>
 
+@class NSView;
+
 @interface NSLayoutGuide : NSObject <NSCoding> {
     NSString *_identifier;
-    NSLayoutAnchor *_leadingAnchor, *_trailingAnchor, *_leftAnchor,
-            *_rightAnchor, *_topAnchor, *_bottomAnchor, *_centerXAnchor,
-            *_centerYAnchor;
-    NSLayoutDimension *_widthAnchor, *_heightAnchor;
+    NSView *_owningView;
+    NSRect _frame;
 }
+
+- (NSView *) owningView;
+- (void) setOwningView: (NSView *) view;
+- (NSRect) frame;
 
 - (NSString *) identifier;
 - (void) setIdentifier: (NSString *) identifier;
