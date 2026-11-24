@@ -931,6 +931,55 @@ static NSDocumentController *shared = nil;
     return result;
 }
 
+// Private per-key recent document lists that Xcode's IDEDocumentController uses
+// (one list for editor documents, one for workspaces). Kept in memory; there is
+// no sharedfilelist backend to persist or resolve them.
+static NSMutableDictionary *_NSRecentDocumentLists(void) {
+    static NSMutableDictionary *lists = nil;
+    @synchronized([NSDocumentController class]) {
+        if (lists == nil)
+            lists = [[NSMutableDictionary alloc] init];
+    }
+    return lists;
+}
+
+- (NSArray *) _recentDocumentURLsForKey: (NSString *) key {
+    NSMutableDictionary *lists = _NSRecentDocumentLists();
+
+    @synchronized(lists) {
+        NSArray *urls = [lists objectForKey: key];
+
+        return (urls == nil) ? [NSArray array] : [[urls copy] autorelease];
+    }
+}
+
+- (void) _noteNewRecentDocumentURL: (NSURL *) url forKey: (NSString *) key {
+    NSMutableDictionary *lists = _NSRecentDocumentLists();
+
+    if (url == nil || key == nil)
+        return;
+
+    @synchronized(lists) {
+        NSMutableArray *urls = [lists objectForKey: key];
+
+        if (urls == nil) {
+            urls = [NSMutableArray array];
+            [lists setObject: urls forKey: key];
+        }
+        [urls removeObject: url];
+        [urls insertObject: url atIndex: 0];
+        while ([urls count] > [self maximumRecentDocumentCount])
+            [urls removeLastObject];
+    }
+}
+
+- (NSArray *) _resolveRecentDocumentsForKey: (NSString *) key
+                        asynchronousUpdater: (void (^)(NSArray *)) updater {
+    // The records AppKit hands back are resolved from sandbox bookmarks, which do
+    // not exist here: report no recent documents and never call the updater.
+    return [NSArray array];
+}
+
 - (unsigned) maximumRecentDocumentCount {
     NSString *value = [[NSUserDefaults standardUserDefaults]
             stringForKey: @"NSRecentDocumentMaximum"];
