@@ -514,7 +514,25 @@ static Class _fontPanelFactory;
     if (newface != nil) {
         return [NSFont fontWithName: [newface name] size: [font pointSize]];
     }
-    NSLog(@"%s failed, %@ %d", sel_getName(_cmd), [font fontName], addTraits);
+
+    // The font has no typeface table entry (e.g. system fonts): try the usual style
+    // suffixes before giving up and keeping the original font.
+    NSMutableArray *suffixes = [NSMutableArray array];
+    if (addTraits & NSBoldFontMask) {
+        [suffixes addObject: @" Bold"];
+        [suffixes addObject: @"-Bold"];
+    }
+    if (addTraits & NSItalicFontMask) {
+        [suffixes addObject: @" Italic"];
+        [suffixes addObject: @"-Italic"];
+        [suffixes addObject: @"-Oblique"];
+    }
+    for (NSString *suffix in suffixes) {
+        NSFont *candidate = [NSFont fontWithName: [[font fontName] stringByAppendingString: suffix]
+                                            size: [font pointSize]];
+        if (candidate != nil)
+            return candidate;
+    }
     return font;
 }
 
