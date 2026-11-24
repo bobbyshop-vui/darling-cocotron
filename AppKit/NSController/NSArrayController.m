@@ -320,6 +320,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return _flags.selectsInsertedObjects;
 }
 
+// -setSelectionIndexes: returns BOOL (as in real AppKit), which KVO cannot auto-notify; it posts
+// willChange/didChange itself, so switch the automatic notification off.
++ (BOOL) automaticallyNotifiesObserversForSelectionIndexes {
+    return NO;
+}
+
 - (BOOL) setSelectionIndexes: (NSIndexSet *) value {
 
     if (_flags.avoidsEmptySelection && [value count] == 0 &&
