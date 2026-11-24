@@ -18,6 +18,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSBitmapImageRep.h>
+#import <AppKit/NSBezierPath.h>
 #import <AppKit/NSCachedImageRep.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSCustomImageRep.h>
@@ -29,6 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSPasteboard.h>
 #import <AppKit/NSRaise.h>
 #import <Foundation/NSKeyedArchiver.h>
+#include <math.h>
 
 NSImageName const NSImageNameActionTemplate = @"NSActionTemplate";
 NSImageName const NSImageNameAddTemplate = @"NSAddTemplate";
@@ -396,6 +398,159 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
     return result;
 }
 
+static NSImage *NSImageCreateStandardTemplateImage(NSString *name) {
+    if (![name isEqualToString: NSImageNameActionTemplate] &&
+        ![name isEqualToString: NSImageNameAddTemplate] &&
+        ![name isEqualToString: NSImageNameRemoveTemplate] &&
+        ![name isEqualToString: NSImageNameLeftFacingTriangleTemplate] &&
+        ![name isEqualToString: NSImageNameRightFacingTriangleTemplate] &&
+        ![name isEqualToString: NSImageNameGoLeftTemplate] &&
+        ![name isEqualToString: NSImageNameGoRightTemplate] &&
+        ![name isEqualToString: NSImageNameRefreshTemplate] &&
+        ![name isEqualToString: NSImageNameStopProgressTemplate])
+        return nil;
+
+    const CGFloat size = 16.0;
+    NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc]
+            initWithBitmapDataPlanes: NULL
+                          pixelsWide: 16
+                          pixelsHigh: 16
+                       bitsPerSample: 8
+                     samplesPerPixel: 4
+                            hasAlpha: YES
+                            isPlanar: NO
+                      colorSpaceName: NSDeviceRGBColorSpace
+                         bytesPerRow: 0
+                        bitsPerPixel: 32];
+    if (bitmap == nil)
+        return nil;
+
+    NSGraphicsContext *context =
+            [NSGraphicsContext graphicsContextWithBitmapImageRep: bitmap];
+    if (context == nil) {
+        [bitmap release];
+        return nil;
+    }
+
+    [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext: context];
+    CGContextClearRect([context CGContext], NSMakeRect(0, 0, size, size));
+    [[NSColor blackColor] set];
+
+    if ([name isEqualToString: NSImageNameActionTemplate]) {
+        NSBezierPath *gear = [NSBezierPath bezierPath];
+        int i;
+        for (i = 0; i < 32; i++) {
+            CGFloat angle = ((CGFloat) i / 32.0) * 6.28318530718;
+            CGFloat radius = (i % 4 < 2) ? 6.0 : 7.4;
+            NSPoint point = NSMakePoint(8.0 + cos(angle) * radius,
+                                        8.0 + sin(angle) * radius);
+            if (i == 0)
+                [gear moveToPoint: point];
+            else
+                [gear lineToPoint: point];
+        }
+        [gear closePath];
+        [gear appendBezierPathWithOvalInRect: NSMakeRect(5.7, 5.7, 4.6, 4.6)];
+        [gear setWindingRule: NSEvenOddWindingRule];
+        [gear fill];
+    } else if ([name isEqualToString: NSImageNameAddTemplate] ||
+               [name isEqualToString: NSImageNameRemoveTemplate]) {
+        NSBezierPath *mark = [NSBezierPath bezierPath];
+        [mark setLineWidth: 2.0];
+        [mark setLineCapStyle: NSRoundLineCapStyle];
+        [mark moveToPoint: NSMakePoint(3.0, 8.0)];
+        [mark lineToPoint: NSMakePoint(13.0, 8.0)];
+        if ([name isEqualToString: NSImageNameAddTemplate]) {
+            [mark moveToPoint: NSMakePoint(8.0, 3.0)];
+            [mark lineToPoint: NSMakePoint(8.0, 13.0)];
+        }
+        [mark stroke];
+    } else if ([name isEqualToString:
+                       NSImageNameLeftFacingTriangleTemplate] ||
+               [name isEqualToString:
+                       NSImageNameRightFacingTriangleTemplate]) {
+        BOOL pointsRight =
+                [name isEqualToString: NSImageNameRightFacingTriangleTemplate];
+        NSBezierPath *triangle = [NSBezierPath bezierPath];
+        if (pointsRight) {
+            [triangle moveToPoint: NSMakePoint(4.0, 2.5)];
+            [triangle lineToPoint: NSMakePoint(12.5, 8.0)];
+            [triangle lineToPoint: NSMakePoint(4.0, 13.5)];
+        } else {
+            [triangle moveToPoint: NSMakePoint(12.0, 2.5)];
+            [triangle lineToPoint: NSMakePoint(3.5, 8.0)];
+            [triangle lineToPoint: NSMakePoint(12.0, 13.5)];
+        }
+        [triangle closePath];
+        [triangle fill];
+    } else if ([name isEqualToString: NSImageNameGoLeftTemplate] ||
+               [name isEqualToString: NSImageNameGoRightTemplate]) {
+        BOOL pointsRight = [name isEqualToString: NSImageNameGoRightTemplate];
+        NSBezierPath *shaft = [NSBezierPath bezierPath];
+        [shaft setLineWidth: 2.0];
+        [shaft setLineCapStyle: NSRoundLineCapStyle];
+        if (pointsRight) {
+            [shaft moveToPoint: NSMakePoint(3.0, 8.0)];
+            [shaft lineToPoint: NSMakePoint(11.0, 8.0)];
+        } else {
+            [shaft moveToPoint: NSMakePoint(13.0, 8.0)];
+            [shaft lineToPoint: NSMakePoint(5.0, 8.0)];
+        }
+        [shaft stroke];
+
+        NSBezierPath *head = [NSBezierPath bezierPath];
+        if (pointsRight) {
+            [head moveToPoint: NSMakePoint(9.0, 12.0)];
+            [head lineToPoint: NSMakePoint(13.0, 8.0)];
+            [head lineToPoint: NSMakePoint(9.0, 4.0)];
+        } else {
+            [head moveToPoint: NSMakePoint(7.0, 12.0)];
+            [head lineToPoint: NSMakePoint(3.0, 8.0)];
+            [head lineToPoint: NSMakePoint(7.0, 4.0)];
+        }
+        [head closePath];
+        [head fill];
+    } else if ([name isEqualToString: NSImageNameRefreshTemplate]) {
+        NSBezierPath *arc = [NSBezierPath bezierPath];
+        [arc appendBezierPathWithArcWithCenter: NSMakePoint(8.0, 8.0)
+                                        radius: 5.0
+                                    startAngle: 45.0
+                                      endAngle: 315.0];
+        [arc setLineWidth: 2.0];
+        [arc setLineCapStyle: NSRoundLineCapStyle];
+        [arc stroke];
+        NSBezierPath *head = [NSBezierPath bezierPath];
+        [head moveToPoint: NSMakePoint(11.0, 13.0)];
+        [head lineToPoint: NSMakePoint(14.5, 13.0)];
+        [head lineToPoint: NSMakePoint(13.5, 9.5)];
+        [head closePath];
+        [head fill];
+    } else if ([name isEqualToString: NSImageNameStopProgressTemplate]) {
+        NSBezierPath *stop = [NSBezierPath bezierPath];
+        [stop moveToPoint: NSMakePoint(5.0, 2.5)];
+        [stop lineToPoint: NSMakePoint(11.0, 2.5)];
+        [stop lineToPoint: NSMakePoint(13.5, 5.0)];
+        [stop lineToPoint: NSMakePoint(13.5, 11.0)];
+        [stop lineToPoint: NSMakePoint(11.0, 13.5)];
+        [stop lineToPoint: NSMakePoint(5.0, 13.5)];
+        [stop lineToPoint: NSMakePoint(2.5, 11.0)];
+        [stop lineToPoint: NSMakePoint(2.5, 5.0)];
+        [stop closePath];
+        [stop fill];
+    }
+
+    [NSGraphicsContext restoreGraphicsState];
+
+    NSImage *image = [[[NSImage alloc] initWithSize: NSMakeSize(size, size)]
+            autorelease];
+    [image addRepresentation: bitmap];
+    [bitmap release];
+    [image setTemplate: YES];
+    [image setName: name];
+    return image;
+}
+
 + imageNamed: (NSString *) name {
     if (name == nil)
         return nil;
@@ -418,6 +573,9 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
                 }
             }
         }
+
+        if (image == nil)
+            image = NSImageCreateStandardTemplateImage(name);
     }
 
     // Cocoa AppKit always returns the same shared cached image
