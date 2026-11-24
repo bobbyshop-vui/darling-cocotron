@@ -133,7 +133,6 @@ O2ColorSpaceRef O2ColorSpaceCreateDeviceN(const char **names,
 }
 
 O2ColorSpaceRef O2ColorSpaceCreateWithName(CFStringRef name) {
-    printf("CALLED: O2ColorSpaceCreateWithName\n");
     if (CFStringCompare(name, kO2ColorSpaceSRGB, 0) == kCFCompareEqualTo) {
         O2ColorSpaceRef cs = [[O2ColorSpace alloc] initWithDeviceRGB];
         cs->_name = kO2ColorSpaceSRGB;
@@ -144,8 +143,24 @@ O2ColorSpaceRef O2ColorSpaceCreateWithName(CFStringRef name) {
         cs->_type = kO2ColorSpaceModelRGB;
         return cs;
     }
-    printf("unknown color space name\n");
-    CFShow(name);
+    // The remaining standard names are approximated by the matching device space.
+    const CFStringRef *grayNames[] = {&kO2ColorSpaceGenericGray,
+                                      &kO2ColorSpaceGenericGrayGamma2_2};
+    const CFStringRef *rgbNames[] = {
+        &kO2ColorSpaceGenericRGB,    &kO2ColorSpaceGenericRGBLinear,
+        &kO2ColorSpaceAdobeRGB1998,  &kO2ColorSpaceACESCGLinear,
+        &kO2ColorSpaceITUR_709,      &kO2ColorSpaceITUR_2020,
+        &kO2ColorSpaceROMMRGB,       &kO2ColorSpaceDCIP3,
+        &kO2ColorSpaceExtendedSRGB,  &kO2ColorSpaceLinearSRGB};
+    int i;
+    for (i = 0; i < (int) (sizeof(grayNames) / sizeof(grayNames[0])); i++)
+        if (CFStringCompare(name, *grayNames[i], 0) == kCFCompareEqualTo)
+            return [[O2ColorSpace alloc] initWithDeviceGray];
+    for (i = 0; i < (int) (sizeof(rgbNames) / sizeof(rgbNames[0])); i++)
+        if (CFStringCompare(name, *rgbNames[i], 0) == kCFCompareEqualTo)
+            return [[O2ColorSpace alloc] initWithDeviceRGB];
+    if (CFStringCompare(name, kO2ColorSpaceGenericCMYK, 0) == kCFCompareEqualTo)
+        return [[O2ColorSpace alloc] initWithDeviceCMYK];
     return NULL;
 }
 
