@@ -554,6 +554,8 @@ typedef struct __VFlags {
     if (_rectsBeingRedrawn != NULL) {
         NSZoneFree(NULL, _rectsBeingRedrawn);
     }
+    if ([_layer isKindOfClass: [NSViewBackingLayer class]])
+        [(NSViewBackingLayer *) _layer _setOwningView: nil];
     [_layer release];
 
     [_layerContext invalidate];
@@ -2039,8 +2041,184 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     _layerContext = nil;
 }
 
+// Layer-backed views draw into the window's backing store like any other view,
+// and the view paints what Core Animation would show for its layer (background
+// color, contents, border, corner radius) around its own drawing. Cocotron
+// used to render each layer tree into its own GL child window (CALayerContext);
+// on X11 that child window never showed anything, so layer-backed windows such
+// as Xcode's welcome window came up solid black. Only layers whose content
+// needs GL (CAOpenGLLayer, CAMetalLayer) still get a CALayerContext.
+static BOOL NSViewLayerNeedsGLContext(CALayer *layer) {
+    static Class openGLLayerClass = Nil, metalLayerClass = Nil;
+    static BOOL looked = NO;
+
+    if (layer == nil)
+        return NO;
+    if (!looked) {
+        openGLLayerClass = NSClassFromString(@"CAOpenGLLayer");
+        metalLayerClass = NSClassFromString(@"CAMetalLayer");
+        looked = YES;
+    }
+    return (openGLLayerClass != Nil && [layer isKindOfClass: openGLLayerClass]) ||
+           (metalLayerClass != Nil && [layer isKindOfClass: metalLayerClass]);
+}
+
+static void NSViewAddRoundedRect(CGContextRef ctx, CGRect r, CGFloat radius) {
+    radius = MIN(radius, MIN(r.size.width, r.size.height) / 2);
+    if (radius <= 0) {
+        CGContextAddRect(ctx, r);
+        return;
+    }
+    CGFloat minX = CGRectGetMinX(r), maxX = CGRectGetMaxX(r);
+    CGFloat minY = CGRectGetMinY(r), maxY = CGRectGetMaxY(r);
+
+    CGContextMoveToPoint(ctx, minX + radius, minY);
+    CGContextAddArcToPoint(ctx, maxX, minY, maxX, maxY, radius);
+    CGContextAddArcToPoint(ctx, maxX, maxY, minX, maxY, radius);
+    CGContextAddArcToPoint(ctx, minX, maxY, minX, minY, radius);
+    CGContextAddArcToPoint(ctx, minX, minY, maxX, minY, radius);
+    CGContextClosePath(ctx);
+}
+
+static void NSViewDrawLayerContents(CGContextRef ctx, id contents, CGRect rect) {
+    static Class imageClass = Nil;
+
+    if (contents == nil)
+        return;
+    if ([contents isKindOfClass: [NSImage class]]) {
+        [(NSImage *) contents drawInRect: NSRectFromCGRect(rect)
+                                fromRect: NSZeroRect
+                               operation: NSCompositeSourceOver
+                                fraction: 1.0];
+        return;
+    }
+    if (imageClass == Nil)
+        imageClass = NSClassFromString(@"O2Image");
+    if (imageClass != Nil && [contents isKindOfClass: imageClass])
+        CGContextDrawImage(ctx, rect, (CGImageRef) contents);
+}
+
+static void NSViewFillLayerBackground(CGContextRef ctx, CALayer *layer, CGRect bounds) {
+    if (![layer isKindOfClass: [NSViewBackingLayer class]])
+        return;
+    NSViewBackingLayer *backing = (NSViewBackingLayer *) layer;
+    CGColorRef background = [backing backgroundColor];
+
+    if (background == NULL || CGColorGetAlpha(background) <= 0)
+        return;
+    CGContextSaveGState(ctx);
+    CGContextBeginPath(ctx);
+    NSViewAddRoundedRect(ctx, bounds, [backing cornerRadius]);
+    CGContextSetFillColorWithColor(ctx, background);
+    CGContextFillPath(ctx);
+    CGContextRestoreGState(ctx);
+}
+
+static void NSViewStrokeLayerBorder(CGContextRef ctx, CALayer *layer, CGRect bounds) {
+    if (![layer isKindOfClass: [NSViewBackingLayer class]])
+        return;
+    NSViewBackingLayer *backing = (NSViewBackingLayer *) layer;
+    CGFloat width = [backing borderWidth];
+    CGColorRef color = [backing borderColor];
+
+    if (width <= 0 || color == NULL || CGColorGetAlpha(color) <= 0)
+        return;
+    CGContextSaveGState(ctx);
+    CGContextBeginPath(ctx);
+    NSViewAddRoundedRect(ctx, CGRectInset(bounds, width / 2, width / 2),
+                         MAX([backing cornerRadius] - width / 2, 0));
+    CGContextSetStrokeColorWithColor(ctx, color);
+    CGContextSetLineWidth(ctx, width);
+    CGContextStrokePath(ctx);
+    CGContextRestoreGState(ctx);
+}
+
+// Sublayers that code added to a view's layer directly (not the layers of
+// subviews, which their views draw).
+static void NSViewDrawForeignSublayers(CALayer *layer, CGContextRef ctx, NSArray *subviews) {
+    for (CALayer *sublayer in [layer sublayers]) {
+        BOOL ownedBySubview = NO;
+
+        for (NSView *subview in subviews) {
+            if ([subview layer] == sublayer) {
+                ownedBySubview = YES;
+                break;
+            }
+        }
+        if (ownedBySubview)
+            continue;
+        if ([sublayer isKindOfClass: [NSViewBackingLayer class]] &&
+            [(NSViewBackingLayer *) sublayer _owningView] != nil)
+            continue;
+        if ([sublayer opacity] <= 0)
+            continue;
+
+        CGRect frame = [sublayer frame];
+        CGRect bounds = CGRectMake(0, 0, frame.size.width, frame.size.height);
+
+        CGContextSaveGState(ctx);
+        CGContextTranslateCTM(ctx, frame.origin.x, frame.origin.y);
+        NSViewFillLayerBackground(ctx, sublayer, bounds);
+        NSViewDrawLayerContents(ctx, [sublayer contents], bounds);
+        [sublayer drawInContext: ctx];
+        NSViewDrawForeignSublayers(sublayer, ctx, nil);
+        NSViewStrokeLayerBorder(ctx, sublayer, bounds);
+        CGContextRestoreGState(ctx);
+    }
+}
+
+- (BOOL) _drawsLayerIntoWindow {
+    return _layer != nil && _layerContext == nil;
+}
+
+// Runs -updateLayer without the layer changes it makes scheduling another
+// redisplay of this view.
+- (void) _updateBackingLayer {
+    BOOL backing = [_layer isKindOfClass: [NSViewBackingLayer class]];
+
+    if (backing)
+        [(NSViewBackingLayer *) _layer _setUpdatingFromView: YES];
+    [self updateLayer];
+    if (backing)
+        [(NSViewBackingLayer *) _layer _setUpdatingFromView: NO];
+}
+
+- (void) _drawContentsAndLayerInRect: (NSRect) rect context: (CGContextRef) ctx {
+    if (![self _drawsLayerIntoWindow]) {
+        [self drawRect: rect];
+        return;
+    }
+
+    CGRect bounds = NSRectToCGRect([self bounds]);
+    BOOL updatesLayer = [self wantsUpdateLayer];
+
+    if (updatesLayer)
+        [self _updateBackingLayer];
+
+    NSViewFillLayerBackground(ctx, _layer, bounds);
+    if ([_layer contents] != nil) {
+        CGFloat radius = [_layer isKindOfClass: [NSViewBackingLayer class]]
+                ? [(NSViewBackingLayer *) _layer cornerRadius] : 0;
+        CGContextSaveGState(ctx);
+        if (radius > 0) {
+            CGContextBeginPath(ctx);
+            NSViewAddRoundedRect(ctx, bounds, radius);
+            CGContextClip(ctx);
+        }
+        NSViewDrawLayerContents(ctx, [_layer contents], bounds);
+        CGContextRestoreGState(ctx);
+    }
+
+    if (!updatesLayer)
+        [self drawRect: rect];
+
+    NSViewDrawForeignSublayers(_layer, ctx, _subviews);
+    NSViewStrokeLayerBorder(ctx, _layer, bounds);
+}
+
 - (void) _createLayerContextIfNeeded {
-    if ([_superview layer] == nil) {
+    if ([_superview layer] == nil && _layerContext == nil &&
+        NSViewLayerNeedsGLContext(_layer)) {
         _layerContext = [[CALayerContext alloc] initWithFrame: [self frame]];
         [_layerContext setLayer: _layer];
         if (_window) {
@@ -2068,6 +2246,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
         // implicitly or explicitly The distinction appears to be based on the
         // layers class, not how it was set (host vs. backing)
         if ([_layer isKindOfClass: [NSViewBackingLayer class]]) {
+            [(NSViewBackingLayer *) _layer _setOwningView: nil];
             [_layer release];
             _layer = nil;
         }
@@ -2082,6 +2261,8 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
     if (_layer == nil) {
         _layer = [[self makeBackingLayer] retain];
+        if ([_layer isKindOfClass: [NSViewBackingLayer class]])
+            [(NSViewBackingLayer *) _layer _setOwningView: self];
         configureLayerGeometry(self);
     }
 
@@ -2430,7 +2611,10 @@ static NSView *viewBeingPrinted = nil;
     if (context == nil) {
         if (viewBeingPrinted != nil) {
             context = [[NSPrintOperation currentOperation] context];
-        } else if (_layer != nil) {
+        } else if (_layerContext != nil) {
+            // Only views whose layer renders through GL (see
+            // NSViewLayerNeedsGLContext) draw into a bitmap that becomes the
+            // layer's contents; other layer-backed views draw into the window.
             CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
             CGFloat width = _frame.size.width;
             CGFloat height = _frame.size.height;
@@ -2499,7 +2683,8 @@ static NSView *viewBeingPrinted = nil;
     NSGraphicsContext *graphicsContext = [NSGraphicsContext currentContext];
     CGContextRef context = [graphicsContext graphicsPort];
 
-    if (viewBeingPrinted == nil && _layer != nil) {
+    if (viewBeingPrinted == nil && _layerContext != nil &&
+        graphicsContext != [_window graphicsContext]) {
         CGImageRef image = CGBitmapContextCreateImage(context);
         [_layer setContents:(id)image];
         CGImageRelease(image);
@@ -2750,7 +2935,7 @@ static NSView *viewBeingPrinted = nil;
             [[NSColor yellowColor] set];
             NSRectFill(rect);
         } else {
-            [self drawRect: rect];
+            [self _drawContentsAndLayerInRect: rect context: graphicsPort];
             if (NSShowAllViews) {
                 [[self _borderColorForNSShowAllViews] set];
                 NSFrameRect(rect);
