@@ -554,17 +554,17 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     if (i < numberOfColumns) {
         range.location = i;
 
-        for (; i < numberOfColumns; i++) {
-            if (width > rect.origin.x + rect.size.width)
+        // width is the right edge of column i now; add the following columns
+        // while they start inside the rect. (This used to count column i
+        // twice, so the last column of a table never got drawn.)
+        for (i = i + 1; i < numberOfColumns; i++) {
+            if (width >= rect.origin.x + rect.size.width)
                 break;
 
             width += [[_tableColumns objectAtIndex: i] width] +
                      _intercellSpacing.width;
         }
-        if (i < numberOfColumns)
-            range.length = i - range.location + 1;
-        else
-            range.length = numberOfColumns - range.location;
+        range.length = i - range.location;
     }
 
     return range; // returns 0,0 if not found, not NSNotFound

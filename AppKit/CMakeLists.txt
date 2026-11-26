@@ -410,6 +410,7 @@ set(AppKit_sources
 	NSSystemInfoPanel/NSSystemInfoPanel.m
 
 	NSSavePanel.subproj/_NSFileSystemDataSource.m
+	NSSavePanel.subproj/_NSFileBrowser.m
 	NSSavePanel.subproj/NSOpenPanel.m
 	NSSavePanel.subproj/NSSavePanel.m
 

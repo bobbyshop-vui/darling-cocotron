@@ -54,6 +54,8 @@ enum {
     NSView *_accessoryView;
 
     IBOutlet NSOutlineView *_outlineView;
+    // Finder-style browser used instead of the nib's outline view.
+    id _browser;
 }
 
 @property (copy) NSString *nameFieldStringValue;

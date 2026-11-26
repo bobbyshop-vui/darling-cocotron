@@ -26,6 +26,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSSavePanel.h>
 #import <AppKit/NSView.h>
 #import "_NSFileSystemDataSource.h"
+#import "_NSFileBrowser.h"
 
 @interface NSSavePanel ()
 - (void) _completeWithResult: (NSModalResponse) result;
@@ -33,9 +34,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) _prepareOutline;
 @end
 
+
 @implementation NSSavePanel
 
 @synthesize showsHiddenFiles=_showsHiddenFiles;
+
+// Creates a panel of this class with the Finder-style browser (the nib's
+// outline view only showed a tree from "/", had no name field to save with
+// and couldn't create folders).
++ (id) _newPanelWithFileBrowser {
+    NSSavePanel *panel = [[self alloc]
+            initWithContentRect: NSMakeRect(0, 0, 820, 520)
+                      styleMask: NSTitledWindowMask | NSClosableWindowMask |
+                                 NSResizableWindowMask
+                        backing: NSBackingStoreBuffered
+                          defer: YES];
+    [panel setReleasedWhenClosed: NO];
+    panel->_browser = [[_NSFileBrowser alloc] initWithPanel: panel];
+    [panel->_browser install];
+    return panel;
+}
 
 - (id) resetToDefaultValues {
     if (_completionHandler != nil)
@@ -87,6 +105,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) _prepareOutline {
+    if (_browser != nil) {
+        if ([[self title] length] == 0 || [[self title] isEqualToString: @"Window"])
+            [super setTitle: _dialogTitle];
+        [_browser prepareForRun];
+        [self center];
+        return;
+    }
+
     id dataSource = [_outlineView dataSource];
     if (![dataSource isKindOfClass: [_NSFileSystemDataSource class]])
         return;
@@ -172,7 +198,7 @@ static NSSavePanel *_newPanel = nil;
                             backing: NSBackingStoreBuffered
                               defer: YES];
     } else {
-        [NSBundle loadNibNamed: @"NSSavePanel" owner: self];
+        _newPanel = [self _newPanelWithFileBrowser];
     }
     // FIXME: release it?
     return [_newPanel resetToDefaultValues];
@@ -192,6 +218,7 @@ static NSSavePanel *_newPanel = nil;
     [_accessoryView release];
     [_nameFieldLabel release];
     [_completionHandler release];
+    [_browser release];
     [super dealloc];
 }
 
@@ -234,19 +261,27 @@ static NSSavePanel *_newPanel = nil;
 }
 
 - (IBAction) _selectFile: (id) sender {
-    _NSFileSystemDataSource *dataSource = [_outlineView dataSource];
-    BOOL filtered = [dataSource isKindOfClass: [_NSFileSystemDataSource class]];
     NSMutableArray *urls = [NSMutableArray array];
-    NSIndexSet *rows = [_outlineView selectedRowIndexes];
 
-    for (NSUInteger row = [rows firstIndex]; row != NSNotFound;
-         row = [rows indexGreaterThanIndex: row]) {
-        NSURL *url = [_outlineView itemAtRow: row];
-        if (![url isKindOfClass: [NSURL class]])
-            continue;
-        if (filtered && ![dataSource isEnabledItem: url])
-            continue;
-        [urls addObject: url];
+    if (_browser != nil) {
+        NSArray *chosen = [_browser chosenURLs];
+        if (chosen == nil)
+            return; // the browser beeped, navigated or asked; stay up
+        [urls addObjectsFromArray: chosen];
+    } else {
+        _NSFileSystemDataSource *dataSource = [_outlineView dataSource];
+        BOOL filtered = [dataSource isKindOfClass: [_NSFileSystemDataSource class]];
+        NSIndexSet *rows = [_outlineView selectedRowIndexes];
+
+        for (NSUInteger row = [rows firstIndex]; row != NSNotFound;
+             row = [rows indexGreaterThanIndex: row]) {
+            NSURL *url = [_outlineView itemAtRow: row];
+            if (![url isKindOfClass: [NSURL class]])
+                continue;
+            if (filtered && ![dataSource isEnabledItem: url])
+                continue;
+            [urls addObject: url];
+        }
     }
 
     // Nothing selectable is selected: the panel stays up.

@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSURL.h>
 
 @interface NSSavePanel (Private)
++ (id) _newPanelWithFileBrowser;
 - (void) _setFilename: (NSString *) filename;
 - (void) _setSelectedURLs: (NSArray *) urls;
 - (void) _prepareOutline;
@@ -58,7 +59,7 @@ static NSOpenPanel *_newPanel = nil;
                             backing: NSBackingStoreBuffered
                               defer: YES];
     } else {
-        [NSBundle loadNibNamed: @"NSOpenPanel" owner: self];
+        _newPanel = [self _newPanelWithFileBrowser];
     }
     // FIXME: release it?
     return [_newPanel resetToDefaultValues];
@@ -159,6 +160,7 @@ static NSOpenPanel *_newPanel = nil;
                                                file: [self filename]
                                               types: [self allowedFileTypes]];
     } else {
+        [self _prepareOutline];
         res = [NSApp runModalForWindow: self];
         [self close];
     }

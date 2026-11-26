@@ -19,6 +19,8 @@
 
 #import <AppKit/NSVisualEffectView.h>
 #import <AppKit/NSImage.h>
+#import <AppKit/NSColor.h>
+#import <AppKit/NSGraphics.h>
 
 @implementation NSVisualEffectView
 
@@ -29,6 +31,38 @@
 
 - (NSVisualEffectMaterial) material {
     return _vevMaterial;
+}
+
+// There is no compositor to blur what lies behind the view, so paint the
+// material's flat color. Drawing nothing left the area transparent, which
+// shows up black on X11 (the right half of Xcode's welcome window).
+- (void) drawRect: (NSRect) rect {
+    CGFloat white;
+
+    switch (_vevMaterial) {
+    case NSVisualEffectMaterialDark:
+    case NSVisualEffectMaterialUltraDark:
+    case NSVisualEffectMaterialHUDWindow:
+    case NSVisualEffectMaterialFullScreenUI:
+        white = 0.17;
+        break;
+    case NSVisualEffectMaterialSidebar:
+    case NSVisualEffectMaterialUnderWindowBackground:
+        white = 0.91;
+        break;
+    case NSVisualEffectMaterialMenu:
+    case NSVisualEffectMaterialPopover:
+    case NSVisualEffectMaterialToolTip:
+    case NSVisualEffectMaterialContentBackground:
+        white = 0.97;
+        break;
+    default:
+        white = 0.93;
+        break;
+    }
+
+    [[NSColor colorWithCalibratedWhite: white alpha: 1.0] setFill];
+    NSRectFill(rect);
 }
 
 - (void) setMaterial: (NSVisualEffectMaterial) value {
