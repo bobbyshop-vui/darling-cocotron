@@ -29,4 +29,16 @@ CA_EXPORT NSString *const kCALineCapRound;
 CA_EXPORT NSString *const kCALineCapSquare;
 
 @interface CAShapeLayer : CALayer
+@property CGPathRef path;
+@property CGColorRef fillColor;
+@property(copy) NSString *fillRule;
+@property CGColorRef strokeColor;
+@property CGFloat strokeStart;
+@property CGFloat strokeEnd;
+@property CGFloat lineWidth;
+@property CGFloat miterLimit;
+@property(copy) NSString *lineCap;
+@property(copy) NSString *lineJoin;
+@property CGFloat lineDashPhase;
+@property(copy) NSArray *lineDashPattern;
 @end

@@ -3,13 +3,16 @@
 @interface CATransition : CAAnimation {
     NSString *_type;
     NSString *_subtype;
-    CGFloat _startProgress;
-    CGFloat _endProgress;
+    float _startProgress;
+    float _endProgress;
+    id _filter;
 }
 
 @property(copy) NSString *type;
 @property(copy) NSString *subtype;
-@property CGFloat startProgress;
-@property CGFloat endProgress;
+// float, as in Apple's SDK (callers pass a float).
+@property float startProgress;
+@property float endProgress;
+@property(retain) id filter;
 
 @end

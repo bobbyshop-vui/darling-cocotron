@@ -1,29 +1,58 @@
-/*
- This file is part of Darling.
-
- Copyright (C) 2019 Lubos Dolezel
-
- Darling is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
-
- Darling is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with Darling.  If not, see <http://www.gnu.org/licenses/>.
-*/
-
 #import <Foundation/Foundation.h>
 #import <QuartzCore/CALayer.h>
 
-@interface CAConstraint : NSObject
+typedef enum CAConstraintAttribute : int {
+    kCAConstraintMinX,
+    kCAConstraintMidX,
+    kCAConstraintMaxX,
+    kCAConstraintWidth,
+    kCAConstraintMinY,
+    kCAConstraintMidY,
+    kCAConstraintMaxY,
+    kCAConstraintHeight,
+} CAConstraintAttribute;
+
+// The value of attribute is sourceAttribute of the layer named sourceName
+// (a sibling, or @"superlayer") times scale plus offset.
+@interface CAConstraint : NSObject <NSSecureCoding> {
+    CAConstraintAttribute _attribute;
+    NSString *_sourceName;
+    CAConstraintAttribute _sourceAttribute;
+    CGFloat _scale;
+    CGFloat _offset;
+}
+
++ (instancetype) constraintWithAttribute: (CAConstraintAttribute) attribute
+                              relativeTo: (NSString *) sourceName
+                               attribute: (CAConstraintAttribute) sourceAttribute
+                                   scale: (CGFloat) scale
+                                  offset: (CGFloat) offset;
++ (instancetype) constraintWithAttribute: (CAConstraintAttribute) attribute
+                              relativeTo: (NSString *) sourceName
+                               attribute: (CAConstraintAttribute) sourceAttribute
+                                  offset: (CGFloat) offset;
++ (instancetype) constraintWithAttribute: (CAConstraintAttribute) attribute
+                              relativeTo: (NSString *) sourceName
+                               attribute: (CAConstraintAttribute) sourceAttribute;
+- (instancetype) initWithAttribute: (CAConstraintAttribute) attribute
+                        relativeTo: (NSString *) sourceName
+                         attribute: (CAConstraintAttribute) sourceAttribute
+                             scale: (CGFloat) scale
+                            offset: (CGFloat) offset;
+
+@property(readonly) CAConstraintAttribute attribute;
+@property(readonly) NSString *sourceName;
+@property(readonly) CAConstraintAttribute sourceAttribute;
+@property(readonly) CGFloat scale;
+@property(readonly) CGFloat offset;
 
 @end
 
-@interface CAConstraintLayoutManager : NSObject <CALayoutManager>
+@interface CALayer (CAConstraintLayoutManager)
+@property(copy) NSArray *constraints;
+- (void) addConstraint: (CAConstraint *) constraint;
+@end
 
+@interface CAConstraintLayoutManager : NSObject <CALayoutManager>
++ (instancetype) layoutManager;
 @end

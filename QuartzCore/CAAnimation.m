@@ -124,11 +124,11 @@ NSString *const kCAAnimationRotateAutoReverse = @"autoReverse";
     _fillMode = value;
 }
 
-- (CGFloat) repeatCount {
+- (float) repeatCount {
     return _repeatCount;
 }
 
-- (void) setRepeatCount: (CGFloat) value {
+- (void) setRepeatCount: (float) value {
     _repeatCount = value;
 }
 
@@ -140,11 +140,11 @@ NSString *const kCAAnimationRotateAutoReverse = @"autoReverse";
     _repeatDuration = value;
 }
 
-- (CGFloat) speed {
+- (float) speed {
     return _speed;
 }
 
-- (void) setSpeed: (CGFloat) value {
+- (void) setSpeed: (float) value {
     _speed = value;
 }
 
@@ -159,6 +159,47 @@ NSString *const kCAAnimationRotateAutoReverse = @"autoReverse";
 @end
 
 @implementation CAKeyframeAnimation
+
+@synthesize values = _values, keyTimes = _keyTimes,
+        timingFunctions = _timingFunctions, tensionValues = _tensionValues,
+        continuityValues = _continuityValues, biasValues = _biasValues,
+        rotationMode = _rotationMode;
+
+- (NSString *) calculationMode {
+    return _calculationMode != nil ? _calculationMode : kCAAnimationLinear;
+}
+
+- (void) setCalculationMode: (NSString *) mode {
+    mode = [mode copy];
+    [_calculationMode release];
+    _calculationMode = mode;
+}
+
+- (CGPathRef) path {
+    return _path;
+}
+
+- (void) setPath: (CGPathRef) path {
+    if (path != NULL)
+        CGPathRetain(path);
+    if (_path != NULL)
+        CGPathRelease(_path);
+    _path = path;
+}
+
+- (void) dealloc {
+    [_values release];
+    [_keyTimes release];
+    [_timingFunctions release];
+    [_calculationMode release];
+    [_tensionValues release];
+    [_continuityValues release];
+    [_biasValues release];
+    [_rotationMode release];
+    if (_path != NULL)
+        CGPathRelease(_path);
+    [super dealloc];
+}
 
 - (NSMethodSignature *) methodSignatureForSelector: (SEL) aSelector {
     return [NSMethodSignature signatureWithObjCTypes: "v@:"];

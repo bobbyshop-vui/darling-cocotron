@@ -20,4 +20,20 @@
 #import <QuartzCore/CAReplicatorLayer.h>
 
 @implementation CAReplicatorLayer
+
+// Stored by CALayer's dynamic properties. (Darling draws the sublayers once;
+// it does not replicate them.)
+@dynamic instanceCount, preservesDepth, instanceDelay, instanceTransform,
+        instanceColor, instanceRedOffset, instanceGreenOffset,
+        instanceBlueOffset, instanceAlphaOffset;
+
++ (id) defaultValueForKey: (NSString *) key {
+    if ([key isEqualToString: @"instanceCount"])
+        return [NSNumber numberWithInteger: 1];
+    if ([key isEqualToString: @"instanceTransform"])
+        return [NSValue valueWithBytes: &CATransform3DIdentity
+                              objCType: @encode(CATransform3D)];
+    return [super defaultValueForKey: key];
+}
+
 @end

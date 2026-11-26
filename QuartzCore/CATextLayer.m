@@ -32,6 +32,28 @@ NSString *const kCATruncationMiddle = @"middle";
 
 @implementation CATextLayer
 
+// Stored by CALayer's dynamic properties. (Darling does not draw the text
+// of a CATextLayer yet.)
+@dynamic string, font, fontSize, foregroundColor, wrapped, truncationMode,
+        alignmentMode, allowsFontSubpixelQuantization;
+
++ (id) defaultValueForKey: (NSString *) key {
+    static NSDictionary *defaults = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        CGColorRef white = CGColorCreateGenericRGB(1, 1, 1, 1);
+        defaults = [[NSDictionary alloc] initWithObjectsAndKeys:
+                [NSNumber numberWithDouble: 36.0], @"fontSize",
+                (id) white, @"foregroundColor",
+                kCATruncationNone, @"truncationMode",
+                kCAAlignmentNatural, @"alignmentMode",
+                nil];
+        CGColorRelease(white);
+    });
+    id value = [defaults objectForKey: key];
+    return value != nil ? value : [super defaultValueForKey: key];
+}
+
 - (NSMethodSignature *) methodSignatureForSelector: (SEL) aSelector {
     return [NSMethodSignature signatureWithObjCTypes: "v@:"];
 }

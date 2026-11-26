@@ -25,4 +25,7 @@ CA_EXPORT NSString *const kCAScrollHorizontally;
 CA_EXPORT NSString *const kCAScrollBoth;
 
 @interface CAScrollLayer : CALayer
+@property(copy) NSString *scrollMode;
+- (void) scrollToPoint: (CGPoint) point;
+- (void) scrollToRect: (CGRect) rect;
 @end

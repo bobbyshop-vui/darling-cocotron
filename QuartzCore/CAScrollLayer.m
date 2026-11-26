@@ -25,4 +25,40 @@ NSString *const kCAScrollHorizontally = @"horizontally";
 NSString *const kCAScrollBoth = @"both";
 
 @implementation CAScrollLayer
+
+@dynamic scrollMode;
+
++ (id) defaultValueForKey: (NSString *) key {
+    if ([key isEqualToString: @"scrollMode"])
+        return kCAScrollBoth;
+    return [super defaultValueForKey: key];
+}
+
+// Scrolling moves the bounds origin along the axes scrollMode allows.
+- (void) scrollToPoint: (CGPoint) point {
+    NSString *mode = [self scrollMode];
+    CGRect bounds = [self bounds];
+    if ([mode isEqualToString: kCAScrollBoth] ||
+        [mode isEqualToString: kCAScrollHorizontally])
+        bounds.origin.x = point.x;
+    if ([mode isEqualToString: kCAScrollBoth] ||
+        [mode isEqualToString: kCAScrollVertically])
+        bounds.origin.y = point.y;
+    [self setBounds: bounds];
+}
+
+- (void) scrollToRect: (CGRect) rect {
+    CGRect bounds = [self bounds];
+    CGPoint origin = bounds.origin;
+    if (CGRectGetMinX(rect) < CGRectGetMinX(bounds))
+        origin.x = CGRectGetMinX(rect);
+    else if (CGRectGetMaxX(rect) > CGRectGetMaxX(bounds))
+        origin.x = CGRectGetMaxX(rect) - bounds.size.width;
+    if (CGRectGetMinY(rect) < CGRectGetMinY(bounds))
+        origin.y = CGRectGetMinY(rect);
+    else if (CGRectGetMaxY(rect) > CGRectGetMaxY(bounds))
+        origin.y = CGRectGetMaxY(rect) - bounds.size.height;
+    [self scrollToPoint: origin];
+}
+
 @end

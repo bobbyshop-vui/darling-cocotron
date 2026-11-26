@@ -17,11 +17,12 @@ CA_EXPORT NSString *const kCAFillModeRemoved;
 
 @property(copy) NSString *fillMode;
 
-@property CGFloat repeatCount;
+// float, as in Apple's SDK (callers pass a float).
+@property float repeatCount;
 
 @property CFTimeInterval repeatDuration;
 
-@property CGFloat speed;
+@property float speed;
 
 @property CFTimeInterval timeOffset;
 

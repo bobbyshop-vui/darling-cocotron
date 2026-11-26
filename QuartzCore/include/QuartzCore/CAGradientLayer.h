@@ -24,4 +24,9 @@ CA_EXPORT NSString *const kCAGradientLayerRadial;
 CA_EXPORT NSString *const kCAGradientLayerConic;
 
 @interface CAGradientLayer : CALayer
+@property(copy) NSArray *colors;
+@property(copy) NSArray *locations;
+@property CGPoint startPoint;
+@property CGPoint endPoint;
+@property(copy) NSString *type;
 @end

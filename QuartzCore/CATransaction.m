@@ -2,6 +2,7 @@
 #import <Foundation/NSArray.h>
 #import <Foundation/NSNumber.h>
 #import <Foundation/NSString.h>
+#include <dispatch/dispatch.h>
 #import <QuartzCore/CALayerContext.h>
 #import <QuartzCore/CATransaction.h>
 
@@ -66,7 +67,9 @@ static CATransactionGroup *createImplicitTransactionGroupIfNeeded() {
     return [self valueForKey: kCATransactionAnimationTimingFunction];
 }
 
-//+(void (^)(void))completionBlock;
++ (void (^)(void)) completionBlock {
+    return [self valueForKey: kCATransactionCompletionBlock];
+}
 
 + valueForKey: (NSString *) key {
     CATransactionGroup *group = createImplicitTransactionGroupIfNeeded();
@@ -80,10 +83,14 @@ static CATransactionGroup *createImplicitTransactionGroupIfNeeded() {
 }
 
 + (void) setAnimationTimingFunction: (CAMediaTimingFunction *) value {
-    [self setValue: value forKey: kCATransactionAnimationDuration];
+    [self setValue: value forKey: kCATransactionAnimationTimingFunction];
 }
 
-//+(void)setCompletionBlock:(void (^)(void))value;
++ (void) setCompletionBlock: (void (^)(void)) block {
+    id copy = [block copy];
+    [self setValue: copy forKey: kCATransactionCompletionBlock];
+    [copy release];
+}
 + (void) setDisableActions: (BOOL) value {
     [self setValue: [NSNumber numberWithBool: value]
             forKey: kCATransactionDisableActions];
@@ -102,7 +109,25 @@ static CATransactionGroup *createImplicitTransactionGroupIfNeeded() {
 }
 
 + (void) commit {
-    [transactionStack() removeLastObject];
+    NSMutableArray *stack = transactionStack();
+    if ([stack count] == 0)
+        return;
+
+    CATransactionGroup *group = [[stack lastObject] retain];
+    [stack removeLastObject];
+
+    // Darling applies layer changes immediately, so the transaction's
+    // animations are done once it commits. As on macOS, the completion block
+    // runs later on the main thread, never inside -commit.
+    void (^completion)(void) = [group valueForKey: kCATransactionCompletionBlock];
+    if (completion != nil) {
+        void (^block)(void) = [completion copy];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            block();
+            [block release];
+        });
+    }
+    [group release];
 }
 
 + (void) flush {

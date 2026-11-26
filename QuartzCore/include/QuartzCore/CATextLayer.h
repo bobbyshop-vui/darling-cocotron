@@ -33,5 +33,12 @@ CA_EXPORT NSString *const kCATruncationEnd;
 CA_EXPORT NSString *const kCATruncationMiddle;
 
 @interface CATextLayer : CALayer
-
+@property(copy) id string;
+@property CFTypeRef font;
+@property CGFloat fontSize;
+@property CGColorRef foregroundColor;
+@property(getter=isWrapped) BOOL wrapped;
+@property(copy) NSString *truncationMode;
+@property(copy) NSString *alignmentMode;
+@property BOOL allowsFontSubpixelQuantization;
 @end

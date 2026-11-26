@@ -2,9 +2,24 @@
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/Foundation.h>
 #import <QuartzCore/CAAction.h>
+#import <QuartzCore/CAMediaTiming.h>
 #import <QuartzCore/CATransform3D.h>
 
 @class CAAnimation, CALayerContext, CALayer;
+
+typedef NS_OPTIONS(NSUInteger, CACornerMask) {
+    kCALayerMinXMinYCorner = 1U << 0,
+    kCALayerMaxXMinYCorner = 1U << 1,
+    kCALayerMinXMaxYCorner = 1U << 2,
+    kCALayerMaxXMaxYCorner = 1U << 3,
+};
+
+enum {
+    kCALayerLeftEdge = 1U << 0,
+    kCALayerRightEdge = 1U << 1,
+    kCALayerBottomEdge = 1U << 2,
+    kCALayerTopEdge = 1U << 3,
+};
 
 enum {
     kCALayerNotSizable = 0x00,
@@ -60,7 +75,7 @@ CA_EXPORT NSString *const kCAContentsFormatGray8Uint;
 
 @end
 
-@interface CALayer : NSObject {
+@interface CALayer : NSObject <CAMediaTiming> {
     CALayerContext *_context;
     CALayer *_superlayer;
     NSArray *_sublayers;
@@ -78,6 +93,9 @@ CA_EXPORT NSString *const kCAContentsFormatGray8Uint;
     BOOL _needsDisplay;
     NSMutableDictionary *_animations;
     NSNumber *_textureId;
+    // Values of the properties CALayer provides dynamically (see
+    // +resolveInstanceMethod:) and of other KVC keys set on the layer.
+    NSMutableDictionary *_attributes;
 }
 
 + layer;
@@ -97,6 +115,89 @@ CA_EXPORT NSString *const kCAContentsFormatGray8Uint;
 
 @property(copy) NSString *minificationFilter;
 @property(copy) NSString *magnificationFilter;
+
+// Provided through +resolveInstanceMethod: and stored per layer, like Core
+// Animation's own dynamic properties.
+@property CGFloat zPosition;
+@property CGFloat anchorPointZ;
+@property(getter=isHidden) BOOL hidden;
+@property(getter=isDoubleSided) BOOL doubleSided;
+@property(getter=isGeometryFlipped) BOOL geometryFlipped;
+@property(retain) CALayer *mask;
+@property BOOL masksToBounds;
+@property CGRect contentsRect;
+@property(copy) NSString *contentsGravity;
+@property CGFloat contentsScale;
+@property CGRect contentsCenter;
+@property(copy) NSString *contentsFormat;
+@property float minificationFilterBias;
+@property BOOL needsDisplayOnBoundsChange;
+@property BOOL drawsAsynchronously;
+@property unsigned int edgeAntialiasingMask;
+@property BOOL allowsEdgeAntialiasing;
+@property CGColorRef backgroundColor;
+@property CGFloat cornerRadius;
+@property CACornerMask maskedCorners;
+@property CGFloat borderWidth;
+@property CGColorRef borderColor;
+@property BOOL allowsGroupOpacity;
+@property(retain) id compositingFilter;
+@property(copy) NSArray *filters;
+@property(copy) NSArray *backgroundFilters;
+@property BOOL shouldRasterize;
+@property CGFloat rasterizationScale;
+@property CGColorRef shadowColor;
+@property float shadowOpacity;
+@property CGSize shadowOffset;
+@property CGFloat shadowRadius;
+@property CGPathRef shadowPath;
+@property unsigned int autoresizingMask;
+@property(retain) id layoutManager;
+@property(copy) NSDictionary *actions;
+@property(copy) NSString *name;
+@property(copy) NSDictionary *style;
+@property(readonly) CGRect visibleRect;
+// CAMediaTiming
+@property BOOL autoreverses;
+@property CFTimeInterval beginTime;
+@property CFTimeInterval duration;
+@property(copy) NSString *fillMode;
+@property float repeatCount;
+@property CFTimeInterval repeatDuration;
+@property float speed;
+@property CFTimeInterval timeOffset;
+
++ (id) defaultValueForKey: (NSString *) key;
++ (BOOL) needsDisplayForKey: (NSString *) key;
++ (id<CAAction>) defaultActionForKey: (NSString *) event;
+- (instancetype) initWithLayer: (id) layer;
+- (id) presentationLayer;
+- (id) modelLayer;
+- (BOOL) shouldArchiveValueForKey: (NSString *) key;
+- (CGAffineTransform) affineTransform;
+- (void) setAffineTransform: (CGAffineTransform) transform;
+- (BOOL) contentsAreFlipped;
+- (void) insertSublayer: (CALayer *) layer atIndex: (unsigned) index;
+- (void) insertSublayer: (CALayer *) layer below: (CALayer *) sibling;
+- (void) insertSublayer: (CALayer *) layer above: (CALayer *) sibling;
+- (CGPoint) convertPoint: (CGPoint) point fromLayer: (CALayer *) layer;
+- (CGPoint) convertPoint: (CGPoint) point toLayer: (CALayer *) layer;
+- (CGRect) convertRect: (CGRect) rect fromLayer: (CALayer *) layer;
+- (CGRect) convertRect: (CGRect) rect toLayer: (CALayer *) layer;
+- (CFTimeInterval) convertTime: (CFTimeInterval) time fromLayer: (CALayer *) layer;
+- (CFTimeInterval) convertTime: (CFTimeInterval) time toLayer: (CALayer *) layer;
+- (CALayer *) hitTest: (CGPoint) point;
+- (BOOL) containsPoint: (CGPoint) point;
+- (void) renderInContext: (CGContextRef) context;
+- (CGSize) preferredFrameSize;
+- (void) setNeedsLayout;
+- (BOOL) needsLayout;
+- (void) layoutIfNeeded;
+- (void) layoutSublayers;
+- (void) resizeSublayersWithOldSize: (CGSize) size;
+- (void) resizeWithOldSuperlayerSize: (CGSize) size;
+- (void) scrollPoint: (CGPoint) point;
+- (void) scrollRectToVisible: (CGRect) rect;
 
 - init;
 

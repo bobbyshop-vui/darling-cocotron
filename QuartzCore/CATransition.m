@@ -22,20 +22,37 @@
     _subtype = value;
 }
 
-- (CGFloat) startProgress {
+- (float) startProgress {
     return _startProgress;
 }
 
-- (void) setStartProgress: (CGFloat) value {
+- (void) setStartProgress: (float) value {
     _startProgress = value;
 }
 
-- (CGFloat) endProgress {
+- (float) endProgress {
     return _endProgress;
 }
 
-- (void) setEndProgress: (CGFloat) value {
+- (void) setEndProgress: (float) value {
     _endProgress = value;
+}
+
+- (id) filter {
+    return _filter;
+}
+
+- (void) setFilter: (id) value {
+    value = [value retain];
+    [_filter release];
+    _filter = value;
+}
+
+- (void) dealloc {
+    [_type release];
+    [_subtype release];
+    [_filter release];
+    [super dealloc];
 }
 
 @end

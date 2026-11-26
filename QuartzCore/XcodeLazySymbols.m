@@ -132,6 +132,30 @@ bool CATransform3DIsIdentity(CATransform3D transform)
 	return CATransform3DEqualToTransform(transform, CATransform3DIdentity);
 }
 
+bool CATransform3DIsAffine(CATransform3D t)
+{
+	return t.m13 == 0 && t.m14 == 0 && t.m23 == 0 && t.m24 == 0 &&
+	       t.m31 == 0 && t.m32 == 0 && t.m33 == 1 && t.m34 == 0 &&
+	       t.m43 == 0 && t.m44 == 1;
+}
+
+CATransform3D CATransform3DMakeAffineTransform(CGAffineTransform m)
+{
+	CATransform3D result = CATransform3DIdentity;
+	result.m11 = m.a;
+	result.m12 = m.b;
+	result.m21 = m.c;
+	result.m22 = m.d;
+	result.m41 = m.tx;
+	result.m42 = m.ty;
+	return result;
+}
+
+CGAffineTransform CATransform3DGetAffineTransform(CATransform3D t)
+{
+	return CGAffineTransformMake(t.m11, t.m12, t.m21, t.m22, t.m41, t.m42);
+}
+
 CATransform3D CATransform3DMakeRotation(CGFloat angle, CGFloat x, CGFloat y, CGFloat z)
 {
 	double length = sqrt((double) x * x + (double) y * y + (double) z * z);
