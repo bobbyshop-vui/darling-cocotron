@@ -128,8 +128,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) _windowWillClose: (NSNotification *) note {
-    [self setWindow: nil];
-
+    // Like AppKit, keep the window: a closed window stays loaded and
+    // -showWindow: brings the same one back. Dropping it here made the next
+    // -window call load the nib again and run -windowDidLoad a second time,
+    // e.g. from the delegate's own -windowWillClose: (Xcode's welcome window
+    // then released an IDERecentsHelper it had never invalidated and asserted).
     if (_document) {
         [[self retain] autorelease];
 
