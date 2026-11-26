@@ -150,53 +150,31 @@ void O2DContextClipAndFillEdges(O2Context_builtin *self, int fillRuleMask);
     return O2SizeMake(O2ImageGetWidth(_surface), O2ImageGetHeight(_surface));
 }
 
+// Darling draws the contents of a transparency layer straight into the
+// context instead of compositing the group separately: the group's alpha
+// and shadow apply to each drawing operation in it.
 - (void) beginTransparencyLayerWithInfo: (NSDictionary *) unused {
-    O2LayerRef layer = O2LayerCreateWithContext(self, [self size], unused);
-
-    [self->_layerStack addObject: layer];
-    O2LayerRelease(layer);
     O2ContextSaveGState(self);
-
-    /**
-     * From Cocoa doc :
-     * graphics state parameters remain unchanged except for alpha (which is set
-     * to 1), shadow (which is turned off), blend mode (which is set to normal),
-     * and other parameters that affect the final composite.
-     */
-    O2GStateSetBlendMode(O2ContextCurrentGState(self), kO2BlendModeNormal);
-    [O2ContextCurrentGState(self) setShadowOffset: O2SizeZero
-                                             blur: 0.
-                                            color: nil];
-    O2GStateSetAlpha(O2ContextCurrentGState(self), 1.);
 }
 
 - (void) endTransparencyLayer {
-    O2LayerRef layer = O2LayerRetain([self->_layerStack lastObject]);
-
     O2ContextRestoreGState(self);
-    [self->_layerStack removeLastObject];
+}
 
-    O2Size size = [self size];
+// A context with a new surface of the given size, like this one's, for
+// layers (CGLayerCreateWithContext).
+- initWithSize: (O2Size) size context: (O2Context *) context {
+    size_t width = size.width > 1 ? (size_t) ceil(size.width) : 1;
+    size_t height = size.height > 1 ? (size_t) ceil(size.height) : 1;
+    O2Surface *surface = [context createSurfaceWithWidth: width height: height];
 
-    if (O2ContextCurrentGState(self)->_shadowKernel) {
-        O2Surface *shadow =
-                [self createSurfaceWithWidth: O2ImageGetWidth(_surface)
-                                      height: O2ImageGetHeight(_surface)];
-
-        O2SurfaceGaussianBlur(shadow, O2LayerGetSurface(layer),
-                              O2ContextCurrentGState(self)->_shadowKernel,
-                              O2ContextCurrentGState(self)->_shadowColor);
-        O2ContextDrawImage(
-                self,
-                O2RectMake(O2ContextCurrentGState(self)->_shadowOffset.width,
-                           O2ContextCurrentGState(self)->_shadowOffset.height,
-                           size.width, size.height),
-                shadow);
+    if (surface == nil) {
+        [self release];
+        return nil;
     }
-
-    O2ContextDrawLayerInRect(self, O2RectMake(0, 0, size.width, size.height),
-                             layer);
-    O2LayerRelease(layer);
+    self = [self initWithSurface: surface flipped: NO];
+    [surface release];
+    return self;
 }
 
 void O2ContextDeviceClipReset_builtin(O2Context_builtin *self) {
