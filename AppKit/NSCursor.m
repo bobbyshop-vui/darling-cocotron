@@ -231,6 +231,11 @@ static NSMutableArray *_cursorStack = nil;
     return self;
 }
 
+// Private AppKit API; Darling has no separate help cursor.
++ (NSCursor *) _helpCursor {
+    return [self arrowCursor];
+}
+
 + (NSCursor *) arrowCursor {
     static NSCursor *shared = nil;
 

@@ -389,3 +389,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 @end
+
+// Private AppKit API that Xcode's source editor calls. Darling scrolls
+// without animation, so a scroll is never in flight.
+@implementation NSClipView (XcodePrivate)
+
+- (BOOL) _isAnimatingScroll {
+    return NO;
+}
+
+- (NSPoint) _animatingScrollTargetOrigin {
+    return [self bounds].origin;
+}
+
+- (void) _scrollTo: (NSPoint) point
+         animateScroll: (BOOL) animate
+    flashScrollerKnobs: (BOOL) flash
+{
+    [self scrollToPoint: point];
+    [[self enclosingScrollView] reflectScrolledClipView: self];
+}
+
+// Scroll points are always constrained to the document.
+- (void) _setDontConstrainScroll: (BOOL) dontConstrain {
+}
+
+- (void) _setCanAnimateScrolls: (BOOL) canAnimate {
+}
+
+@end

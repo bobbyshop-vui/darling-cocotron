@@ -51,6 +51,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreGraphics/CGWindow.h>
 #import <objc/runtime.h>
+#import <AppKit/NSViewController.h>
 
 const NSNotificationName NSWindowDidBecomeKeyNotification =
         @"NSWindowDidBecomeKeyNotification";
@@ -4232,6 +4233,75 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 
 - (NSWindow *) sheetParent {
     return _sheetParent;
+}
+
+@end
+
+// Private and newer NSWindow API that Xcode 10 calls.
+@implementation NSWindow (XcodePrivate)
+
+static const char NSWindowFullScreenPresentationOptionsKey;
+static const char NSWindowContentViewControllerKey;
+
+- (NSViewController *) contentViewController {
+    return objc_getAssociatedObject(self, &NSWindowContentViewControllerKey);
+}
+
+// The view controller's view becomes the content view.
+- (void) setContentViewController: (NSViewController *) viewController {
+    if (viewController == [self contentViewController])
+        return;
+    objc_setAssociatedObject(self, &NSWindowContentViewControllerKey,
+                             viewController, OBJC_ASSOCIATION_RETAIN);
+    if (viewController != nil) {
+        NSView *view = [viewController view];
+        if (view != nil)
+            [self setContentView: view];
+    }
+}
+
+// Darling draws no separator between the title bar and the content.
+- (void) setShowsContentSeparator: (BOOL) showsSeparator
+                          forEdge: (NSRectEdge) edge {
+}
+
+// The window that hosts the toolbar; Darling has no separate full screen
+// toolbar window.
+- (NSWindow *) _windowForToolbar {
+    return self;
+}
+
+// Darling has no window tabbing, so a window is its own selected tab.
+- (NSWindow *) _currentlySelectedTabbedWindow {
+    return self;
+}
+
+- (NSApplicationPresentationOptions) _fullScreenPresentationOptions {
+    return [objc_getAssociatedObject(self,
+            &NSWindowFullScreenPresentationOptionsKey) unsignedIntegerValue];
+}
+
+- (void) _setFullScreenPresentationOptions:
+        (NSApplicationPresentationOptions) options {
+    objc_setAssociatedObject(self, &NSWindowFullScreenPresentationOptionsKey,
+                             [NSNumber numberWithUnsignedInteger: options],
+                             OBJC_ASSOCIATION_RETAIN);
+}
+
+// Full screen toolbars never auto-hide in Darling.
+- (void) _disableFullScreenAutohiding {
+}
+
+- (void) _enableFullScreenAutohiding {
+}
+
+// Controls always draw active in Darling's windows.
+- (void) _setForceActiveControls: (BOOL) forceActive {
+}
+
+// The window manager moves windows through their title bar; a drag that
+// starts in the content is not handed over to it.
+- (void) performWindowDragWithEvent: (NSEvent *) event {
 }
 
 @end

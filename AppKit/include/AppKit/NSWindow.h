@@ -28,7 +28,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSUserInterfaceItemIdentification.h>
 #import <AppKit/NSAccessibilityProtocols.h>
 
-@class NSView, NSEvent, NSColor, NSColorSpace, NSCursor, NSImage, NSScreen,
+@class NSView, NSViewController, NSEvent, NSColor, NSColorSpace, NSCursor, NSImage, NSScreen,
         NSText, NSTextView, CGWindow, NSPasteboard, NSSheetContext,
         NSUndoManager, NSButton, NSButtonCell, NSDrawer, NSDockTile, NSToolbar,
         NSWindowAnimationContext, NSTrackingArea, NSThemeFrame,
@@ -439,6 +439,9 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 - (void) setBackgroundColor: (NSColor *) color;
 - (void) setAlphaValue: (CGFloat) value;
 - (void) setToolbar: (NSToolbar *) toolbar;
+- (void) performWindowDragWithEvent: (NSEvent *) event;
+- (NSViewController *) contentViewController;
+- (void) setContentViewController: (NSViewController *) viewController;
 - (void) setDefaultButtonCell: (NSButtonCell *) cell;
 - (void) setWindowController: (NSWindowController *) value;
 - (void) setDocumentEdited: (BOOL) flag;

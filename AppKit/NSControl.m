@@ -48,6 +48,10 @@ NSString *const NSControlTextDidEndEditingNotification =
 
 @implementation NSControl
 
+- (NSInteger) sendActionOn: (NSInteger) mask {
+    return [[self cell] sendActionOn: mask];
+}
+
 @synthesize allowsExpansionToolTips = _allowsExpansionToolTips;
 @synthesize allowsLogicalLayoutDirection = _allowsLogicalLayoutDirection;
 

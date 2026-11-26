@@ -593,6 +593,12 @@ static BOOL isStandardItemIdentifier(NSString *identifier) {
     _window = window;
 }
 
+// Private AppKit API: the window the toolbar is attached to (Xcode's
+// IDECustomToolbar calls it from -setVisible:).
+- (NSWindow *) _containingWindow {
+    return _window;
+}
+
 - (NSArray *) _allowedToolbarItems {
     NSArray *result = nil;
 

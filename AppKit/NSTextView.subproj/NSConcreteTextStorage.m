@@ -17,41 +17,95 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
-#import "NSTextStorage_concrete.h"
+#import "NSConcreteTextStorage.h"
 #import <Foundation/NSKeyedArchiver.h>
 
-@implementation NSTextStorage_concrete
+@implementation NSConcreteTextStorage
 
-- initWithCoder: (NSCoder *) coder {
-    [super initWithCoder: coder];
+static inline void setAttributes(NSConcreteTextStorage *self,
+                                 NSDictionary *attributes, NSRange range);
 
-    if ([coder allowsKeyedCoding]) {
-        NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
+// Every initializer sets the storage up itself instead of calling another
+// initializer on self: subclasses override them (Xcode's DVTTextStorage runs
+// its own setup after each of -init, -initWithString:,
+// -initWithString:attributes: and -initWithAttributedString:) and must see
+// exactly one of them.
+static void setUpStorage(NSConcreteTextStorage *self, NSString *string,
+                         NSDictionary *attributes)
+{
+    self->_string = [(string != nil ? string : @"") mutableCopy];
+    self->_rangeToAttributes = NSCreateRangeToCopiedObjectEntries(0);
+    NSRangeEntryInsert(self->_rangeToAttributes,
+                       NSMakeRange(0, [self->_string length]),
+                       attributes != nil ? attributes : [NSDictionary dictionary]);
+}
 
-        _delegate = [keyed decodeObjectForKey: @"NSDelegate"];
-        _string = [[keyed decodeObjectForKey: @"NSString"] retain];
-        _rangeToAttributes = NSCreateRangeToCopiedObjectEntries(0);
-        NSRangeEntryInsert(_rangeToAttributes, NSMakeRange(0, [_string length]),
-                           [NSDictionary dictionary]);
-    } else {
-        [NSException raise: NSInvalidArgumentException
-                    format: @"-[%@ %s] is not implemented for coder %@",
-                            [self class], sel_getName(_cmd), coder];
-    }
+- init {
+    self = [super initWithString: @""];
+    setUpStorage(self, @"", nil);
     return self;
 }
 
 - initWithString: (NSString *) string {
-    [super initWithString: string];
-    _string = [string mutableCopy];
-    _rangeToAttributes = NSCreateRangeToCopiedObjectEntries(0);
-    NSRangeEntryInsert(_rangeToAttributes, NSMakeRange(0, [_string length]),
-                       [NSDictionary dictionary]);
+    self = [super initWithString: string];
+    setUpStorage(self, string, nil);
     return self;
 }
 
-- init {
-    return [self initWithString: @""];
+- initWithString: (NSString *) string attributes: (NSDictionary *) attributes {
+    self = [super initWithString: string];
+    setUpStorage(self, string, attributes);
+    return self;
+}
+
+- initWithAttributedString: (NSAttributedString *) attributedString {
+    NSString *string = [attributedString string];
+    NSUInteger location = 0, length = [string length];
+
+    self = [super initWithString: string];
+    setUpStorage(self, string, nil);
+    while (location < length) {
+        NSRange range;
+        NSDictionary *attributes = [attributedString attributesAtIndex: location
+                                                        effectiveRange: &range];
+        setAttributes(self, attributes, range);
+        location = NSMaxRange(range);
+    }
+    return self;
+}
+
+// Like Foundation's attributed strings, nibs hold the string and one
+// attributes dictionary (strings with several runs keep an array of
+// dictionaries and a run table, of which the first dictionary is used).
+// Finish through -initWithString:attributes: so that subclasses set
+// themselves up.
+- initWithCoder: (NSCoder *) coder {
+    if (![coder allowsKeyedCoding]) {
+        [NSException raise: NSInvalidArgumentException
+                    format: @"-[%@ %s] is not implemented for coder %@",
+                            [self class], sel_getName(_cmd), coder];
+        return nil;
+    }
+
+    NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
+    NSString *string = [keyed decodeObjectForKey: @"NSString"];
+    id attributes = [keyed decodeObjectForKey: @"NSAttributes"];
+    id delegate = [keyed decodeObjectForKey: @"NSDelegate"];
+
+    if ([string isKindOfClass: [NSAttributedString class]])
+        string = [(NSAttributedString *) string string];
+    if (![string isKindOfClass: [NSString class]])
+        string = @"";
+    if ([attributes isKindOfClass: [NSArray class]])
+        attributes = [(NSArray *) attributes count] > 0
+                             ? [(NSArray *) attributes objectAtIndex: 0]
+                             : nil;
+    if (![attributes isKindOfClass: [NSDictionary class]])
+        attributes = nil;
+
+    self = [self initWithString: string attributes: attributes];
+    _delegate = delegate;
+    return self;
 }
 
 - (void) dealloc {
@@ -83,7 +137,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 static inline int
-replaceCharactersInRangeWithString(NSTextStorage_concrete *self, NSRange range,
+replaceCharactersInRangeWithString(NSConcreteTextStorage *self, NSRange range,
                                    NSString *string)
 {
     int delta = [string length] - range.length;
@@ -103,7 +157,7 @@ replaceCharactersInRangeWithString(NSTextStorage_concrete *self, NSRange range,
     return delta;
 }
 
-static inline void setAttributes(NSTextStorage_concrete *self,
+static inline void setAttributes(NSConcreteTextStorage *self,
                                  NSDictionary *attributes, NSRange range)
 {
     if (attributes == nil)
@@ -121,7 +175,7 @@ static inline void setAttributes(NSTextStorage_concrete *self,
 }
 
 static inline void
-replaceCharactersInRangeWithAttributedString(NSTextStorage_concrete *self,
+replaceCharactersInRangeWithAttributedString(NSConcreteTextStorage *self,
                                              NSRange replaced,
                                              NSAttributedString *other)
 {

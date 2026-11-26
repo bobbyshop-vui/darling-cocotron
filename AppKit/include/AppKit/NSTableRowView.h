@@ -47,5 +47,8 @@
 - (NSBackgroundStyle) interiorBackgroundStyle;
 - (NSInteger) numberOfColumns;
 - (void) drawSelectionInRect: (NSRect) dirtyRect;
+- (void) drawBackgroundInRect: (NSRect) dirtyRect;
+- (NSTableViewSelectionHighlightStyle) selectionHighlightStyle;
+- (void) setSelectionHighlightStyle: (NSTableViewSelectionHighlightStyle) style;
 - (void) drawSeparatorInRect: (NSRect) dirtyRect;
 @end

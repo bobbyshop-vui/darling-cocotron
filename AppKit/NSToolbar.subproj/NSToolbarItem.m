@@ -18,6 +18,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSAttributedString.h>
+#import <objc/runtime.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSDocument.h>
 #import <AppKit/NSFontManager.h>
@@ -315,6 +316,19 @@ extern NSSize _NSToolbarIconSizeSmall;
 
 - (NSInteger) visibilityPriority {
     return _visibilityPriority;
+}
+
+// Private API (10.14): keep the item centered in the toolbar, used by Xcode's
+// activity view. Recorded only; the toolbar doesn't center items.
+static char NSToolbarItemWantsToBeCenteredKey;
+
+- (BOOL) wantsToBeCentered {
+    return [objc_getAssociatedObject(self, &NSToolbarItemWantsToBeCenteredKey) boolValue];
+}
+
+- (void) setWantsToBeCentered: (BOOL) value {
+    objc_setAssociatedObject(self, &NSToolbarItemWantsToBeCenteredKey,
+                             value ? @YES : nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (BOOL) autovalidates {

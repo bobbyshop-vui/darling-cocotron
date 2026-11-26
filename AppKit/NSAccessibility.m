@@ -1,4 +1,5 @@
 #import <AppKit/AppKitExport.h>
+#import <Foundation/NSArray.h>
 #import <Foundation/NSString.h>
 #import <AppKit/NSAccessibilityConstants.h>
 #import <AppKit/NSView.h>
@@ -593,23 +594,23 @@ NSString *NSAccessibilityRoleDescription(NSString *role, NSString *subrole) {
     return nil;
 }
 
+// Darling has no assistive clients, so no element is ignored and each of
+// these hands back what it was given.
 id NSAccessibilityUnignoredAncestor(id element) {
-    return nil;
+    return element;
 }
 
 id NSAccessibilityUnignoredDescendant(id element) {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    return element;
 }
 
 NSArray *NSAccessibilityUnignoredChildren(NSArray *originalChildren) {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    return originalChildren;
 }
 
 NSArray *NSAccessibilityUnignoredChildrenForOnlyChild(id originalChild) {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    return originalChild != nil ? [NSArray arrayWithObject: originalChild]
+                                : [NSArray array];
 }
 
 void NSAccessibilityPostNotificationWithUserInfo(id element,

@@ -36,6 +36,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSTextView.h>
 #import <Foundation/NSLocale.h>
 #import <Foundation/NSNumberFormatter.h>
+#import <objc/runtime.h>
 
 typedef NS_OPTIONS(unsigned int, NSCellAppleFlags) {
     NSCellAppleFlagOnState              = 1u << 31,
@@ -109,6 +110,18 @@ typedef NS_OPTIONS(unsigned int, NSCellAppleFlags2) {
 NSNotificationName NSControlTintDidChangeNotification = @"NSControlTintDidChangeNotification";
 
 @implementation NSCell
+
+static const char NSCellSendActionMaskKey;
+
+// The event types that send the action; stored only (tracking still sends
+// on mouse up, the default).
+- (NSInteger) sendActionOn: (NSInteger) mask {
+    NSNumber *previous = objc_getAssociatedObject(self, &NSCellSendActionMaskKey);
+    objc_setAssociatedObject(self, &NSCellSendActionMaskKey,
+                             [NSNumber numberWithInteger: mask],
+                             OBJC_ASSOCIATION_RETAIN);
+    return previous != nil ? [previous integerValue] : NSLeftMouseUpMask;
+}
 
 @synthesize identifier = _identifier;
 @synthesize truncatesLastVisibleLine = _truncatesLastVisibleLine;

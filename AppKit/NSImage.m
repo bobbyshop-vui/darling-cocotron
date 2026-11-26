@@ -31,6 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSPasteboard.h>
 #import <AppKit/NSRaise.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import <objc/runtime.h>
 #include <math.h>
 
 NSImageName const NSImageNameActionTemplate = @"NSActionTemplate";
@@ -1632,6 +1633,17 @@ static NSImage *NSImageCreateStandardTemplateImage(NSString *name) {
             fraction: fraction];
 }
 
+static const char NSImageAccessibilityDescriptionKey;
+
+- (NSString *) accessibilityDescription {
+    return objc_getAssociatedObject(self, &NSImageAccessibilityDescriptionKey);
+}
+
+- (void) setAccessibilityDescription: (NSString *) description {
+    objc_setAssociatedObject(self, &NSImageAccessibilityDescriptionKey,
+                             description, OBJC_ASSOCIATION_COPY);
+}
+
 - (NSString *) description {
     NSSize size = [self size];
 
@@ -1665,6 +1677,24 @@ static NSImage *NSImageCreateStandardTemplateImage(NSString *name) {
 
     return [self pathForResource: [name stringByDeletingPathExtension]
                           ofType: [name pathExtension]];
+}
+
+// As on macOS, images that only exist in the bundle's asset catalog are found
+// too (Xcode's DVTKit toolbar images are only in Assets.car).
+- (NSImage *) imageForResource: (NSString *) name {
+    if (name == nil)
+        return nil;
+
+    NSString *path = [self pathForImageResource: name];
+    if (path != nil) {
+        NSImage *image =
+                [[[NSImage alloc] initByReferencingFile: path] autorelease];
+        if (image != nil)
+            return image;
+    }
+
+    return [NSAssetCatalog imageNamed: name
+                            inBundles: [NSArray arrayWithObject: self]];
 }
 
 @end

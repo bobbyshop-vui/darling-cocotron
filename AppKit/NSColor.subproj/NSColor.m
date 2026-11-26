@@ -581,6 +581,11 @@ static NSColorSpaceName NSColorSpaceNameForComponentCount(NSInteger count) {
                                      0.098039);
 }
 
+// AppKit's misspelled private alias; Xcode's IDENavBar calls it.
++ (NSColor *) quarternaryLabelColor {
+    return [self quaternaryLabelColor];
+}
+
 + (NSColor *) separatorColor {
     return NSColorSystemCatalogColor(@"separatorColor", 0.0, 0.0, 0.0,
                                      0.098039);

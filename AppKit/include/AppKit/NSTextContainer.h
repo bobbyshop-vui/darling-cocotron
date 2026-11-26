@@ -48,6 +48,7 @@ typedef enum {
 }
 
 - initWithContainerSize: (NSSize) size;
+- initWithSize: (NSSize) size;
 
 - (NSSize) containerSize;
 

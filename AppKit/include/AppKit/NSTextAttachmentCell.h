@@ -69,3 +69,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 @end
+
+// AppKit's private cell for attachments that display a view; Xcode's
+// DVTMarkupViewTextAttachmentCell subclasses it.
+@interface NSViewTextAttachmentCell : NSTextAttachmentCell
+@end

@@ -19,6 +19,7 @@
 
 #import <AppKit/NSStackView.h>
 #import <Foundation/Foundation.h>
+#import <objc/runtime.h>
 
 // NSLayoutAttribute values used for alignment
 enum {
@@ -34,7 +35,44 @@ enum {
 - (void)_forgetView:(NSView *)view;
 @end
 
+static const char NSStackViewVisibilityPrioritiesKey;
+static const char NSStackViewDelegateKey;
+
 @implementation NSStackView
+
+- (id) delegate {
+    return objc_getAssociatedObject(self, &NSStackViewDelegateKey);
+}
+
+- (void) setDelegate: (id) delegate {
+    objc_setAssociatedObject(self, &NSStackViewDelegateKey, delegate,
+                             OBJC_ASSOCIATION_ASSIGN);
+}
+
+// Darling's stack view does not detach views for lack of space, so the
+// priorities are only remembered.
+- (void) setVisibilityPriority: (NSStackViewVisibilityPriority) priority
+                       forView: (NSView *) view {
+    if (view == nil)
+        return;
+    NSMutableDictionary *priorities =
+            objc_getAssociatedObject(self, &NSStackViewVisibilityPrioritiesKey);
+    if (priorities == nil) {
+        priorities = [NSMutableDictionary dictionary];
+        objc_setAssociatedObject(self, &NSStackViewVisibilityPrioritiesKey,
+                                 priorities, OBJC_ASSOCIATION_RETAIN);
+    }
+    [priorities setObject: [NSNumber numberWithFloat: priority]
+                   forKey: [self _keyForView: view]];
+}
+
+- (NSStackViewVisibilityPriority) visibilityPriorityForView: (NSView *) view {
+    NSNumber *priority = [objc_getAssociatedObject(
+            self, &NSStackViewVisibilityPrioritiesKey)
+            objectForKey: [self _keyForView: view]];
+    return priority != nil ? [priority floatValue]
+                           : NSStackViewVisibilityPriorityMustHold;
+}
 
 + (instancetype)stackViewWithViews:(NSArray *)views
 {

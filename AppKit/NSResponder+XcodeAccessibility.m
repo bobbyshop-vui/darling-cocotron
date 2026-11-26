@@ -6,6 +6,7 @@
 #import <AppKit/NSCell.h>
 #import <AppKit/NSMenuItem.h>
 #import <AppKit/NSToolbarItem.h>
+#import <AppKit/NSAccessibilityElement.h>
 #import <objc/runtime.h>
 
 static const char NSAccessibilityDefaultsKey;
@@ -858,6 +859,281 @@ static void NSAXSet(id self, NSString *key, id value) {
 @end
 
 @implementation NSToolbarItem (NSAccessibilityDefaults)
+
+- (BOOL)isAccessibilityElement { return [NSAXGet(self, @"accessibilityElement") boolValue]; }
+- (void)setAccessibilityElement:(BOOL)value { NSAXSet(self, @"accessibilityElement", [NSNumber numberWithBool: value]); }
+- (NSRect)accessibilityFrame { id v = NSAXGet(self, @"accessibilityFrame"); return v ? [v rectValue] : NSZeroRect; }
+- (void)setAccessibilityFrame:(NSRect)value { NSAXSet(self, @"accessibilityFrame", [NSValue valueWithRect: value]); }
+- (BOOL)isAccessibilityFocused { return [NSAXGet(self, @"accessibilityFocused") boolValue]; }
+- (void)setAccessibilityFocused:(BOOL)value { NSAXSet(self, @"accessibilityFocused", [NSNumber numberWithBool: value]); }
+- (NSPoint)accessibilityActivationPoint { id v = NSAXGet(self, @"accessibilityActivationPoint"); return v ? [v pointValue] : NSZeroPoint; }
+- (void)setAccessibilityActivationPoint:(NSPoint)value { NSAXSet(self, @"accessibilityActivationPoint", [NSValue valueWithPoint: value]); }
+- (id)accessibilityTopLevelUIElement { return NSAXGet(self, @"accessibilityTopLevelUIElement"); }
+- (void)setAccessibilityTopLevelUIElement:(id)value { NSAXSet(self, @"accessibilityTopLevelUIElement", value); }
+- (NSURL *)accessibilityURL { return NSAXGet(self, @"accessibilityURL"); }
+- (void)setAccessibilityURL:(NSURL *)value { id c = [value copy]; NSAXSet(self, @"accessibilityURL", c); [c release]; }
+- (id)accessibilityValue { return NSAXGet(self, @"accessibilityValue"); }
+- (void)setAccessibilityValue:(id)value { NSAXSet(self, @"accessibilityValue", value); }
+- (NSString *)accessibilityValueDescription { return NSAXGet(self, @"accessibilityValueDescription"); }
+- (void)setAccessibilityValueDescription:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityValueDescription", c); [c release]; }
+- (NSArray *)accessibilityVisibleChildren { return NSAXGet(self, @"accessibilityVisibleChildren"); }
+- (void)setAccessibilityVisibleChildren:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityVisibleChildren", c); [c release]; }
+- (NSAccessibilitySubrole)accessibilitySubrole { return NSAXGet(self, @"accessibilitySubrole"); }
+- (void)setAccessibilitySubrole:(NSAccessibilitySubrole)value { NSAXSet(self, @"accessibilitySubrole", value); }
+- (NSString *)accessibilityTitle { return NSAXGet(self, @"accessibilityTitle"); }
+- (void)setAccessibilityTitle:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityTitle", c); [c release]; }
+- (id)accessibilityTitleUIElement { return NSAXGet(self, @"accessibilityTitleUIElement"); }
+- (void)setAccessibilityTitleUIElement:(id)value { NSAXSet(self, @"accessibilityTitleUIElement", value); }
+- (NSArray *)accessibilityNextContents { return NSAXGet(self, @"accessibilityNextContents"); }
+- (void)setAccessibilityNextContents:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityNextContents", c); [c release]; }
+- (NSAccessibilityOrientation)accessibilityOrientation { return (NSAccessibilityOrientation)[NSAXGet(self, @"accessibilityOrientation") integerValue]; }
+- (void)setAccessibilityOrientation:(NSAccessibilityOrientation)value { NSAXSet(self, @"accessibilityOrientation", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (id)accessibilityOverflowButton { return NSAXGet(self, @"accessibilityOverflowButton"); }
+- (void)setAccessibilityOverflowButton:(id)value { NSAXSet(self, @"accessibilityOverflowButton", value); }
+- (id)accessibilityParent { return NSAXGet(self, @"accessibilityParent"); }
+- (void)setAccessibilityParent:(id)value { NSAXSet(self, @"accessibilityParent", value); }
+- (NSString *)accessibilityPlaceholderValue { return NSAXGet(self, @"accessibilityPlaceholderValue"); }
+- (void)setAccessibilityPlaceholderValue:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityPlaceholderValue", c); [c release]; }
+- (NSArray *)accessibilityPreviousContents { return NSAXGet(self, @"accessibilityPreviousContents"); }
+- (void)setAccessibilityPreviousContents:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityPreviousContents", c); [c release]; }
+- (NSAccessibilityRole)accessibilityRole { return NSAXGet(self, @"accessibilityRole"); }
+- (void)setAccessibilityRole:(NSAccessibilityRole)value { NSAXSet(self, @"accessibilityRole", value); }
+- (NSString *)accessibilityRoleDescription { return NSAXGet(self, @"accessibilityRoleDescription"); }
+- (void)setAccessibilityRoleDescription:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityRoleDescription", c); [c release]; }
+- (id)accessibilitySearchButton { return NSAXGet(self, @"accessibilitySearchButton"); }
+- (void)setAccessibilitySearchButton:(id)value { NSAXSet(self, @"accessibilitySearchButton", value); }
+- (id)accessibilitySearchMenu { return NSAXGet(self, @"accessibilitySearchMenu"); }
+- (void)setAccessibilitySearchMenu:(id)value { NSAXSet(self, @"accessibilitySearchMenu", value); }
+- (BOOL)isAccessibilitySelected { return [NSAXGet(self, @"accessibilitySelected") boolValue]; }
+- (void)setAccessibilitySelected:(BOOL)value { NSAXSet(self, @"accessibilitySelected", [NSNumber numberWithBool: value]); }
+- (NSArray *)accessibilitySelectedChildren { return NSAXGet(self, @"accessibilitySelectedChildren"); }
+- (void)setAccessibilitySelectedChildren:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilitySelectedChildren", c); [c release]; }
+- (NSArray *)accessibilityServesAsTitleForUIElements { return NSAXGet(self, @"accessibilityServesAsTitleForUIElements"); }
+- (void)setAccessibilityServesAsTitleForUIElements:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityServesAsTitleForUIElements", c); [c release]; }
+- (id)accessibilityShownMenu { return NSAXGet(self, @"accessibilityShownMenu"); }
+- (void)setAccessibilityShownMenu:(id)value { NSAXSet(self, @"accessibilityShownMenu", value); }
+- (id)accessibilityMinValue { return NSAXGet(self, @"accessibilityMinValue"); }
+- (void)setAccessibilityMinValue:(id)value { NSAXSet(self, @"accessibilityMinValue", value); }
+- (id)accessibilityMaxValue { return NSAXGet(self, @"accessibilityMaxValue"); }
+- (void)setAccessibilityMaxValue:(id)value { NSAXSet(self, @"accessibilityMaxValue", value); }
+- (NSArray *)accessibilityLinkedUIElements { return NSAXGet(self, @"accessibilityLinkedUIElements"); }
+- (void)setAccessibilityLinkedUIElements:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityLinkedUIElements", c); [c release]; }
+- (id)accessibilityWindow { return NSAXGet(self, @"accessibilityWindow"); }
+- (void)setAccessibilityWindow:(id)value { NSAXSet(self, @"accessibilityWindow", value); }
+- (NSString *)accessibilityIdentifier { return NSAXGet(self, @"accessibilityIdentifier"); }
+- (void)setAccessibilityIdentifier:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityIdentifier", c); [c release]; }
+- (NSString *)accessibilityHelp { return NSAXGet(self, @"accessibilityHelp"); }
+- (void)setAccessibilityHelp:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityHelp", c); [c release]; }
+- (NSString *)accessibilityFilename { return NSAXGet(self, @"accessibilityFilename"); }
+- (void)setAccessibilityFilename:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityFilename", c); [c release]; }
+- (BOOL)isAccessibilityExpanded { return [NSAXGet(self, @"accessibilityExpanded") boolValue]; }
+- (void)setAccessibilityExpanded:(BOOL)value { NSAXSet(self, @"accessibilityExpanded", [NSNumber numberWithBool: value]); }
+- (BOOL)isAccessibilityEdited { return [NSAXGet(self, @"accessibilityEdited") boolValue]; }
+- (void)setAccessibilityEdited:(BOOL)value { NSAXSet(self, @"accessibilityEdited", [NSNumber numberWithBool: value]); }
+- (BOOL)isAccessibilityEnabled { return [NSAXGet(self, @"accessibilityEnabled") boolValue]; }
+- (void)setAccessibilityEnabled:(BOOL)value { NSAXSet(self, @"accessibilityEnabled", [NSNumber numberWithBool: value]); }
+- (NSArray *)accessibilityChildren { return NSAXGet(self, @"accessibilityChildren"); }
+- (void)setAccessibilityChildren:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityChildren", c); [c release]; }
+- (NSArray <id<NSAccessibilityElement>> *)accessibilityChildrenInNavigationOrder { return NSAXGet(self, @"accessibilityChildrenInNavigationOrder"); }
+- (void)setAccessibilityChildrenInNavigationOrder:(NSArray <id<NSAccessibilityElement>> *)value { id c = [value copy]; NSAXSet(self, @"accessibilityChildrenInNavigationOrder", c); [c release]; }
+- (id)accessibilityClearButton { return NSAXGet(self, @"accessibilityClearButton"); }
+- (void)setAccessibilityClearButton:(id)value { NSAXSet(self, @"accessibilityClearButton", value); }
+- (id)accessibilityCancelButton { return NSAXGet(self, @"accessibilityCancelButton"); }
+- (void)setAccessibilityCancelButton:(id)value { NSAXSet(self, @"accessibilityCancelButton", value); }
+- (BOOL)isAccessibilityProtectedContent { return [NSAXGet(self, @"accessibilityProtectedContent") boolValue]; }
+- (void)setAccessibilityProtectedContent:(BOOL)value { NSAXSet(self, @"accessibilityProtectedContent", [NSNumber numberWithBool: value]); }
+- (NSArray *)accessibilityContents { return NSAXGet(self, @"accessibilityContents"); }
+- (void)setAccessibilityContents:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityContents", c); [c release]; }
+- (NSString *)accessibilityLabel { return NSAXGet(self, @"accessibilityLabel"); }
+- (void)setAccessibilityLabel:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityLabel", c); [c release]; }
+- (BOOL)isAccessibilityAlternateUIVisible { return [NSAXGet(self, @"accessibilityAlternateUIVisible") boolValue]; }
+- (void)setAccessibilityAlternateUIVisible:(BOOL)value { NSAXSet(self, @"accessibilityAlternateUIVisible", [NSNumber numberWithBool: value]); }
+- (NSArray *)accessibilitySharedFocusElements { return NSAXGet(self, @"accessibilitySharedFocusElements"); }
+- (void)setAccessibilitySharedFocusElements:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilitySharedFocusElements", c); [c release]; }
+- (BOOL)isAccessibilityRequired { return [NSAXGet(self, @"accessibilityRequired") boolValue]; }
+- (void)setAccessibilityRequired:(BOOL)value { NSAXSet(self, @"accessibilityRequired", [NSNumber numberWithBool: value]); }
+- (NSArray<NSAccessibilityCustomRotor *> *)accessibilityCustomRotors { return NSAXGet(self, @"accessibilityCustomRotors"); }
+- (void)setAccessibilityCustomRotors:(NSArray<NSAccessibilityCustomRotor *> *)value { id c = [value copy]; NSAXSet(self, @"accessibilityCustomRotors", c); [c release]; }
+- (id)accessibilityApplicationFocusedUIElement { return NSAXGet(self, @"accessibilityApplicationFocusedUIElement"); }
+- (void)setAccessibilityApplicationFocusedUIElement:(id)value { NSAXSet(self, @"accessibilityApplicationFocusedUIElement", value); }
+- (id)accessibilityMainWindow { return NSAXGet(self, @"accessibilityMainWindow"); }
+- (void)setAccessibilityMainWindow:(id)value { NSAXSet(self, @"accessibilityMainWindow", value); }
+- (BOOL)isAccessibilityHidden { return [NSAXGet(self, @"accessibilityHidden") boolValue]; }
+- (void)setAccessibilityHidden:(BOOL)value { NSAXSet(self, @"accessibilityHidden", [NSNumber numberWithBool: value]); }
+- (BOOL)isAccessibilityFrontmost { return [NSAXGet(self, @"accessibilityFrontmost") boolValue]; }
+- (void)setAccessibilityFrontmost:(BOOL)value { NSAXSet(self, @"accessibilityFrontmost", [NSNumber numberWithBool: value]); }
+- (id)accessibilityFocusedWindow { return NSAXGet(self, @"accessibilityFocusedWindow"); }
+- (void)setAccessibilityFocusedWindow:(id)value { NSAXSet(self, @"accessibilityFocusedWindow", value); }
+- (NSArray *)accessibilityWindows { return NSAXGet(self, @"accessibilityWindows"); }
+- (void)setAccessibilityWindows:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityWindows", c); [c release]; }
+- (id)accessibilityExtrasMenuBar { return NSAXGet(self, @"accessibilityExtrasMenuBar"); }
+- (void)setAccessibilityExtrasMenuBar:(id)value { NSAXSet(self, @"accessibilityExtrasMenuBar", value); }
+- (id)accessibilityMenuBar { return NSAXGet(self, @"accessibilityMenuBar"); }
+- (void)setAccessibilityMenuBar:(id)value { NSAXSet(self, @"accessibilityMenuBar", value); }
+- (NSArray *)accessibilityColumnTitles { return NSAXGet(self, @"accessibilityColumnTitles"); }
+- (void)setAccessibilityColumnTitles:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityColumnTitles", c); [c release]; }
+- (BOOL)isAccessibilityOrderedByRow { return [NSAXGet(self, @"accessibilityOrderedByRow") boolValue]; }
+- (void)setAccessibilityOrderedByRow:(BOOL)value { NSAXSet(self, @"accessibilityOrderedByRow", [NSNumber numberWithBool: value]); }
+- (NSAccessibilityUnits)accessibilityHorizontalUnits { return (NSAccessibilityUnits)[NSAXGet(self, @"accessibilityHorizontalUnits") integerValue]; }
+- (void)setAccessibilityHorizontalUnits:(NSAccessibilityUnits)value { NSAXSet(self, @"accessibilityHorizontalUnits", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (NSAccessibilityUnits)accessibilityVerticalUnits { return (NSAccessibilityUnits)[NSAXGet(self, @"accessibilityVerticalUnits") integerValue]; }
+- (void)setAccessibilityVerticalUnits:(NSAccessibilityUnits)value { NSAXSet(self, @"accessibilityVerticalUnits", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (NSString *)accessibilityHorizontalUnitDescription { return NSAXGet(self, @"accessibilityHorizontalUnitDescription"); }
+- (void)setAccessibilityHorizontalUnitDescription:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityHorizontalUnitDescription", c); [c release]; }
+- (NSString *)accessibilityVerticalUnitDescription { return NSAXGet(self, @"accessibilityVerticalUnitDescription"); }
+- (void)setAccessibilityVerticalUnitDescription:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityVerticalUnitDescription", c); [c release]; }
+- (NSArray *)accessibilityHandles { return NSAXGet(self, @"accessibilityHandles"); }
+- (void)setAccessibilityHandles:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityHandles", c); [c release]; }
+- (id)accessibilityWarningValue { return NSAXGet(self, @"accessibilityWarningValue"); }
+- (void)setAccessibilityWarningValue:(id)value { NSAXSet(self, @"accessibilityWarningValue", value); }
+- (id)accessibilityCriticalValue { return NSAXGet(self, @"accessibilityCriticalValue"); }
+- (void)setAccessibilityCriticalValue:(id)value { NSAXSet(self, @"accessibilityCriticalValue", value); }
+- (BOOL)isAccessibilityDisclosed { return [NSAXGet(self, @"accessibilityDisclosed") boolValue]; }
+- (void)setAccessibilityDisclosed:(BOOL)value { NSAXSet(self, @"accessibilityDisclosed", [NSNumber numberWithBool: value]); }
+- (id)accessibilityDisclosedByRow { return NSAXGet(self, @"accessibilityDisclosedByRow"); }
+- (void)setAccessibilityDisclosedByRow:(id)value { NSAXSet(self, @"accessibilityDisclosedByRow", value); }
+- (id)accessibilityDisclosedRows { return NSAXGet(self, @"accessibilityDisclosedRows"); }
+- (void)setAccessibilityDisclosedRows:(id)value { NSAXSet(self, @"accessibilityDisclosedRows", value); }
+- (NSInteger)accessibilityDisclosureLevel { return (NSInteger)[NSAXGet(self, @"accessibilityDisclosureLevel") integerValue]; }
+- (void)setAccessibilityDisclosureLevel:(NSInteger)value { NSAXSet(self, @"accessibilityDisclosureLevel", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (NSArray *)accessibilityMarkerUIElements { return NSAXGet(self, @"accessibilityMarkerUIElements"); }
+- (void)setAccessibilityMarkerUIElements:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityMarkerUIElements", c); [c release]; }
+- (id)accessibilityMarkerValues { return NSAXGet(self, @"accessibilityMarkerValues"); }
+- (void)setAccessibilityMarkerValues:(id)value { NSAXSet(self, @"accessibilityMarkerValues", value); }
+- (id)accessibilityMarkerGroupUIElement { return NSAXGet(self, @"accessibilityMarkerGroupUIElement"); }
+- (void)setAccessibilityMarkerGroupUIElement:(id)value { NSAXSet(self, @"accessibilityMarkerGroupUIElement", value); }
+- (NSAccessibilityUnits)accessibilityUnits { return (NSAccessibilityUnits)[NSAXGet(self, @"accessibilityUnits") integerValue]; }
+- (void)setAccessibilityUnits:(NSAccessibilityUnits)value { NSAXSet(self, @"accessibilityUnits", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (NSString *)accessibilityUnitDescription { return NSAXGet(self, @"accessibilityUnitDescription"); }
+- (void)setAccessibilityUnitDescription:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityUnitDescription", c); [c release]; }
+- (NSAccessibilityRulerMarkerType)accessibilityRulerMarkerType { return (NSAccessibilityRulerMarkerType)[NSAXGet(self, @"accessibilityRulerMarkerType") integerValue]; }
+- (void)setAccessibilityRulerMarkerType:(NSAccessibilityRulerMarkerType)value { NSAXSet(self, @"accessibilityRulerMarkerType", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (NSString *)accessibilityMarkerTypeDescription { return NSAXGet(self, @"accessibilityMarkerTypeDescription"); }
+- (void)setAccessibilityMarkerTypeDescription:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityMarkerTypeDescription", c); [c release]; }
+- (id)accessibilityHorizontalScrollBar { return NSAXGet(self, @"accessibilityHorizontalScrollBar"); }
+- (void)setAccessibilityHorizontalScrollBar:(id)value { NSAXSet(self, @"accessibilityHorizontalScrollBar", value); }
+- (id)accessibilityVerticalScrollBar { return NSAXGet(self, @"accessibilityVerticalScrollBar"); }
+- (void)setAccessibilityVerticalScrollBar:(id)value { NSAXSet(self, @"accessibilityVerticalScrollBar", value); }
+- (NSArray<NSNumber *> *)accessibilityAllowedValues { return NSAXGet(self, @"accessibilityAllowedValues"); }
+- (void)setAccessibilityAllowedValues:(NSArray<NSNumber *> *)value { id c = [value copy]; NSAXSet(self, @"accessibilityAllowedValues", c); [c release]; }
+- (NSArray *)accessibilityLabelUIElements { return NSAXGet(self, @"accessibilityLabelUIElements"); }
+- (void)setAccessibilityLabelUIElements:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityLabelUIElements", c); [c release]; }
+- (float)accessibilityLabelValue { return [NSAXGet(self, @"accessibilityLabelValue") floatValue]; }
+- (void)setAccessibilityLabelValue:(float)value { NSAXSet(self, @"accessibilityLabelValue", [NSNumber numberWithFloat: value]); }
+- (NSArray *)accessibilitySplitters { return NSAXGet(self, @"accessibilitySplitters"); }
+- (void)setAccessibilitySplitters:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilitySplitters", c); [c release]; }
+- (id)accessibilityDecrementButton { return NSAXGet(self, @"accessibilityDecrementButton"); }
+- (void)setAccessibilityDecrementButton:(id)value { NSAXSet(self, @"accessibilityDecrementButton", value); }
+- (id)accessibilityIncrementButton { return NSAXGet(self, @"accessibilityIncrementButton"); }
+- (void)setAccessibilityIncrementButton:(id)value { NSAXSet(self, @"accessibilityIncrementButton", value); }
+- (NSArray *)accessibilityTabs { return NSAXGet(self, @"accessibilityTabs"); }
+- (void)setAccessibilityTabs:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityTabs", c); [c release]; }
+- (id)accessibilityHeader { return NSAXGet(self, @"accessibilityHeader"); }
+- (void)setAccessibilityHeader:(id)value { NSAXSet(self, @"accessibilityHeader", value); }
+- (NSInteger)accessibilityColumnCount { return (NSInteger)[NSAXGet(self, @"accessibilityColumnCount") integerValue]; }
+- (void)setAccessibilityColumnCount:(NSInteger)value { NSAXSet(self, @"accessibilityColumnCount", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (NSInteger)accessibilityRowCount { return (NSInteger)[NSAXGet(self, @"accessibilityRowCount") integerValue]; }
+- (void)setAccessibilityRowCount:(NSInteger)value { NSAXSet(self, @"accessibilityRowCount", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (NSInteger)accessibilityIndex { return (NSInteger)[NSAXGet(self, @"accessibilityIndex") integerValue]; }
+- (void)setAccessibilityIndex:(NSInteger)value { NSAXSet(self, @"accessibilityIndex", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (NSArray *)accessibilityColumns { return NSAXGet(self, @"accessibilityColumns"); }
+- (void)setAccessibilityColumns:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityColumns", c); [c release]; }
+- (NSArray *)accessibilityRows { return NSAXGet(self, @"accessibilityRows"); }
+- (void)setAccessibilityRows:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityRows", c); [c release]; }
+- (NSArray *)accessibilityVisibleRows { return NSAXGet(self, @"accessibilityVisibleRows"); }
+- (void)setAccessibilityVisibleRows:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityVisibleRows", c); [c release]; }
+- (NSArray *)accessibilitySelectedRows { return NSAXGet(self, @"accessibilitySelectedRows"); }
+- (void)setAccessibilitySelectedRows:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilitySelectedRows", c); [c release]; }
+- (NSArray *)accessibilityVisibleColumns { return NSAXGet(self, @"accessibilityVisibleColumns"); }
+- (void)setAccessibilityVisibleColumns:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityVisibleColumns", c); [c release]; }
+- (NSArray *)accessibilitySelectedColumns { return NSAXGet(self, @"accessibilitySelectedColumns"); }
+- (void)setAccessibilitySelectedColumns:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilitySelectedColumns", c); [c release]; }
+- (NSAccessibilitySortDirection)accessibilitySortDirection { return (NSAccessibilitySortDirection)[NSAXGet(self, @"accessibilitySortDirection") integerValue]; }
+- (void)setAccessibilitySortDirection:(NSAccessibilitySortDirection)value { NSAXSet(self, @"accessibilitySortDirection", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (NSArray *)accessibilityRowHeaderUIElements { return NSAXGet(self, @"accessibilityRowHeaderUIElements"); }
+- (void)setAccessibilityRowHeaderUIElements:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityRowHeaderUIElements", c); [c release]; }
+- (NSArray *)accessibilitySelectedCells { return NSAXGet(self, @"accessibilitySelectedCells"); }
+- (void)setAccessibilitySelectedCells:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilitySelectedCells", c); [c release]; }
+- (NSArray *)accessibilityVisibleCells { return NSAXGet(self, @"accessibilityVisibleCells"); }
+- (void)setAccessibilityVisibleCells:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityVisibleCells", c); [c release]; }
+- (NSArray *)accessibilityColumnHeaderUIElements { return NSAXGet(self, @"accessibilityColumnHeaderUIElements"); }
+- (void)setAccessibilityColumnHeaderUIElements:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilityColumnHeaderUIElements", c); [c release]; }
+- (NSRange)accessibilityRowIndexRange { id v = NSAXGet(self, @"accessibilityRowIndexRange"); return v ? [v rangeValue] : NSMakeRange(NSNotFound, 0); }
+- (void)setAccessibilityRowIndexRange:(NSRange)value { NSAXSet(self, @"accessibilityRowIndexRange", [NSValue valueWithRange: value]); }
+- (NSRange)accessibilityColumnIndexRange { id v = NSAXGet(self, @"accessibilityColumnIndexRange"); return v ? [v rangeValue] : NSMakeRange(NSNotFound, 0); }
+- (void)setAccessibilityColumnIndexRange:(NSRange)value { NSAXSet(self, @"accessibilityColumnIndexRange", [NSValue valueWithRange: value]); }
+- (NSInteger)accessibilityInsertionPointLineNumber { return (NSInteger)[NSAXGet(self, @"accessibilityInsertionPointLineNumber") integerValue]; }
+- (void)setAccessibilityInsertionPointLineNumber:(NSInteger)value { NSAXSet(self, @"accessibilityInsertionPointLineNumber", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (NSRange)accessibilitySharedCharacterRange { id v = NSAXGet(self, @"accessibilitySharedCharacterRange"); return v ? [v rangeValue] : NSMakeRange(NSNotFound, 0); }
+- (void)setAccessibilitySharedCharacterRange:(NSRange)value { NSAXSet(self, @"accessibilitySharedCharacterRange", [NSValue valueWithRange: value]); }
+- (NSArray *)accessibilitySharedTextUIElements { return NSAXGet(self, @"accessibilitySharedTextUIElements"); }
+- (void)setAccessibilitySharedTextUIElements:(NSArray *)value { id c = [value copy]; NSAXSet(self, @"accessibilitySharedTextUIElements", c); [c release]; }
+- (NSRange)accessibilityVisibleCharacterRange { id v = NSAXGet(self, @"accessibilityVisibleCharacterRange"); return v ? [v rangeValue] : NSMakeRange(NSNotFound, 0); }
+- (void)setAccessibilityVisibleCharacterRange:(NSRange)value { NSAXSet(self, @"accessibilityVisibleCharacterRange", [NSValue valueWithRange: value]); }
+- (NSInteger)accessibilityNumberOfCharacters { return (NSInteger)[NSAXGet(self, @"accessibilityNumberOfCharacters") integerValue]; }
+- (void)setAccessibilityNumberOfCharacters:(NSInteger)value { NSAXSet(self, @"accessibilityNumberOfCharacters", [NSNumber numberWithInteger: (NSInteger)value]); }
+- (NSString *)accessibilitySelectedText { return NSAXGet(self, @"accessibilitySelectedText"); }
+- (void)setAccessibilitySelectedText:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilitySelectedText", c); [c release]; }
+- (NSRange)accessibilitySelectedTextRange { id v = NSAXGet(self, @"accessibilitySelectedTextRange"); return v ? [v rangeValue] : NSMakeRange(NSNotFound, 0); }
+- (void)setAccessibilitySelectedTextRange:(NSRange)value { NSAXSet(self, @"accessibilitySelectedTextRange", [NSValue valueWithRange: value]); }
+- (NSArray<NSValue *> *)accessibilitySelectedTextRanges { return NSAXGet(self, @"accessibilitySelectedTextRanges"); }
+- (void)setAccessibilitySelectedTextRanges:(NSArray<NSValue *> *)value { id c = [value copy]; NSAXSet(self, @"accessibilitySelectedTextRanges", c); [c release]; }
+- (id)accessibilityToolbarButton { return NSAXGet(self, @"accessibilityToolbarButton"); }
+- (void)setAccessibilityToolbarButton:(id)value { NSAXSet(self, @"accessibilityToolbarButton", value); }
+- (BOOL)isAccessibilityModal { return [NSAXGet(self, @"accessibilityModal") boolValue]; }
+- (void)setAccessibilityModal:(BOOL)value { NSAXSet(self, @"accessibilityModal", [NSNumber numberWithBool: value]); }
+- (id)accessibilityProxy { return NSAXGet(self, @"accessibilityProxy"); }
+- (void)setAccessibilityProxy:(id)value { NSAXSet(self, @"accessibilityProxy", value); }
+- (BOOL)isAccessibilityMain { return [NSAXGet(self, @"accessibilityMain") boolValue]; }
+- (void)setAccessibilityMain:(BOOL)value { NSAXSet(self, @"accessibilityMain", [NSNumber numberWithBool: value]); }
+- (id)accessibilityFullScreenButton { return NSAXGet(self, @"accessibilityFullScreenButton"); }
+- (void)setAccessibilityFullScreenButton:(id)value { NSAXSet(self, @"accessibilityFullScreenButton", value); }
+- (id)accessibilityGrowArea { return NSAXGet(self, @"accessibilityGrowArea"); }
+- (void)setAccessibilityGrowArea:(id)value { NSAXSet(self, @"accessibilityGrowArea", value); }
+- (NSString *)accessibilityDocument { return NSAXGet(self, @"accessibilityDocument"); }
+- (void)setAccessibilityDocument:(NSString *)value { id c = [value copy]; NSAXSet(self, @"accessibilityDocument", c); [c release]; }
+- (id)accessibilityDefaultButton { return NSAXGet(self, @"accessibilityDefaultButton"); }
+- (void)setAccessibilityDefaultButton:(id)value { NSAXSet(self, @"accessibilityDefaultButton", value); }
+- (id)accessibilityCloseButton { return NSAXGet(self, @"accessibilityCloseButton"); }
+- (void)setAccessibilityCloseButton:(id)value { NSAXSet(self, @"accessibilityCloseButton", value); }
+- (id)accessibilityZoomButton { return NSAXGet(self, @"accessibilityZoomButton"); }
+- (void)setAccessibilityZoomButton:(id)value { NSAXSet(self, @"accessibilityZoomButton", value); }
+- (id)accessibilityMinimizeButton { return NSAXGet(self, @"accessibilityMinimizeButton"); }
+- (void)setAccessibilityMinimizeButton:(id)value { NSAXSet(self, @"accessibilityMinimizeButton", value); }
+- (BOOL)isAccessibilityMinimized { return [NSAXGet(self, @"accessibilityMinimized") boolValue]; }
+- (void)setAccessibilityMinimized:(BOOL)value { NSAXSet(self, @"accessibilityMinimized", [NSNumber numberWithBool: value]); }
+- (NSArray<NSAccessibilityCustomAction *> *)accessibilityCustomActions { return NSAXGet(self, @"accessibilityCustomActions"); }
+- (void)setAccessibilityCustomActions:(NSArray<NSAccessibilityCustomAction *> *)value { id c = [value copy]; NSAXSet(self, @"accessibilityCustomActions", c); [c release]; }
+- (NSPoint)accessibilityLayoutPointForScreenPoint:(NSPoint)point { return point; }
+- (NSSize)accessibilityLayoutSizeForScreenSize:(NSSize)size { return size; }
+- (NSPoint)accessibilityScreenPointForLayoutPoint:(NSPoint)point { return point; }
+- (NSSize)accessibilityScreenSizeForLayoutSize:(NSSize)size { return size; }
+- ( id)accessibilityCellForColumn:(NSInteger)column row:(NSInteger)row { return nil; }
+- ( NSAttributedString *)accessibilityAttributedStringForRange:(NSRange)range { return nil; }
+- (NSRange)accessibilityRangeForLine:(NSInteger)line { return NSMakeRange(NSNotFound, 0); }
+- ( NSString *)accessibilityStringForRange:(NSRange)range { return nil; }
+- (NSRange)accessibilityRangeForPosition:(NSPoint)point { return NSMakeRange(NSNotFound, 0); }
+- (NSRange)accessibilityRangeForIndex:(NSInteger)index { return NSMakeRange(NSNotFound, 0); }
+- (NSRect)accessibilityFrameForRange:(NSRange)range { return NSZeroRect; }
+- ( NSData *)accessibilityRTFForRange:(NSRange)range { return nil; }
+- (NSRange)accessibilityStyleRangeForIndex:(NSInteger)index { return NSMakeRange(NSNotFound, 0); }
+- (NSInteger)accessibilityLineForIndex:(NSInteger)index { return 0; }
+- (BOOL)accessibilityPerformCancel { return NO; }
+- (BOOL)accessibilityPerformConfirm { return NO; }
+- (BOOL)accessibilityPerformDecrement { return NO; }
+- (BOOL)accessibilityPerformDelete { return NO; }
+- (BOOL)accessibilityPerformIncrement { return NO; }
+- (BOOL)accessibilityPerformPick { return NO; }
+- (BOOL)accessibilityPerformPress { return NO; }
+- (BOOL)accessibilityPerformRaise { return NO; }
+- (BOOL)accessibilityPerformShowAlternateUI { return NO; }
+- (BOOL)accessibilityPerformShowDefaultUI { return NO; }
+- (BOOL)accessibilityPerformShowMenu { return NO; }
+- (BOOL)isAccessibilitySelectorAllowed:(SEL)selector { return YES; }
+
+@end
+
+@implementation NSAccessibilityElement (NSAccessibilityDefaults)
 
 - (BOOL)isAccessibilityElement { return [NSAXGet(self, @"accessibilityElement") boolValue]; }
 - (void)setAccessibilityElement:(BOOL)value { NSAXSet(self, @"accessibilityElement", [NSNumber numberWithBool: value]); }

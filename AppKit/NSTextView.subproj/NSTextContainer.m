@@ -48,6 +48,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return self;
 }
 
+- initWithSize: (NSSize) size {
+    return [self initWithContainerSize: size];
+}
+
 - initWithContainerSize: (NSSize) size {
     _size = size;
     _textView = nil;

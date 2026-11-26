@@ -254,6 +254,11 @@ static BOOL reopenPending;
     _keyWindow = window;
 }
 
+// Private AppKit API that Xcode calls (IDEApplicationController).
+- (NSWindow *) _keyWindow {
+    return [self keyWindow];
+}
+
 - (NSImage *) applicationIconImage {
     return _applicationIconImage;
 }

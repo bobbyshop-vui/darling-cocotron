@@ -33,6 +33,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) _startObservingKey: (NSString *) key;
 - (void) _startObservingSelectedObjects;
 - (void) _stopObservingSelectedObjects;
+- (void) _detachObservationProxies;
+- (void) _attachObservationProxies;
 
 @end
 
@@ -219,6 +221,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         [self willChangeValueForKey: key];
     }
     [_cachedValues removeAllObjects];
+    // Observers of the proxy watch the selected objects through
+    // observableSelection; take them off the old selection before it goes
+    // away and put them on the new one in -controllerDidChange.
+    [self _detachObservationProxies];
     [_observableSelection release];
     _observableSelection = nil;
 }
@@ -237,7 +243,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     }
 
     [self _startObservingSelectedObjects];
+    [self _attachObservationProxies];
     _respondingToSelectionChanges = NO;
+}
+
+- (void) _detachObservationProxies {
+    if (_observableSelection == nil)
+        return;
+    for (_NSObservationProxy *proxy in _observationProxies)
+        [_observableSelection removeObserver: proxy forKeyPath: [proxy keyPath]];
+}
+
+- (void) _attachObservationProxies {
+    if ([_observationProxies count] == 0)
+        return;
+    id selection = [self observableSelection];
+    for (_NSObservationProxy *proxy in _observationProxies)
+        [selection addObserver: proxy
+                    forKeyPath: [proxy keyPath]
+                       options: proxy->_options & ~NSKeyValueObservingOptionInitial
+                       context: proxy->_context];
 }
 
 - (void) observeValueForKeyPath: (NSString *) keyPath
@@ -267,6 +292,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                                                 observer: observer
                                                   object: self];
     [proxy setNotifyObject: YES];
+    proxy->_options = options;
+    proxy->_context = context;
     [_observationProxies addObject: proxy];
 
     [[self observableSelection] addObserver: proxy

@@ -49,6 +49,16 @@ static void NSAssetCatalogWriteLE16(uint8_t *bytes, uint16_t value) {
     bytes[1] = (uint8_t)(value >> 8);
 }
 
+// CSI pixel formats are four-character codes stored as little-endian integers
+// ("GA8 " is " 8AG" in the file); accept either byte order.
+static BOOL NSAssetCatalogPixelFormatIs(const uint8_t *bytes,
+                                        const char *fourcc) {
+    if (memcmp(bytes, fourcc, 4) == 0)
+        return YES;
+    return bytes[0] == (uint8_t)fourcc[3] && bytes[1] == (uint8_t)fourcc[2] &&
+           bytes[2] == (uint8_t)fourcc[1] && bytes[3] == (uint8_t)fourcc[0];
+}
+
 static BOOL NSAssetCatalogSizeForPixels(NSUInteger width, NSUInteger height,
                                         NSUInteger bytesPerPixel,
                                         NSUInteger *sizeOut) {
@@ -571,17 +581,16 @@ static BOOL NSAssetCatalogSizeForPixels(NSUInteger width, NSUInteger height,
     BOOL grayAlpha = NO;
     BOOL grayAlpha16 = NO;
     BOOL rgb555 = NO;
-    if (memcmp(bytes + 24, "BGRA", 4) == 0 ||
-        memcmp(bytes + 24, "ARGB", 4) == 0 ||
-        memcmp(bytes + 24, "RGBW", 4) == 0) {
+    if (NSAssetCatalogPixelFormatIs(bytes + 24, "ARGB") ||
+        NSAssetCatalogPixelFormatIs(bytes + 24, "RGBW")) {
         sourceBytesPerPixel = 4;
-    } else if (memcmp(bytes + 24, "GA8 ", 4) == 0) {
+    } else if (NSAssetCatalogPixelFormatIs(bytes + 24, "GA8 ")) {
         sourceBytesPerPixel = 2;
         grayAlpha = YES;
-    } else if (memcmp(bytes + 24, "GA16", 4) == 0) {
+    } else if (NSAssetCatalogPixelFormatIs(bytes + 24, "GA16")) {
         sourceBytesPerPixel = 4;
         grayAlpha16 = YES;
-    } else if (memcmp(bytes + 24, "RGB5", 4) == 0) {
+    } else if (NSAssetCatalogPixelFormatIs(bytes + 24, "RGB5")) {
         sourceBytesPerPixel = 2;
         rgb555 = YES;
     } else {

@@ -355,6 +355,7 @@ APPKIT_EXPORT NSNotificationName NSControlTintDidChangeNotification;
 - (NSString *) mnemonic;
 - (void) performClick: (id) sender;
 
+- (NSInteger) sendActionOn: (NSInteger) mask;
 @end
 
 void NSDrawThreePartImage(NSRect frame, NSImage *startCap, NSImage *centerFill,

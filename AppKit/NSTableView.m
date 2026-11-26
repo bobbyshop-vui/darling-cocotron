@@ -18,6 +18,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import <objc/runtime.h>
 #import "NSKeyValueBinding/NSKVOBinder.h"
 #import "NSKeyValueBinding/NSMultipleValueBinder.h"
 #import <AppKit/AppKit.h>
@@ -2601,6 +2602,26 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
                    makeIfNecessary: (BOOL) makeIfNecessary {
     // Cell based tables have no row views.
     return nil;
+}
+
+- (id) viewAtColumn: (NSInteger) column
+                row: (NSInteger) row
+    makeIfNecessary: (BOOL) makeIfNecessary {
+    // Cell based tables have no cell views.
+    return nil;
+}
+
+static const char NSTableViewDisallowsTypeSelectKey;
+
+- (BOOL) allowsTypeSelect {
+    return ![objc_getAssociatedObject(self, &NSTableViewDisallowsTypeSelectKey)
+            boolValue];
+}
+
+- (void) setAllowsTypeSelect: (BOOL) allowsTypeSelect {
+    objc_setAssociatedObject(self, &NSTableViewDisallowsTypeSelectKey,
+                             allowsTypeSelect ? nil : [NSNumber numberWithBool: YES],
+                             OBJC_ASSOCIATION_RETAIN);
 }
 
 - (void) enumerateAvailableRowViewsUsingBlock:

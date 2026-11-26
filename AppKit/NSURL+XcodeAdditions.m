@@ -13,6 +13,35 @@ static const char NSURLXcodeTemporaryValuesKey;
 
 @implementation NSURL (XcodeAdditions)
 
+// The URL on the pasteboard: NSURLPboardType holds [URL string, base URL
+// string]; file names are taken as file URLs.
++ (NSURL *) URLFromPasteboard: (NSPasteboard *) pasteboard {
+    NSArray *types = [pasteboard types];
+
+    if ([types containsObject: NSURLPboardType]) {
+        id plist = [pasteboard propertyListForType: NSURLPboardType];
+        if ([plist isKindOfClass: [NSArray class]] && [plist count] > 0 &&
+            [[plist objectAtIndex: 0] isKindOfClass: [NSString class]]) {
+            id base = [plist count] > 1 ? [plist objectAtIndex: 1] : nil;
+            NSURL *baseURL = ([base isKindOfClass: [NSString class]] &&
+                              [base length] > 0)
+                                     ? [NSURL URLWithString: base]
+                                     : nil;
+            return [NSURL URLWithString: [plist objectAtIndex: 0]
+                          relativeToURL: baseURL];
+        }
+        NSString *string = [pasteboard stringForType: NSURLPboardType];
+        if ([string length] > 0)
+            return [NSURL URLWithString: string];
+    }
+    if ([types containsObject: NSFilenamesPboardType]) {
+        NSArray *files = [pasteboard propertyListForType: NSFilenamesPboardType];
+        if ([files isKindOfClass: [NSArray class]] && [files count] > 0)
+            return [NSURL fileURLWithPath: [files objectAtIndex: 0]];
+    }
+    return nil;
+}
+
 + (instancetype) fileURLWithPath: (NSString *) path
                      isDirectory: (BOOL) isDir
                    relativeToURL: (NSURL *) baseURL {

@@ -18,7 +18,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 // Original - Christopher Lloyd <cjwl@objc.net>
-#import "NSTypesetter_concrete.h"
+#import <AppKit/NSATSTypesetter.h>
 #import <AppKit/NSAttributedString.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSImage.h>
@@ -37,7 +37,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) _rollbackLatestFragment;
 @end
 
-@interface NSTypesetter_concrete (forward)
+@interface NSATSTypesetter (forward)
 - (void) _updateBidiLevelsForRange: (NSRange) range;
 - (void) insertGlyphs: (const NSGlyph *) glyphs
                 length: (NSUInteger) length
@@ -45,7 +45,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                 characterIndex: (NSUInteger) characterIndex;
 @end
 
-@implementation NSTypesetter_concrete
+@implementation NSATSTypesetter
+
++ (NSATSTypesetter *) sharedTypesetter {
+    static NSATSTypesetter *shared = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        shared = [[NSATSTypesetter alloc] init];
+    });
+    return shared;
+}
 
 - init {
     [super init];
@@ -72,7 +81,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [super dealloc];
 }
 
-static void loadGlyphAndCharacterCacheForLocation(NSTypesetter_concrete *self,
+static void loadGlyphAndCharacterCacheForLocation(NSATSTypesetter *self,
                                                   NSUInteger location)
 {
     NSUInteger length = MIN(self->_glyphCacheCapacity,

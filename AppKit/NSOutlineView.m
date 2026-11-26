@@ -706,6 +706,15 @@ static void loadItemIntoMapTables(NSOutlineView *self, id item,
     [rows addIndexesInRange: NSMakeRange(row, last - row + 1)];
 }
 
+- (void) insertItemsAtIndexes: (NSIndexSet *) indexes
+                     inParent: (id) parent
+                withAnimation: (NSTableViewAnimationOptions) animationOptions {
+    if ([indexes count] == 0)
+        return;
+    // The new children come from the data source when the rows are rebuilt.
+    [self reloadItem: parent reloadChildren: YES];
+}
+
 - (void) removeItemsAtIndexes: (NSIndexSet *) indexes
                      inParent: (id) parent
                 withAnimation: (NSTableViewAnimationOptions) animationOptions {

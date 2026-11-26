@@ -17,8 +17,13 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import <AppKit/NSAccessibilityElement.h>
+#import <AppKit/NSResponder+XcodeAccessibility.h>
 #import <AppKit/NSSegmentedCell.h>
 #import <AppKit/NSSegmentedControl.h>
+#import <objc/runtime.h>
+
+static const char NSSegmentedControlSegmentElementsKey;
 
 @interface NSSegmentedCell (PrivateToControlView)
 - (void) _wasDrawnWithFrame: (NSRect) cellFrame inView: (NSView *) controlView;
@@ -162,6 +167,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) setSegmentCount: (NSInteger) count {
     [_cell setSegmentCount: count];
+}
+
+// Like AppKit, expose one accessibility element per segment (Xcode's DVTKit
+// labels the segments through -accessibilityChildren).
+- (NSArray *) accessibilityChildren {
+    NSArray *children = [super accessibilityChildren];
+    if (children != nil)
+        return children;
+
+    NSArray *elements = objc_getAssociatedObject(
+            self, &NSSegmentedControlSegmentElementsKey);
+    NSInteger count = [self segmentCount];
+    if ((NSInteger) [elements count] != count) {
+        NSMutableArray *resized = [NSMutableArray arrayWithCapacity: count];
+        for (NSInteger segment = 0; segment < count; segment++) {
+            if (segment < (NSInteger) [elements count]) {
+                [resized addObject: [elements objectAtIndex: segment]];
+                continue;
+            }
+            NSAccessibilityElement *element =
+                    [[NSAccessibilityElement alloc] init];
+            [resized addObject: element];
+            [element release];
+        }
+        objc_setAssociatedObject(self, &NSSegmentedControlSegmentElementsKey,
+                                 resized, OBJC_ASSOCIATION_RETAIN);
+        elements = resized;
+    }
+    return elements;
 }
 
 - (void) setSegmentStyle: (NSSegmentStyle) value {

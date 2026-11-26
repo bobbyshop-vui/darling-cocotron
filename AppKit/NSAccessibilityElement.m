@@ -18,11 +18,24 @@
 */
 
 #import <AppKit/NSAccessibilityElement.h>
+#import <AppKit/NSResponder+XcodeAccessibility.h>
 #import <Foundation/Foundation.h>
 
+// The NSAccessibility properties (label, role, children, ...) are stored by
+// the NSAccessibilityDefaults category in NSResponder+XcodeAccessibility.m.
 @implementation NSAccessibilityElement
 
-@synthesize accessibilityElement = _isAccessible;
++ (id) accessibilityElementWithRole: (NSAccessibilityRole) role
+                              frame: (NSRect) frame
+                              label: (NSString *) label
+                             parent: (id) parent {
+    NSAccessibilityElement *element = [[[self alloc] init] autorelease];
+    [element setAccessibilityRole: role];
+    [element setAccessibilityFrame: frame];
+    [element setAccessibilityLabel: label];
+    [element setAccessibilityParent: parent];
+    return element;
+}
 
 - (NSRect) accessibilityFrameInParentSpace {
     return _accessibilityFrameInParentSpace;

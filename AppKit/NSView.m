@@ -1392,10 +1392,12 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     else {
         [view removeFromSuperview];
 
-        [view _setWindow: _window];
-
+        // As in AppKit, the superview is set before the view moves to the
+        // window, so -viewDidMoveToWindow sees both (Xcode's view
+        // controllers assert that an installed view has a superview).
         [view viewWillMoveToSuperview: self];
         [view _setSuperview: self];
+        [view _setWindow: _window];
     }
 
     if (index == NSNotFound)
@@ -1769,14 +1771,25 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     NSView *removeFrom = _superview;
     NSWindow *window = [self window];
 
-    if (removeFrom != nil)
-        [removeFrom willRemoveSubview: self];
+    if (removeFrom == nil) {
+        [self _deepResignFirstResponder];
+        [self _setWindow: nil];
+        [window _invalidateTrackingAreas];
+        return;
+    }
 
+    // The same notifications, in the same order, as when the view was added;
+    // keep the view alive until they have been sent.
+    [self retain];
+    [removeFrom willRemoveSubview: self];
+    [self viewWillMoveToSuperview: nil];
     [self _deepResignFirstResponder];
     [self _setSuperview: nil];
     [self _setWindow: nil];
 
     [removeFrom _removeViewWithoutDisplay: self];
+    [self viewDidMoveToSuperview];
+    [self release];
     [window _invalidateTrackingAreas];
 }
 
@@ -2099,34 +2112,32 @@ static void NSViewDrawLayerContents(CGContextRef ctx, id contents, CGRect rect) 
 }
 
 static void NSViewFillLayerBackground(CGContextRef ctx, CALayer *layer, CGRect bounds) {
-    if (![layer isKindOfClass: [NSViewBackingLayer class]])
+    if (layer == nil)
         return;
-    NSViewBackingLayer *backing = (NSViewBackingLayer *) layer;
-    CGColorRef background = [backing backgroundColor];
+    CGColorRef background = [layer backgroundColor];
 
     if (background == NULL || CGColorGetAlpha(background) <= 0)
         return;
     CGContextSaveGState(ctx);
     CGContextBeginPath(ctx);
-    NSViewAddRoundedRect(ctx, bounds, [backing cornerRadius]);
+    NSViewAddRoundedRect(ctx, bounds, [layer cornerRadius]);
     CGContextSetFillColorWithColor(ctx, background);
     CGContextFillPath(ctx);
     CGContextRestoreGState(ctx);
 }
 
 static void NSViewStrokeLayerBorder(CGContextRef ctx, CALayer *layer, CGRect bounds) {
-    if (![layer isKindOfClass: [NSViewBackingLayer class]])
+    if (layer == nil)
         return;
-    NSViewBackingLayer *backing = (NSViewBackingLayer *) layer;
-    CGFloat width = [backing borderWidth];
-    CGColorRef color = [backing borderColor];
+    CGFloat width = [layer borderWidth];
+    CGColorRef color = [layer borderColor];
 
     if (width <= 0 || color == NULL || CGColorGetAlpha(color) <= 0)
         return;
     CGContextSaveGState(ctx);
     CGContextBeginPath(ctx);
     NSViewAddRoundedRect(ctx, CGRectInset(bounds, width / 2, width / 2),
-                         MAX([backing cornerRadius] - width / 2, 0));
+                         MAX([layer cornerRadius] - width / 2, 0));
     CGContextSetStrokeColorWithColor(ctx, color);
     CGContextSetLineWidth(ctx, width);
     CGContextStrokePath(ctx);
@@ -2150,7 +2161,7 @@ static void NSViewDrawForeignSublayers(CALayer *layer, CGContextRef ctx, NSArray
         if ([sublayer isKindOfClass: [NSViewBackingLayer class]] &&
             [(NSViewBackingLayer *) sublayer _owningView] != nil)
             continue;
-        if ([sublayer opacity] <= 0)
+        if ([sublayer opacity] <= 0 || [sublayer isHidden])
             continue;
 
         CGRect frame = [sublayer frame];

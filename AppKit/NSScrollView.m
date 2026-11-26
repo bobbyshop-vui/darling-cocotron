@@ -43,6 +43,8 @@ NSString *const NSScrollViewDidEndLiveMagnifyNotification =
 NSString *const NSPreferredScrollerStyleDidChangeNotification =
         @"NSPreferredScrollerStyleDidChangeNotification";
 
+#import <objc/runtime.h>
+
 @implementation NSScrollView
 
 static Class _rulerViewClass = nil;
@@ -1282,6 +1284,31 @@ static Class _rulerViewClass = nil;
         [self _verticalScroll: _verticalScroller];
     if ([self hasHorizontalScroller])
         [self _horizontalScroll: _horizontalScroller];
+}
+
+@end
+
+// Private AppKit API that Xcode's source editor calls.
+@implementation NSScrollView (XcodePrivate)
+
+static const char NSScrollViewAutoforwardsScrollWheelEventsKey;
+
+- (void) _setCanAnimateScrolls: (BOOL) canAnimate {
+}
+
+- (void) _tileIfNeeded {
+    [self tile];
+}
+
+- (BOOL) autoforwardsScrollWheelEvents {
+    return [objc_getAssociatedObject(
+            self, &NSScrollViewAutoforwardsScrollWheelEventsKey) boolValue];
+}
+
+- (void) setAutoforwardsScrollWheelEvents: (BOOL) autoforwards {
+    objc_setAssociatedObject(self, &NSScrollViewAutoforwardsScrollWheelEventsKey,
+                             [NSNumber numberWithBool: autoforwards],
+                             OBJC_ASSOCIATION_RETAIN);
 }
 
 @end

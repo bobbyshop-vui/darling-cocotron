@@ -20,8 +20,36 @@
 #import <AppKit/NSTableRowView.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSGraphics.h>
+#import <objc/runtime.h>
 
 @implementation NSTableRowView
+
+static const char NSTableRowViewHighlightStyleKey;
+
+- (NSTableViewSelectionHighlightStyle) selectionHighlightStyle {
+    NSNumber *style = objc_getAssociatedObject(self, &NSTableRowViewHighlightStyleKey);
+    return style != nil ? [style integerValue]
+                        : NSTableViewSelectionHighlightStyleRegular;
+}
+
+- (void) setSelectionHighlightStyle: (NSTableViewSelectionHighlightStyle) style {
+    objc_setAssociatedObject(self, &NSTableRowViewHighlightStyleKey,
+                             [NSNumber numberWithInteger: style],
+                             OBJC_ASSOCIATION_RETAIN);
+    [self setNeedsDisplay: YES];
+}
+
+- (void) drawBackgroundInRect: (NSRect) dirtyRect {
+    if (_rowBackgroundColor != nil) {
+        [_rowBackgroundColor setFill];
+        NSRectFill(dirtyRect);
+    }
+}
+
+- (id) viewAtColumn: (NSInteger) column {
+    // Darling's tables are cell based, so row views hold no cell views.
+    return nil;
+}
 
 - (void) dealloc {
     [_rowBackgroundColor release];

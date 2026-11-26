@@ -17,7 +17,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
-#import "NSTextStorage_concrete.h"
+#import "NSConcreteTextStorage.h"
 #import <AppKit/NSAttributedString.h>
 #import <AppKit/NSLayoutManager.h>
 #import <AppKit/NSTextStorage.h>
@@ -32,7 +32,7 @@ NSString *const NSTextStorageDidProcessEditingNotification =
 
 + allocWithZone: (NSZone *) zone {
     if (self == [NSTextStorage class])
-        return NSAllocateObject([NSTextStorage_concrete class], 0, NULL);
+        return NSAllocateObject([NSConcreteTextStorage class], 0, NULL);
 
     return NSAllocateObject(self, 0, zone);
 }
@@ -86,6 +86,11 @@ NSString *const NSTextStorageDidProcessEditingNotification =
 
 - (void) removeLayoutManager: (NSLayoutManager *) layoutManager {
     [_layoutManagers removeObjectIdenticalTo: layoutManager];
+}
+
+// Private AppKit API: whether a -beginEditing is open.
+- (BOOL) _isEditing {
+    return _beginEditing > 0;
 }
 
 - (void) beginEditing {

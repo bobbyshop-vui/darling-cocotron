@@ -1721,6 +1721,22 @@ static int untitled_document_number = 0;
         });
 }
 
+// Activities are not serialized here, so the activity starts immediately
+// and its completion handler has nothing to wait for.
+- (void) performActivityWithSynchronousWaiting: (BOOL) waitSynchronously
+                                    usingBlock: (void (^)(void (^activityCompletionHandler)(void))) block
+{
+    if (block != nil)
+        block(^{
+        });
+}
+
+// Autosaving in place is always safe here: documents are not shared with
+// other processes that could change them underneath.
+- (BOOL) checkAutosavingSafetyAndReturnError: (NSError **) outError {
+    return YES;
+}
+
 - (NSDocument *) duplicateAndReturnError: (NSError **) outError {
     NSDocument *copy = [[[[self class] alloc] initWithType: [self fileType]
                                                      error: outError] autorelease];

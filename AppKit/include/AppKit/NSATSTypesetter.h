@@ -18,9 +18,57 @@
 */
 
 #import <AppKit/AppKitExport.h>
+#import <AppKit/NSFont.h>
+#import <AppKit/NSParagraphStyle.h>
 #import <AppKit/NSTypesetter.h>
 
-@interface NSATSTypesetter : NSTypesetter
+@class NSTextContainer, NSRangeArray;
+
+// The concrete system typesetter ([NSTypesetter alloc] returns one); Xcode's
+// DVTFoldingTypesetter subclasses it.
+@interface NSATSTypesetter : NSTypesetter {
+    IMP _layoutNextFragment;
+
+    NSUInteger _nextGlyphLocation;
+    NSUInteger _numberOfGlyphs;
+    NSRange _glyphCacheRange;
+    NSUInteger _glyphCacheCapacity;
+    NSGlyph *_glyphCache;
+    unichar *_characterCache;
+
+    NSUInteger _bidiLevelsCapacity;
+    uint8_t *_bidiLevels;
+    uint8_t _currentBidiLevel;
+    uint8_t _currentParagraphBidiLevel;
+
+    BOOL _paragraphBreak;
+
+    NSTextContainer *_container;
+    NSSize _containerSize;
+
+    NSDictionary *_attributes;
+    NSRange _attributesRange;
+    NSRange _attributesGlyphRange;
+    NSFont *_font;
+    CGFloat _fontAscender;
+    CGFloat _fontDefaultLineHeight;
+    NSPoint (*_positionOfGlyph)(NSFont *, SEL, NSGlyph, NSGlyph, BOOL *);
+    NSTextAlignment _alignment;
+    NSLineBreakMode _lineBreakMode;
+    CGFloat _whitespaceAdvancement;
+
+    NSRange _lineRange;
+    NSRangeArray *_glyphRangesInLine;
+    NSGlyph _previousGlyph;
+    NSRect _scanRect;
+    NSRect _wordWrapScanRect;
+    NSRect _fullLineRect;
+    CGFloat _maxAscender;
+
+    NSRange _wordWrapRange;
+    CGFloat _wordWrapWidth;
+    NSGlyph _wordWrapPreviousGlyph;
+}
 
 + (NSATSTypesetter *) sharedTypesetter;
 

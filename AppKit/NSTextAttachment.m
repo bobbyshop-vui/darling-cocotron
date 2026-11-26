@@ -30,12 +30,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return self;
 }
 
+- (instancetype) initWithData: (NSData *) contentData
+                       ofType: (NSString *) uti {
+    NSFileWrapper *wrapper = nil;
+    if (contentData != nil)
+        wrapper = [[[NSFileWrapper alloc]
+                initRegularFileWithContents: contentData] autorelease];
+    self = [self initWithFileWrapper: wrapper];
+    [self setFileType: uti];
+    return self;
+}
+
 - (void) dealloc {
     [_fileWrapper release];
     [_cell release];
     [_darlingImage release];
     [_darlingFileType release];
     [super dealloc];
+}
+
+- (NSData *) contents {
+    return [_fileWrapper isRegularFile] ? [_fileWrapper regularFileContents] : nil;
+}
+
+- (void) setContents: (NSData *) contents {
+    NSFileWrapper *wrapper = nil;
+    if (contents != nil)
+        wrapper = [[[NSFileWrapper alloc]
+                initRegularFileWithContents: contents] autorelease];
+    [self setFileWrapper: wrapper];
 }
 
 - (NSFileWrapper *) fileWrapper {

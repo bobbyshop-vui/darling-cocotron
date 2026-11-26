@@ -26,6 +26,11 @@ typedef NS_ENUM(NSInteger, NSUserInterfaceLayoutOrientation) {
     NSUserInterfaceLayoutOrientationVertical = 1
 };
 
+typedef float NSStackViewVisibilityPriority;
+static const NSStackViewVisibilityPriority NSStackViewVisibilityPriorityMustHold = 1000.0f;
+static const NSStackViewVisibilityPriority NSStackViewVisibilityPriorityDetachOnlyIfNecessary = 900.0f;
+static const NSStackViewVisibilityPriority NSStackViewVisibilityPriorityNotVisible = 0.0f;
+
 typedef NS_ENUM(NSInteger, NSStackViewGravity) {
     NSStackViewGravityTop = 1,
     NSStackViewGravityLeading = 1,
@@ -84,6 +89,8 @@ typedef NS_ENUM(NSInteger, NSStackViewDistribution) {
 - (NSLayoutPriority)huggingPriorityForOrientation:(NSLayoutConstraintOrientation)orientation;
 - (void)setHuggingPriority:(NSLayoutPriority)priority forOrientation:(NSLayoutConstraintOrientation)orientation;
 
+- (void)setVisibilityPriority:(NSStackViewVisibilityPriority)priority forView:(NSView *)view;
+- (NSStackViewVisibilityPriority)visibilityPriorityForView:(NSView *)view;
 - (void)addView:(NSView *)view inGravity:(NSStackViewGravity)gravity;
 - (void)insertView:(NSView *)view atIndex:(NSUInteger)index inGravity:(NSStackViewGravity)gravity;
 - (void)removeView:(NSView *)view;
