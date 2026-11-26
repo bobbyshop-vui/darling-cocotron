@@ -22,6 +22,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @class NSWindow, NSDocument, NSViewController, NSStoryboard;
 
 @interface NSWindowController : NSResponder {
+    // AppKit's nib-binding unbinder (named without an underscore). Darling
+    // keeps it nil; Xcode's DVTKit clears it through the runtime.
+    id autounbinder;
     NSWindow *_window;
     NSString *_nibName;
     NSString *_nibPath;

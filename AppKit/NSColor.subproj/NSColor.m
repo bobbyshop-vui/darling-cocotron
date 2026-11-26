@@ -17,6 +17,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import <AppKit/NSAssetCatalog.h>
 #import <AppKit/NSBezierPath.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSColor_CGColor.h>
@@ -532,9 +533,18 @@ static NSColorSpaceName NSColorSpaceNameForComponentCount(NSInteger count) {
     if (name == nil)
         return nil;
 
-    // There is no asset catalog support: fall back to the system color list,
-    // which is where macOS resolves un-prefixed system color names.
-    NSColor *result = [[NSColorList colorListNamed: @"System"] colorWithKey: name];
+    // Named colors of asset catalogs (a nil bundle is the main bundle), then
+    // the system color list, which is where macOS resolves un-prefixed system
+    // color names.
+    NSColor *result = [NSAssetCatalog
+            colorNamed: name
+             inBundles: [NSArray arrayWithObject: bundle != nil
+                                                          ? bundle
+                                                          : [NSBundle mainBundle]]];
+    if (result != nil)
+        return result;
+
+    result = [[NSColorList colorListNamed: @"System"] colorWithKey: name];
 
     if (result == nil)
         return nil;

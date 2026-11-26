@@ -108,6 +108,27 @@ const CGFloat NSStringDrawerLargeDimension = 1000000.;
     return result;
 }
 
+// The glyphs that fit in the rect the container was sized to. When not even
+// the first line fits (a 13pt label in a 17pt high text field), it is drawn
+// anyway, as on macOS: callers clip to the rect.
+- (NSRange) _glyphRangeToDrawInRect: (NSRect) rect {
+    NSRange glyphRange =
+            [_layoutManager glyphRangeForTextContainer: _textContainer];
+
+    if (glyphRange.length == 0 && [_textStorage length] > 0) {
+        NSRange lineRange = NSMakeRange(0, 0);
+
+        [_textContainer
+                setContainerSize: NSMakeSize(rect.size.width,
+                                             NSStringDrawerLargeDimension)];
+        if ([_layoutManager numberOfGlyphs] > 0)
+            [_layoutManager lineFragmentRectForGlyphAtIndex: 0
+                                             effectiveRange: &lineRange];
+        glyphRange = lineRange;
+    }
+    return glyphRange;
+}
+
 - (void) drawString: (NSString *) string
         withAttributes: (NSDictionary *) attributes
                 inRect: (NSRect) rect
@@ -123,7 +144,7 @@ const CGFloat NSStringDrawerLargeDimension = 1000000.;
                           range: NSMakeRange(0, [_textStorage length])];
     [_textStorage endEditing];
 
-    glyphRange = [_layoutManager glyphRangeForTextContainer: _textContainer];
+    glyphRange = [self _glyphRangeToDrawInRect: rect];
 
     [_layoutManager drawBackgroundForGlyphRange: glyphRange
                                         atPoint: rect.origin];
@@ -196,7 +217,7 @@ const CGFloat NSStringDrawerLargeDimension = 1000000.;
     [_textContainer setContainerSize: rect.size];
     [_textStorage setAttributedString: astring];
 
-    glyphRange = [_layoutManager glyphRangeForTextContainer: _textContainer];
+    glyphRange = [self _glyphRangeToDrawInRect: rect];
     [_layoutManager drawBackgroundForGlyphRange: glyphRange
                                         atPoint: rect.origin];
     [_layoutManager drawGlyphsForGlyphRange: glyphRange atPoint: rect.origin];

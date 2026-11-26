@@ -106,18 +106,40 @@
 - (void) loadView {
     NSString *name = [self nibName];
     NSBundle *bundle = [self nibBundle];
+    NSString *path = nil;
 
     if (name == nil) {
-        // should pathForResource assert name for non-nil?
-        [NSException raise: NSInvalidArgumentException
-                    format: @"-[%@ %s] nibName is nil", [self class], _cmd];
-        return;
+        // As in AppKit (10.10 and later), a controller without a nib name
+        // loads the nib named after its class (without a Swift module
+        // prefix), from its nib bundle or else the bundle of its class.
+        NSString *className = NSStringFromClass([self class]);
+        NSRange dot = [className rangeOfString: @"." options: NSBackwardsSearch];
+        if (dot.location != NSNotFound)
+            className = [className substringFromIndex: NSMaxRange(dot)];
+        NSArray *bundles = [NSArray arrayWithObjects:
+                bundle != nil ? bundle : [NSBundle bundleForClass: [self class]],
+                [NSBundle bundleForClass: [self class]], [NSBundle mainBundle], nil];
+        for (NSBundle *candidate in bundles) {
+            path = [candidate pathForResource: className ofType: @"nib"];
+            if (path != nil) {
+                bundle = candidate;
+                break;
+            }
+        }
+        if (path == nil) {
+            [NSException raise: NSInvalidArgumentException
+                        format: @"-[%@ %s] nibName is nil and there is no nib named %@",
+                                [self class], sel_getName(_cmd), className];
+            return;
+        }
+        name = className;
     }
 
     if (bundle == nil)
         bundle = [NSBundle mainBundle];
 
-    NSString *path = [bundle pathForResource: name ofType: @"nib"];
+    if (path == nil)
+        path = [bundle pathForResource: name ofType: @"nib"];
     NSDictionary *nameTable = [NSDictionary dictionaryWithObject: self
                                                           forKey: NSNibOwner];
 

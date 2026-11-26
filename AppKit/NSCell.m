@@ -1682,3 +1682,24 @@ void NSDrawNinePartImage(NSRect frame, NSImage* topLeftCorner,
                     flipped);
     [NSGraphicsContext restoreGraphicsState];
 };
+
+// Private AppKit API: the size AppKit computes for the cell. Subclasses
+// override -cellSize and call this (Xcode's IDEVariablesViewPopUpButtonCell),
+// so it uses the -cellSize of the nearest AppKit class instead of sending
+// -cellSize again.
+@implementation NSCell (XcodePrivate)
+
+- (NSSize) _autolayout_cellSize {
+    const char *appKitImage = class_getImageName([NSCell class]);
+    for (Class cls = [self class]; cls != Nil; cls = class_getSuperclass(cls)) {
+        const char *image = class_getImageName(cls);
+        if (image != NULL && appKitImage != NULL && strcmp(image, appKitImage) == 0) {
+            NSSize (*cellSize)(id, SEL) = (NSSize (*)(id, SEL))
+                    class_getMethodImplementation(cls, @selector(cellSize));
+            return cellSize(self, @selector(cellSize));
+        }
+    }
+    return NSZeroSize;
+}
+
+@end

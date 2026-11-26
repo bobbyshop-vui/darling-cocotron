@@ -5,6 +5,8 @@
 @interface NSMenuItemCell (XcodeAdditions)
 - (NSMenuView *) menuView;
 - (void) calcSize;
+- (BOOL) needsSizing;
+- (void) setNeedsSizing: (BOOL) flag;
 - (BOOL) needsDisplay;
 - (void) setNeedsDisplay: (BOOL) flag;
 - (CGFloat) imageWidth;

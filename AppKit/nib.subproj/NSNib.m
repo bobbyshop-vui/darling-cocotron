@@ -355,9 +355,14 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
 
     NSMutableArray *topLevelObjects =
             (objects != NULL ? [[NSMutableArray alloc] init] : nil);
-    NSDictionary *nameTable = [NSDictionary
-            dictionaryWithObjectsAndKeys: owner, NSNibOwner, topLevelObjects,
-                                          NSNibTopLevelObjects, nil];
+    // The owner may be nil (NSCollectionView instantiates item nibs without
+    // one); a nil first value would end -dictionaryWithObjectsAndKeys: early
+    // and drop the top-level objects array.
+    NSMutableDictionary *nameTable = [NSMutableDictionary dictionary];
+    if (owner != nil)
+        [nameTable setObject: owner forKey: NSNibOwner];
+    if (topLevelObjects != nil)
+        [nameTable setObject: topLevelObjects forKey: NSNibTopLevelObjects];
     BOOL result = [self instantiateNibWithExternalNameTable: nameTable];
 
     if (objects != NULL) {

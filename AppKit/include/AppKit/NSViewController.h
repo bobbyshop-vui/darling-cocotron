@@ -4,6 +4,9 @@
 @class NSView, NSArray, NSMutableArray, NSStoryboard;
 
 @interface NSViewController : NSResponder <NSUserInterfaceItemIdentification> {
+    // AppKit's nib-binding unbinder. Darling keeps it nil, but Xcode's DVTKit
+    // clears it through the runtime and asserts that the ivar exists.
+    id _autounbinder;
     NSString *_nibName;
     NSBundle *_nibBundle;
     id _representedObject;

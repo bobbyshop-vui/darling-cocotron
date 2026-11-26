@@ -17,6 +17,19 @@ static const char NSMenuItemCellSizeKey;
 
 @implementation NSMenuItemCell (XcodeAdditions)
 
+static const char NSMenuItemCellNeedsSizingKey;
+
+// Whether -calcSize has to run again before the cell is drawn.
+- (BOOL) needsSizing {
+    return [objc_getAssociatedObject(self, &NSMenuItemCellNeedsSizingKey) boolValue];
+}
+
+- (void) setNeedsSizing: (BOOL) flag {
+    objc_setAssociatedObject(self, &NSMenuItemCellNeedsSizingKey,
+                             flag ? [NSNumber numberWithBool: YES] : nil,
+                             OBJC_ASSOCIATION_RETAIN);
+}
+
 - (NSImage *) _xcodeStateImage {
     NSMenuItem *item = [self menuItem];
     switch ([item state]) {

@@ -4026,3 +4026,14 @@ NSVIEW_LAZY_ANCHOR(firstBaselineAnchor, _firstBaselineAnchor, NSLayoutYAxisAncho
 }
 
 @end
+
+// Private AppKit API that Xcode's buttons call: whether controls in the view
+// draw active (their window is main or key; key focus does not matter).
+@implementation NSView (XcodeActiveAppearance)
+
+- (BOOL) _hasActiveAppearanceIgnoringKeyFocus {
+    NSWindow *window = [self window];
+    return window == nil || [window isMainWindow] || [window isKeyWindow];
+}
+
+@end

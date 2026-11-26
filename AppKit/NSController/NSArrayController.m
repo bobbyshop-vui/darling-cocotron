@@ -118,6 +118,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return self;
 }
 
+// As in AppKit, -init is -initWithContent: nil, so controllers made in code
+// get the same defaults (avoid empty selection, select inserted objects...).
+- (id) init {
+    return [self initWithContent: nil];
+}
+
 - (id) initWithContent: (id) content {
     if ((self = [super init])) {
         _flags.avoidsEmptySelection = YES;
@@ -413,12 +419,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return selectionChanged;
 }
 
+// Selection indexes past the arranged objects (a selection made before the
+// content arrived) select nothing.
 - (NSArray *) selectedObjects {
-    id idxs = [self selectionIndexes];
-    if (idxs) {
-        return [[self arrangedObjects] objectsAtIndexes: idxs];
+    NSIndexSet *indexes = [self selectionIndexes];
+    NSArray *arranged = [self arrangedObjects];
+    NSUInteger count = [arranged count];
+
+    if (indexes == nil || count == 0)
+        return [NSArray array];
+    if ([indexes lastIndex] >= count) {
+        NSMutableIndexSet *valid = [[indexes mutableCopy] autorelease];
+        [valid removeIndexesInRange: NSMakeRange(count, NSNotFound - count)];
+        indexes = valid;
     }
-    return [NSArray array];
+    return [arranged objectsAtIndexes: indexes];
 }
 
 - (BOOL) addSelectedObjects: (NSArray *) objects {
@@ -525,7 +540,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     }
 }
 
+// Like AppKit, a controller without content starts an empty mutable array
+// when objects are inserted (Xcode fills its navigator chooser with
+// -addObject: on a fresh controller).
+- (void) _ensureContent {
+    if (_content == nil)
+        [super setContent: [NSMutableArray array]];
+    if (_arrangedObjects == nil)
+        [self rearrangeObjects];
+}
+
 - (void) insertObject: object atArrangedObjectIndex: (unsigned) index {
+    [self _ensureContent];
     if (_flags.clearsFilterPredicateOnInsertion) {
         [self setFilterPredicate: nil];
     }
@@ -537,18 +563,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [self didChangeValueForKey: @"content"];
     [self didChangeValueForKey: @"arrangedObjects"];
 
-    if (_flags.selectsInsertedObjects) {
-        [self addSelectedObjects: [NSArray arrayWithObject: object]];
-    }
-
     if ([self automaticallyRearrangesObjects]) {
         [self rearrangeObjects];
+    }
+
+    // As in AppKit, the inserted object becomes the selection.
+    if (_flags.selectsInsertedObjects) {
+        [self setSelectedObjects: [NSArray arrayWithObject: object]];
     }
 }
 
 - (void) insertObjects: (NSArray *) objects
         atArrangedObjectIndexes: (NSIndexSet *) indices
 {
+    [self _ensureContent];
     if (_flags.clearsFilterPredicateOnInsertion) {
         [self setFilterPredicate: nil];
     }
@@ -569,12 +597,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [self didChangeValueForKey: @"content"];
     [self didChangeValueForKey: @"arrangedObjects"];
 
-    if (_flags.selectsInsertedObjects) {
-        [self addSelectedObjects: objects];
-    }
-
     if ([self automaticallyRearrangesObjects]) {
         [self rearrangeObjects];
+    }
+
+    if (_flags.selectsInsertedObjects) {
+        [self setSelectedObjects: objects];
     }
 }
 

@@ -730,3 +730,18 @@ static inline CGFloat roundFloat(CGFloat value) {
 }
 
 @end
+
+// Private AppKit API that Xcode's scrollers call. Darling's scrollers are
+// always fully drawn (legacy style): report them as shown, with no overlay
+// scroller implementation behind them.
+@implementation NSScroller (XcodePrivate)
+
+- (NSInteger) _overlayScrollerState {
+    return 2; // all parts shown
+}
+
+- (id) scrollerImp {
+    return nil;
+}
+
+@end

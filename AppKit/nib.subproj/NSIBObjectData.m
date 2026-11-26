@@ -144,7 +144,9 @@ NSString *const IBCocoaFramework = @"IBCocoaFramework";
         }
 
         _fileOwner = [[keyed decodeObjectForKey: @"NSRoot"] retain];
-        if ([_fileOwner isKindOfClass: [NSCustomObject class]]) {
+        // Without an owner the File's Owner placeholder stays the root, so
+        // the top-level objects (children of the root) are still known.
+        if ([_fileOwner isKindOfClass: [NSCustomObject class]] && owner != nil) {
             if (_fileOwner != owner) {
                 id formerFileOwner = [_fileOwner autorelease];
                 _fileOwner = [owner retain];
@@ -180,7 +182,7 @@ NSString *const IBCocoaFramework = @"IBCocoaFramework";
             id aValue = objectValues[i];
             id replacement = nil;
 
-            if (aValue == owner && [aKey isKindOfClass: [NSCustomObject class]]) {
+            if (aValue == _fileOwner && [aKey isKindOfClass: [NSCustomObject class]]) {
                 replacement = [aKey createCustomInstance];
             }
 
@@ -547,7 +549,7 @@ NSString *const IBCocoaFramework = @"IBCocoaFramework";
 
 - (void) buildConnectionsWithNameTable: (NSDictionary *) nameTable {
     id owner = [nameTable objectForKey: NSNibOwner];
-    if (_fileOwner != owner) {
+    if (owner != nil && _fileOwner != owner) {
         [self replaceObject: _fileOwner withObject: owner];
         id formerOwner = [_fileOwner autorelease];
         _fileOwner = [owner retain];

@@ -1625,8 +1625,8 @@ static NSImage *NSImageCreateStandardTemplateImage(NSString *name) {
      respectFlipped: (BOOL) respectFlipped
                  hints: (NSDictionary<NSString *, id> *) hints
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-
+    // Darling draws the same way whether or not the flipped context is
+    // respected (the plain variant is what every caller sees today).
     [self drawInRect: rect
             fromRect: source
            operation: operation

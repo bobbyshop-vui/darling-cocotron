@@ -1310,6 +1310,11 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
 }
 
 - (void) setContentView: (NSView *) view {
+    // Setting the current content view again changes nothing (removing and
+    // re-adding it would uninstall and reinstall the views of Xcode's view
+    // controllers).
+    if (view == _contentView)
+        return;
     view = [view retain];
     [view setFrame: [_contentView frame]];
 
@@ -4297,6 +4302,15 @@ static const char NSWindowContentViewControllerKey;
 
 // Controls always draw active in Darling's windows.
 - (void) _setForceActiveControls: (BOOL) forceActive {
+}
+
+// Whether the window draws as key: it is key, or its sheet is.
+- (BOOL) hasKeyAppearance {
+    return [self isKeyWindow] || [[self attachedSheet] isKeyWindow];
+}
+
+- (BOOL) hasMainAppearance {
+    return [self isMainWindow] || [self hasKeyAppearance];
 }
 
 // The window manager moves windows through their title bar; a drag that

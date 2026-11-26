@@ -57,6 +57,14 @@ NSString *const _NSToolbarItemIdentifierPboardType = @"NSToolbarItemIdentifierPb
 
 @implementation NSToolbarView
 
+// NSToolbarView defines its own -hitTest: as in AppKit: Xcode replaces the
+// implementation of NSToolbarView's -hitTest: (IDERunPauseContinueToolbarButton),
+// and with an inherited method that replaced NSView's for every view, which
+// then recursed forever.
+- (NSView *) hitTest: (NSPoint) point {
+    return [super hitTest: point];
+}
+
 - (instancetype) initWithFrame: (NSRect) frame {
     [super initWithFrame: frame];
     [self setAutoresizesSubviews: YES];

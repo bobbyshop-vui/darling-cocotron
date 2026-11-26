@@ -1,6 +1,7 @@
 #import <AppKit/NSAssetCatalog.h>
 
 #import <AppKit/NSBitmapImageRep.h>
+#import <AppKit/NSColor.h>
 #import <AppKit/NSImage.h>
 
 #include <lzfse.h>
@@ -12,7 +13,9 @@
 
 enum {
     NSAssetCatalogCSIHeaderSize = 184,
+    NSAssetCatalogAttributeAppearance = 7,
     NSAssetCatalogLayoutInternalLink = 1003,
+    NSAssetCatalogLayoutColor = 1009,
     NSAssetCatalogTLVInternalLink = 0x3f2,
     NSAssetCatalogCompressionRaw = 0,
     NSAssetCatalogCompressionRLE = 1,
@@ -98,32 +101,45 @@ static BOOL NSAssetCatalogSizeForPixels(NSUInteger width, NSUInteger height,
 
 @implementation NSAssetCatalog
 
-+ (NSImage *)imageNamed:(NSString *)name inBundles:(NSArray *)bundles {
+// The bundle's Assets.car, read once per path; nil when it has none.
++ (NSAssetCatalog *)_catalogForBundle:(NSBundle *)bundle {
     static NSMutableDictionary *cache = nil;
-    NSImage *result = nil;
+    NSString *path = [bundle pathForResource: @"Assets" ofType: @"car"];
 
-    if (name == nil)
+    if (path == nil)
         return nil;
     @synchronized([NSAssetCatalog class]) {
         if (cache == nil)
             cache = [[NSMutableDictionary alloc] init];
-        for (NSBundle *bundle in bundles) {
-            NSString *path = [bundle pathForResource: @"Assets" ofType: @"car"];
-            if (path == nil)
-                continue;
-            id catalog = [cache objectForKey: path];
-            if (catalog == nil) {
-                catalog = [NSAssetCatalog catalogWithPath: path];
-                [cache setObject: (catalog != nil ? catalog : [NSNull null]) forKey: path];
-            }
-            if (catalog == [NSNull null])
-                continue;
-            result = [catalog imageNamed: name];
-            if (result != nil)
-                break;
+        id catalog = [cache objectForKey: path];
+        if (catalog == nil) {
+            catalog = [NSAssetCatalog catalogWithPath: path];
+            [cache setObject: (catalog != nil ? catalog : [NSNull null]) forKey: path];
         }
+        return catalog == [NSNull null] ? nil : catalog;
     }
-    return result;
+}
+
++ (NSImage *)imageNamed:(NSString *)name inBundles:(NSArray *)bundles {
+    if (name == nil)
+        return nil;
+    for (NSBundle *bundle in bundles) {
+        NSImage *result = [[self _catalogForBundle: bundle] imageNamed: name];
+        if (result != nil)
+            return result;
+    }
+    return nil;
+}
+
++ (NSColor *)colorNamed:(NSString *)name inBundles:(NSArray *)bundles {
+    if (name == nil)
+        return nil;
+    for (NSBundle *bundle in bundles) {
+        NSColor *result = [[self _catalogForBundle: bundle] colorNamed: name];
+        if (result != nil)
+            return result;
+    }
+    return nil;
 }
 
 + (NSAssetCatalog *)catalogWithPath:(NSString *)carPath {
@@ -378,6 +394,7 @@ static BOOL NSAssetCatalogSizeForPixels(NSUInteger width, NSUInteger height,
                               scale:(CGFloat)scale {
     NSArray *keys = [_renditions allKeys];
     NSData *fallback = nil;
+    NSData *otherAppearance = nil;
     uint32_t wantedScale = scale > 0.0 ? (uint32_t)(scale * 100.0 + 0.5) : 0;
 
     for (NSData *key in keys) {
@@ -427,12 +444,27 @@ static BOOL NSAssetCatalogSizeForPixels(NSUInteger width, NSUInteger height,
         }
         if (wantedScale == 0 && renditionScale != 0 && renditionScale != 100)
             continue;
+        // Catalogs built for macOS 10.14 carry dark variants too: use the
+        // default (light) appearance unless the name has nothing else.
+        BOOL defaultAppearance = YES;
+        for (NSUInteger position = 0; position < [_keyFormat count]; position++) {
+            if ([[_keyFormat objectAtIndex:position] unsignedIntegerValue] ==
+                NSAssetCatalogAttributeAppearance) {
+                defaultAppearance = NSAssetCatalogReadLE16(keyBytes + position * 2) == 0;
+                break;
+            }
+        }
+        if (!defaultAppearance) {
+            if (otherAppearance == nil)
+                otherAppearance = rendition;
+            continue;
+        }
         if (fallback == nil)
             fallback = rendition;
         if (wantedScale == 0 || renditionScale == wantedScale)
             return rendition;
     }
-    return fallback;
+    return fallback != nil ? fallback : otherAppearance;
 }
 
 - (NSData *)_renditionForTokenBytes:(const uint8_t *)bytes
@@ -893,6 +925,54 @@ static BOOL NSAssetCatalogSizeForPixels(NSUInteger width, NSUInteger height,
         return nil;
     [image setTemplate:(imageFlags & 0x08) != 0];
     return [image autorelease];
+}
+
+// Color renditions hold a 'COLR' record after the TLVs: version, color space
+// ID, component count, then the components as doubles.
+- (NSColor *)colorNamed:(NSString *)name {
+    NSDictionary *attributes = name != nil ? [_facets objectForKey:name] : nil;
+    if (attributes == nil)
+        return nil;
+    NSData *rendition = [self _renditionForAttributes:attributes scale:0.0];
+    if (rendition == nil)
+        return nil;
+
+    const uint8_t *bytes = [rendition bytes];
+    if (NSAssetCatalogReadLE16(bytes + 36) != NSAssetCatalogLayoutColor)
+        return nil;
+    NSUInteger offset = NSAssetCatalogCSIHeaderSize +
+                        (NSUInteger)NSAssetCatalogReadLE32(bytes + 168);
+    if (!NSAssetCatalogHasRange(rendition, offset, 16) ||
+        !NSAssetCatalogPixelFormatIs(bytes + offset, "COLR"))
+        return nil;
+    uint32_t count = NSAssetCatalogReadLE32(bytes + offset + 12);
+    if (count == 0 || count > 8 ||
+        !NSAssetCatalogHasRange(rendition, offset + 16, (NSUInteger)count * 8))
+        return nil;
+
+    CGFloat components[8];
+    for (uint32_t index = 0; index < count; index++) {
+        double value;
+        memcpy(&value, bytes + offset + 16 + index * 8, sizeof(value));
+        // Extended-range values are clamped to what can be drawn.
+        components[index] = value < 0.0 ? 0.0 : (value > 1.0 ? 1.0 : value);
+    }
+
+    switch (count) {
+    case 1:
+        return [NSColor colorWithGenericGamma22White:components[0] alpha:1.0];
+    case 2:
+        return [NSColor colorWithGenericGamma22White:components[0]
+                                               alpha:components[1]];
+    case 3:
+        return [NSColor colorWithSRGBRed:components[0] green:components[1]
+                                    blue:components[2] alpha:1.0];
+    default:
+        // The color space ID (offset 8) tells sRGB, Display P3 and the
+        // extended sRGB spaces apart; they are all drawn as sRGB.
+        return [NSColor colorWithSRGBRed:components[0] green:components[1]
+                                    blue:components[2] alpha:components[3]];
+    }
 }
 
 - (void)dealloc {

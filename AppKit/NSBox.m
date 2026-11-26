@@ -53,9 +53,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         _titlePosition = [keyed decodeIntForKey: @"NSTitlePosition"];
         _contentViewMargins = [keyed decodeSizeForKey: @"NSOffsets"];
         _titleCell = [[keyed decodeObjectForKey: @"NSTitleCell"] retain];
-        // There is a key NSTransparent, but as far as I can tell it is always
-        // NO
-        _isTransparent = [keyed decodeBoolForKey: @"NSFullyTransparent"];
+        // Newer nibs keep the transparent property as NSTransparent.
+        _isTransparent = [keyed decodeBoolForKey: @"NSTransparent"] ||
+                         [keyed decodeBoolForKey: @"NSFullyTransparent"];
 
         [[_subviews lastObject]
                 setAutoresizingMask: NSViewWidthSizable | NSViewHeightSizable];
@@ -191,13 +191,52 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_titleCell setFont: font];
 }
 
-- (void) setContentView: (NSView *) view {
-    if (![[self subviews] containsObject: view]) {
-        [[self subviews]
-                makeObjectsPerformSelector: @selector(removeFromSuperview)];
-        // FIX, adjust size
-        [self addSubview: view];
+// The area inside the border, title and margins, where the content view goes.
+// Custom boxes leave out the title.
+- (NSRect) _contentRect {
+    NSRect result;
+    CGFloat border = 0;
+
+    if (_boxType == NSBoxCustom) {
+        result = [self bounds];
+        if (_borderType != NSNoBorder)
+            border = [self borderWidth];
+    } else {
+        result = [self borderRect];
+        switch (_borderType) {
+        case NSNoBorder:
+            break;
+        case NSLineBorder:
+            border = 1;
+            break;
+        case NSBezelBorder:
+        case NSGrooveBorder:
+            border = 2;
+            break;
+        }
     }
+    result = NSInsetRect(result, border + _contentViewMargins.width,
+                         border + _contentViewMargins.height);
+    if (result.size.width < 0)
+        result.size.width = 0;
+    if (result.size.height < 0)
+        result.size.height = 0;
+    return result;
+}
+
+// As on macOS, the new content view is sized to the box's content area and
+// follows the box when it is resized.
+- (void) setContentView: (NSView *) view {
+    if (view != nil && [[self subviews] containsObject: view])
+        return;
+
+    NSArray *old = [[[self subviews] copy] autorelease];
+    [old makeObjectsPerformSelector: @selector(removeFromSuperview)];
+    if (view == nil)
+        return;
+    [view setFrame: [self _contentRect]];
+    [view setAutoresizingMask: NSViewWidthSizable | NSViewHeightSizable];
+    [self addSubview: view];
 }
 
 - (void) setContentViewMargins: (NSSize) value {
@@ -351,7 +390,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     size.width += _contentViewMargins.width * 2 + horizontalBorder;
     size.height += _contentViewMargins.height * 2 + verticalBorder;
 
-    switch (_titlePosition) {
+    switch (_boxType == NSBoxCustom ? NSNoTitle : _titlePosition) {
     case NSAboveTop:
     case NSBelowBottom:
         size.height += ceil(titleSize.height) + TEXTGAP;
@@ -408,22 +447,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         break;
     }
 
-    if (_boxType != NSBoxSeparator) {
+    if (_boxType != NSBoxSeparator && _boxType != NSBoxCustom) {
         // Separator are transparent except for drawing a line
         [[NSColor controlColor] setFill];
         NSRectFill(grooveRect);
     }
 
     if (_boxType == NSBoxCustom) {
+        // Custom boxes draw their fill and border over what is behind them
+        // (the default fill is clear), with rounded corners.
+        CGFloat borderWidth =
+                _borderType != NSNoBorder ? [self borderWidth] : 0;
+        CGFloat radius = [self cornerRadius];
+        NSRect shape = NSInsetRect(_bounds, borderWidth / 2, borderWidth / 2);
+        NSBezierPath *path =
+                radius > 0 ? [NSBezierPath bezierPathWithRoundedRect: shape
+                                                             xRadius: radius
+                                                             yRadius: radius]
+                           : [NSBezierPath bezierPathWithRect: shape];
 
-        // Ignoring corner radius for now.
-        [[self fillColor] set];
-        NSRectFill(rect);
-
-        if (_borderType != NSNoBorder) {
-            [[self borderColor] set];
-            NSFrameRectWithWidth(_bounds, [self borderWidth]);
+        if ([self fillColor] != nil) {
+            [[self fillColor] setFill];
+            [path fill];
         }
+        if (borderWidth > 0 && [self borderColor] != nil) {
+            [[self borderColor] setStroke];
+            [path setLineWidth: borderWidth];
+            [path stroke];
+        }
+        // Custom boxes have no title (their content view covers the box).
+        drawTitle = NO;
     } else if (_boxType == NSBoxSeparator) {
         // These are just the simple divider lines
         [[NSColor grayColor] set];
@@ -492,22 +545,38 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return [_customData objectForKey: @"NSFillColor2"];
 }
 
+// Boxes that were not decoded as custom boxes keep their custom attributes
+// too.
+- (NSMutableDictionary *) _customData {
+    if (_customData == nil)
+        _customData = [[NSMutableDictionary alloc] init];
+    return _customData;
+}
+
 - (void) setBorderWidth: (CGFloat) value {
-    [_customData setObject: [NSNumber numberWithDouble: value]
+    [[self _customData] setObject: [NSNumber numberWithDouble: value]
                     forKey: @"NSBorderWidth2"];
 }
 
 - (void) setCornerRadius: (CGFloat) value {
-    [_customData setObject: [NSNumber numberWithDouble: value]
+    [[self _customData] setObject: [NSNumber numberWithDouble: value]
                     forKey: @"NSCornerRadius2"];
 }
 
 - (void) setBorderColor: (NSColor *) value {
-    [_customData setObject: value forKey: @"NSBorderColor2"];
+    if (value == nil)
+        [[self _customData] removeObjectForKey: @"NSBorderColor2"];
+    else
+        [[self _customData] setObject: value forKey: @"NSBorderColor2"];
+    [self setNeedsDisplay: YES];
 }
 
 - (void) setFillColor: (NSColor *) value {
-    [_customData setObject: value forKey: @"NSFillColor2"];
+    if (value == nil)
+        [[self _customData] removeObjectForKey: @"NSFillColor2"];
+    else
+        [[self _customData] setObject: value forKey: @"NSFillColor2"];
+    [self setNeedsDisplay: YES];
 }
 
 - (void) updateCell: (NSCell *) cell {

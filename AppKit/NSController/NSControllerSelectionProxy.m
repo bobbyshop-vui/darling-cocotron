@@ -296,10 +296,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     proxy->_context = context;
     [_observationProxies addObject: proxy];
 
-    [[self observableSelection] addObserver: proxy
-                                 forKeyPath: keyPath
-                                    options: options
-                                    context: context];
+    // While the selection changes, the observers are off the selection; they
+    // all go on the new one in -controllerDidChange.
+    if (_respondingToSelectionChanges == 0)
+        [[self observableSelection] addObserver: proxy
+                                     forKeyPath: keyPath
+                                        options: options
+                                        context: context];
 
     [proxy release];
 }
@@ -318,9 +321,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [proxy release];
 
     if (idx != NSNotFound) {
-        [[self observableSelection]
-                removeObserver: [_observationProxies objectAtIndex: idx]
-                    forKeyPath: keyPath];
+        if (_respondingToSelectionChanges == 0)
+            [[self observableSelection]
+                    removeObserver: [_observationProxies objectAtIndex: idx]
+                        forKeyPath: keyPath];
         [_observationProxies removeObjectAtIndex: idx];
     }
 }
