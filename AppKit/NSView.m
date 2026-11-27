@@ -4036,4 +4036,10 @@ NSVIEW_LAZY_ANCHOR(firstBaselineAnchor, _firstBaselineAnchor, NSLayoutYAxisAncho
     return window == nil || [window isMainWindow] || [window isKeyWindow];
 }
 
+// Private AppKit API: drops the adaptor that registers the view's bindings
+// with their editors. Darling's views keep none; Xcode's view controllers
+// call this when they are invalidated.
+- (void) _releaseBindingAdaptor {
+}
+
 @end

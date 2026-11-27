@@ -761,18 +761,33 @@ static BOOL reopenPending;
     }
 }
 
+// As on macOS, closing the last window quits the app only when the delegate
+// asks for it with -applicationShouldTerminateAfterLastWindowClosed:, and
+// only when a window was showing before (an app that has not shown one yet
+// keeps running). Xcode closes its untitled workspace window just before the
+// window of a new project appears.
 - (void) _checkForTerminate {
+    static BOOL hadVisibleWindow = NO;
     int count = [_windows count];
 
     while (--count >= 0) {
         NSWindow *check = [_windows objectAtIndex: count];
 
         if (![check isKindOfClass: [NSPanel class]] && [check isVisible]) {
+            hadVisibleWindow = YES;
             return;
         }
     }
 
-    [self terminate: self];
+    if (!hadVisibleWindow)
+        return;
+    hadVisibleWindow = NO;
+
+    id delegate = [self delegate];
+    if ([delegate respondsToSelector: @selector
+                  (applicationShouldTerminateAfterLastWindowClosed:)] &&
+        [delegate applicationShouldTerminateAfterLastWindowClosed: self])
+        [self terminate: self];
 }
 
 - (void) _checkForAppActivation {

@@ -22,9 +22,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @class NSWindow, NSDocument, NSViewController, NSStoryboard;
 
 @interface NSWindowController : NSResponder {
-    // AppKit's nib-binding unbinder (named without an underscore). Darling
-    // keeps it nil; Xcode's DVTKit clears it through the runtime.
-    id autounbinder;
+    // AppKit keeps rarely used state, such as the nib-binding unbinder
+    // ("autounbinder"), in an object here. Darling has none (nil); Xcode's
+    // DVTKit reads the ivar through the runtime and asserts that it exists.
+    id _moreVars;
     NSWindow *_window;
     NSString *_nibName;
     NSString *_nibPath;

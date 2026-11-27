@@ -396,6 +396,12 @@ static NSSavePanel *_newPanel = nil;
     void (^handler)(NSModalResponse) = [_completionHandler copy];
     [_completionHandler release];
     _completionHandler = nil;
+    // On macOS the panel runs in another process and its accessory view is
+    // out of any window once the panel is done: Xcode's completion handler
+    // invalidates the view controller of the accessory and asserts that its
+    // view has no window. The next run puts it back.
+    if (_accessoryView != nil && [_accessoryView window] == self)
+        [_accessoryView removeFromSuperview];
     if (handler != nil) {
         handler(result);
         [handler release];
@@ -457,6 +463,15 @@ static NSSavePanel *_newPanel = nil;
     directory = [directory copy];
     [_directory release];
     _directory = directory;
+
+    // As on macOS, a panel that is showing goes to the new directory (the
+    // browser sets the directory too when it navigates: nothing to do then).
+    if (_browser != nil && [self isVisible] && [_directory length] > 0) {
+        NSString *standardized = [[_directory stringByExpandingTildeInPath]
+                stringByStandardizingPath];
+        if (![[_browser directory] isEqualToString: standardized])
+            [_browser goToDirectory: standardized];
+    }
 }
 
 - (void) setDirectoryURL: (NSURL *) url {

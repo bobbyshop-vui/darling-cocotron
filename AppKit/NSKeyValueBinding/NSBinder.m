@@ -221,8 +221,41 @@ static void *NSBinderChangeContext;
     }
 }
 
+// Bindings that only carry values from the model to the view, as on macOS:
+// when the app changes the view's property itself (Xcode calls -setEnabled:
+// on a button whose enabled binding is a read-only property), nothing is
+// written back to the model. Numbered bindings (enabled2) count too.
+static BOOL NSBindingIsModelToViewOnly(NSString *binding) {
+    static NSSet *names = nil;
+    NSUInteger length = [binding length];
+
+    if (names == nil)
+        names = [[NSSet alloc] initWithObjects:
+                @"enabled", @"hidden", @"editable", @"visible", @"toolTip",
+                @"textColor", @"backgroundColor", @"font", @"fontName",
+                @"fontFamilyName", @"fontSize", @"fontBold", @"fontItalic",
+                @"title", @"displayPatternTitle", @"displayPatternValue",
+                @"alternateTitle", @"image", @"alternateImage",
+                @"onStateImage", @"offStateImage", @"mixedStateImage",
+                @"label", @"paletteLabel", @"headerTitle", @"maxValue",
+                @"minValue", @"maxWidth", @"minWidth", @"rowHeight",
+                @"animate", @"animationDelay", @"isIndeterminate",
+                @"content", @"contentValues", @"contentObjects", @"argument",
+                @"target", @"doubleClickArgument", @"doubleClickTarget", nil];
+    while (length > 0 &&
+           [binding characterAtIndex: length - 1] >= '0' &&
+           [binding characterAtIndex: length - 1] <= '9')
+        length--;
+    return [names containsObject: [binding substringToIndex: length]];
+}
+
+- (BOOL) _writesViewChangesToModel {
+    return [self allowsReverseTransformation] &&
+           !NSBindingIsModelToViewOnly(_binding);
+}
+
 - (void) startObservingChanges {
-    if ([self allowsReverseTransformation])
+    if ([self _writesViewChangesToModel])
         [_source addObserver: self
                   forKeyPath: _bindingPath
                      options: 0
@@ -230,7 +263,7 @@ static void *NSBinderChangeContext;
 }
 
 - (void) stopObservingChanges {
-    if ([self allowsReverseTransformation])
+    if ([self _writesViewChangesToModel])
         [_source removeObserver: self forKeyPath: _bindingPath];
 }
 
@@ -244,7 +277,7 @@ static void *NSBinderChangeContext;
             kNSBindingDebugLogLevel1,
             @"keyPath: %@\n   object: %@\n   change: %@\n    context: %p", kp,
             object, change, context);
-    if ([self allowsReverseTransformation]) {
+    if ([self _writesViewChangesToModel]) {
 
         if (context == &NSBinderChangeContext) {
             [self stopObservingChanges];
