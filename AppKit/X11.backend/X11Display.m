@@ -25,6 +25,7 @@
 #import "X11Window.h"
 #import <AppKit/NSApplication.h>
 #include <stdlib.h>
+#include <string.h>
 #import <AppKit/NSScreen.h>
 #import <Foundation/NSDebug.h>
 
@@ -123,11 +124,22 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
         _windowsByID = [NSMutableDictionary new];
         [self _enableDetectableAutoRepeat];
 
-        XSetLocaleModifiers("");
-        _xim = XOpenIM(_display, NULL, NULL, NULL);
+        // The system input method (XMODIFIERS, e.g. IBus) is opt-in with
+        // DARLING_X11_INPUT_METHOD=1 (or xim): with IBus and the Unikey
+        // engine it swallowed every key typed into Xcode's text fields and
+        // never committed the text, so typing did nothing. By default the
+        // local input method gives plain keyboard input (dead keys and
+        // compose sequences still work).
+        const char *inputMethod = getenv("DARLING_X11_INPUT_METHOD");
+        _xim = NULL;
+        if (inputMethod != NULL && (strcmp(inputMethod, "1") == 0 || strcmp(inputMethod, "xim") == 0)) {
+            XSetLocaleModifiers("");
+            _xim = XOpenIM(_display, NULL, NULL, NULL);
+        }
 
         if (!_xim) {
-            NSLog(@"Failed to open XIM, falling back to im=none\n");
+            if (inputMethod != NULL)
+                NSLog(@"Failed to open XIM, falling back to im=none\n");
 
             XSetLocaleModifiers("@im=none");
             _xim = XOpenIM(_display, NULL, NULL, NULL);
