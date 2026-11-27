@@ -422,6 +422,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) mouseDown: (NSEvent *) event {
     NSTextFieldCell *cell = [self selectedCell];
 
+    // As on macOS, a label (neither editable nor selectable) does not take
+    // the click or become first responder: the click goes on to the view
+    // behind it. Xcode's welcome window buttons have their titles in labels.
+    if (![self isEditable] && ![self isSelectable]) {
+        [[self nextResponder] mouseDown: event];
+        return;
+    }
+
     if (![cell isEnabled])
         return;
 

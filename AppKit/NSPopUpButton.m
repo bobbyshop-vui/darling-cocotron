@@ -295,14 +295,41 @@ static NSString *const NSPopUpButtonBindingObservationContext =
 
 @implementation NSPopUpButton (BindingSupport)
 
+// The content binding gives the items' represented objects (titled with
+// their descriptions unless contentValues gives the titles), contentValues
+// and contentObjects their titles. Items may share a title, unlike items added
+// with -addItemWithTitle:.
 - (void) _setItemValues: (NSArray *) values forKey: (NSString *) key {
+    NSMenu *menu = [_cell menu];
+    BOOL objects = [key isEqualToString: @"representedObject"];
+    NSInteger selected = [self indexOfSelectedItem];
+    NSInteger count = [values count];
 
-    [_cell removeAllItems];
-    [_cell addItemsWithTitles: values];
-
-    if ([self indexOfSelectedItem] >= values.count) {
-        [self selectItem: nil];
+    if (objects || [menu numberOfItems] != count) {
+        [_cell removeAllItems];
+        for (id value in values) {
+            NSString *title = [value isKindOfClass: [NSString class]] ? value : [value description];
+            NSMenuItem *item = [[NSMenuItem alloc] initWithTitle: title != nil ? title : @""
+                                                          action: @selector(_popUpItemAction:)
+                                                   keyEquivalent: @""];
+            [item setTarget: _cell];
+            if (objects)
+                [item setRepresentedObject: value];
+            [menu addItem: item];
+            [item release];
+        }
+    } else {
+        // the same items: only their titles change
+        for (NSInteger index = 0; index < count; index++) {
+            id value = [values objectAtIndex: index];
+            [[menu itemAtIndex: index] setTitle: [value isKindOfClass: [NSString class]] ? value : [value description]];
+        }
     }
+
+    if (count == 0)
+        [self selectItem: nil];
+    else
+        [_cell selectItemAtIndex: (selected >= 0 && selected < count) ? selected : 0];
     [self synchronizeTitleAndSelectedItem];
 }
 
@@ -352,6 +379,22 @@ static NSString *const NSPopUpButtonBindingObservationContext =
 
 - (void) _setSelectedIndex: (NSUInteger) idx {
     [self selectItemAtIndex: idx];
+}
+
+// The selectedObject binding: the represented object of the selected item,
+// that is the object of the content binding it shows (Xcode's template
+// options bind their pop-ups' selection this way).
+- (id) _selectedObject {
+    return [[_cell selectedItem] representedObject];
+}
+
+- (void) _setSelectedObject: (id) object {
+    NSInteger index = [_cell indexOfItemWithRepresentedObject: object];
+
+    if (index >= 0)
+        [_cell selectItemAtIndex: index];
+    else if (object == nil)
+        [_cell selectItem: nil];
 }
 
 - (id) _selectedValue {

@@ -940,13 +940,37 @@ static BOOL reopenPending;
     [_display postEvent: event atStart: atStart];
 }
 
-- _searchForAction: (SEL) action responder: target {
+// As on macOS, a responder that does not implement an action itself may name
+// another target with -supplementalTargetForAction:sender: (Xcode sends its
+// commands, such as New Project, to command handlers this way). Only
+// responders that override it are asked: NSResponder's implementation passes
+// the question along the responder chain, which the search walks anyway.
+static id NSApplicationSupplementalTarget(id responder, SEL action, id sender) {
+    static IMP defaultImplementation = NULL;
+    SEL supplementalSelector = @selector(supplementalTargetForAction:sender:);
+
+    if (defaultImplementation == NULL)
+        defaultImplementation =
+                [NSResponder instanceMethodForSelector: supplementalSelector];
+    if (responder == nil || ![responder respondsToSelector: supplementalSelector] ||
+        [responder methodForSelector: supplementalSelector] == defaultImplementation)
+        return nil;
+
+    id target = [responder supplementalTargetForAction: action sender: sender];
+    return [target respondsToSelector: action] ? target : nil;
+}
+
+- _searchForAction: (SEL) action responder: target sender: sender {
     // Search a responder chain
 
     while (target != nil) {
 
         if ([target respondsToSelector: action])
             return target;
+
+        id supplemental = NSApplicationSupplementalTarget(target, action, sender);
+        if (supplemental != nil)
+            return supplemental;
 
         if ([target respondsToSelector: @selector(nextResponder)])
             target = [target nextResponder];
@@ -955,6 +979,30 @@ static BOOL reopenPending;
     }
 
     return nil;
+}
+
+- _searchForAction: (SEL) action responder: target {
+    return [self _searchForAction: action responder: target sender: nil];
+}
+
+- _searchForAction: (SEL) action window: (NSWindow *) window sender: sender {
+    id check = [self _searchForAction: action
+                            responder: [window firstResponder]
+                               sender: sender];
+
+    if (check != nil)
+        return check;
+
+    if ([[window delegate] respondsToSelector: action])
+        return [window delegate];
+
+    if ([[window windowController] respondsToSelector: action])
+        return [window windowController];
+
+    check = NSApplicationSupplementalTarget([window delegate], action, sender);
+    if (check == nil)
+        check = NSApplicationSupplementalTarget([window windowController], action, sender);
+    return check;
 }
 
 - _searchForAction: (SEL) action window: (NSWindow *) window {
@@ -990,17 +1038,21 @@ static BOOL reopenPending;
 
 - targetForAction: (SEL) action to: target from: sender {
     if (target == nil) {
-        target = [self _searchForAction: action window: [self keyWindow]];
+        target = [self _searchForAction: action
+                                 window: [self keyWindow]
+                                 sender: sender];
         if (target)
             return target;
 
         if ([self mainWindow] != [self keyWindow]) {
-            target = [self _searchForAction: action window: [self mainWindow]];
+            target = [self _searchForAction: action
+                                     window: [self mainWindow]
+                                     sender: sender];
             if (target)
                 return target;
         }
     } else {
-        target = [self _searchForAction: action responder: target];
+        target = [self _searchForAction: action responder: target sender: sender];
         if (target)
             return target;
     }
@@ -1013,8 +1065,14 @@ static BOOL reopenPending;
     if ([self respondsToSelector: action])
         return self;
 
+    if ((target = NSApplicationSupplementalTarget(self, action, sender)) != nil)
+        return target;
+
     if ([[self delegate] respondsToSelector: action])
         return [self delegate];
+
+    if ((target = NSApplicationSupplementalTarget([self delegate], action, sender)) != nil)
+        return target;
 
     if ([documentController respondsToSelector: action])
         return documentController;
