@@ -150,6 +150,12 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
 @end
 
+// NSTextInputClient methods implemented in NSTextView+XcodeProtocols.m
+@interface NSTextView (NSTextViewMarkedText)
+- (BOOL) hasMarkedText;
+- (void) insertText: (id) string replacementRange: (NSRange) replacementRange;
+@end
+
 @implementation NSTextView
 - (void) configureMenu {
     static NSMenu *menu = nil;
@@ -3197,6 +3203,12 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 #endif
     if (_rangeForUserCompletion.location != NSNotFound) {
         [self endUserCompletion];
+    }
+    // Text an input method commits replaces what it was composing (the
+    // marked text).
+    if ([self hasMarkedText]) {
+        [self insertText: object replacementRange: NSMakeRange(NSNotFound, 0)];
+        return;
     }
     // object can be either a string or an attributed string
     // Both will be inserted using the current typing attributes

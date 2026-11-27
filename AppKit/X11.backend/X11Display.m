@@ -24,6 +24,7 @@
 #import "X11Pasteboard.h"
 #import "X11Window.h"
 #import <AppKit/NSApplication.h>
+#include <stdlib.h>
 #import <AppKit/NSScreen.h>
 #import <Foundation/NSDebug.h>
 
@@ -1030,24 +1031,37 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
     case KeyRelease:;
 
         NSEventModifierFlags modifierFlags = [self modifierFlagsForState: ev->xkey.state];
-        char buf[20] = {0};
-        KeySym keySym;
+        char stackBuffer[128] = {0};
+        char *buf = stackBuffer;
+        KeySym keySym = NoSymbol;
         int strLen;
 
         if (XFilterEvent(ev, None)) // XIM processing
             break;
 
         if (ev->type == KeyPress) {
-            strLen = Xutf8LookupString(window->_xic, (XKeyPressedEvent *) ev, buf, sizeof(buf) - 1, &keySym, NULL);
+            // text committed by an input method can be longer than one key
+            Status status = 0;
+            strLen = Xutf8LookupString(window->_xic, (XKeyPressedEvent *) ev, buf, sizeof(stackBuffer) - 1, &keySym, &status);
+            if (status == XBufferOverflow && strLen > 0) {
+                buf = malloc(strLen + 1);
+                strLen = Xutf8LookupString(window->_xic, (XKeyPressedEvent *) ev, buf, strLen, &keySym, &status);
+            }
+            if (strLen < 0)
+                strLen = 0;
             buf[strLen] = 0;
         } else {
             // Xutf8LookupString() may not be used with KeyRelease
-            strLen = XLookupString((XKeyEvent*) ev, buf, sizeof(buf) - 1, &keySym, NULL);
+            strLen = XLookupString((XKeyEvent*) ev, buf, sizeof(stackBuffer) - 1, &keySym, NULL);
             buf[strLen] = 0;
         }
 
         id str = [[NSString alloc] initWithCString: buf
                                           encoding: NSUTF8StringEncoding];
+        if (str == nil)
+            str = [[NSString alloc] initWithString: @""];
+        if (buf != stackBuffer)
+            free(buf);
         NSPoint pos =
                 [window transformPoint: NSMakePoint(ev->xkey.x, ev->xkey.y)];
 
@@ -1067,12 +1081,15 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
             _lastKeySym = 0;
         }
 
+        // As on macOS, keys go to the key window (a sheet is key while the
+        // window it is attached to may have the X input focus).
+        NSWindow *keyWindow = [NSApp keyWindow];
         id event = [NSEvent keyEventWithType: ev->type == KeyPress ? NSKeyDown
                                                                    : NSKeyUp
                                     location: pos
                                modifierFlags: modifierFlags
                                    timestamp: 0.0
-                                windowNumber: [delegate windowNumber]
+                                windowNumber: keyWindow != nil ? [keyWindow windowNumber] : [delegate windowNumber]
                                      context: nil
                                   characters: str
                  charactersIgnoringModifiers: strIg
@@ -1243,6 +1260,10 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
     case FocusIn:
         NSLog(@"FocusIn");
         if ([delegate attachedSheet]) {
+            // keys typed here go to the sheet (the key window), through this
+            // window's input context
+            if (window != nil && window->_xic != NULL)
+                XSetICFocus(window->_xic);
             [[delegate attachedSheet] makeKeyAndOrderFront: delegate];
             break;
         }

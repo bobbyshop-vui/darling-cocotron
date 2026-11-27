@@ -50,6 +50,11 @@
     BOOL _isOpaque;
     BOOL _hasShadow;
 
+    // input method composition (XIM on-the-spot preedit)
+    XIMCallback _preeditCallbacks[4];
+    NSMutableString *_preeditString;
+    NSUInteger _preeditCaret;
+
 @public
     XIC _xic;
 }

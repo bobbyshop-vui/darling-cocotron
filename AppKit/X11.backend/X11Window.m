@@ -18,6 +18,7 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE. */
 
+#import <AppKit/NSApplication.h>
 #import <AppKit/NSMenuWindow.h>
 #import <AppKit/NSPanel.h>
 #import <AppKit/NSPopUpWindow.h>
@@ -39,7 +40,209 @@
 #import <X11/Xatom.h>
 #import <X11/Xutil.h>
 
+// Input method composition. Input methods such as IBus with Unikey keep
+// what is being typed as preedit text until a word is complete; with no
+// preedit display ("XIMPreeditNothing") nothing showed while typing. The
+// input context asks for on-the-spot preedit when the input method supports
+// it and shows the preedit as marked text in the key window's first
+// responder (NSTextInputClient), which the committed text then replaces.
+static NSString *X11WindowStringFromXIMText(XIMText *text) {
+    if (text == NULL || text->length == 0)
+        return @"";
+    if (text->encoding_is_wchar) {
+        const wchar_t *wide = text->string.wide_char;
+        if (wide == NULL)
+            return @"";
+        NSMutableString *result = [NSMutableString string];
+        for (unsigned short index = 0; index < text->length && wide[index] != 0; index++) {
+            uint32_t code = (uint32_t) wide[index];
+            if (code >= 0x10000) {
+                unichar pair[2] = { (unichar) (0xD800 + ((code - 0x10000) >> 10)),
+                                    (unichar) (0xDC00 + ((code - 0x10000) & 0x3FF)) };
+                [result appendString: [NSString stringWithCharacters: pair length: 2]];
+            } else {
+                unichar single = (unichar) code;
+                [result appendString: [NSString stringWithCharacters: &single length: 1]];
+            }
+        }
+        return result;
+    }
+    if (text->string.multi_byte == NULL)
+        return @"";
+    NSString *result = [NSString stringWithUTF8String: text->string.multi_byte];
+    if (result == nil)
+        result = [NSString stringWithCString: text->string.multi_byte
+                                    encoding: NSISOLatin1StringEncoding];
+    return result != nil ? result : @"";
+}
+
+static int X11WindowPreeditStart(XIC ic, XPointer client, XPointer call) {
+    [(X11Window *) client _preeditStart];
+    return -1; // no length limit
+}
+
+static void X11WindowPreeditDone(XIC ic, XPointer client, XPointer call) {
+    [(X11Window *) client _preeditDone];
+}
+
+static void X11WindowPreeditDraw(XIC ic, XPointer client, XPointer callData) {
+    XIMPreeditDrawCallbackStruct *call = (XIMPreeditDrawCallbackStruct *) callData;
+    [(X11Window *) client _preeditReplaceFrom: call->chg_first
+                                       length: call->chg_length
+                                     withText: X11WindowStringFromXIMText(call->text)
+                                        caret: call->caret];
+}
+
+static void X11WindowPreeditCaret(XIC ic, XPointer client, XPointer callData) {
+    XIMPreeditCaretCallbackStruct *call = (XIMPreeditCaretCallbackStruct *) callData;
+    call->position = (int) [(X11Window *) client _preeditMoveCaret: call->direction
+                                                          position: call->position];
+}
+
 @implementation X11Window
+
+- (XIC) _createInputContextWithIM: (XIM) xim {
+    XIC xic = NULL;
+    XIMStyles *styles = NULL;
+    BOOL onTheSpot = NO;
+
+    if (xim == NULL)
+        return NULL;
+    if (XGetIMValues(xim, XNQueryInputStyle, &styles, NULL) == NULL && styles != NULL) {
+        for (unsigned short index = 0; index < styles->count_styles; index++) {
+            if (styles->supported_styles[index] == (XIMPreeditCallbacks | XIMStatusNothing))
+                onTheSpot = YES;
+        }
+        XFree(styles);
+    }
+
+    if (onTheSpot) {
+        _preeditCallbacks[0].client_data = (XPointer) self;
+        _preeditCallbacks[0].callback = (XIMProc) X11WindowPreeditStart;
+        _preeditCallbacks[1].client_data = (XPointer) self;
+        _preeditCallbacks[1].callback = (XIMProc) X11WindowPreeditDone;
+        _preeditCallbacks[2].client_data = (XPointer) self;
+        _preeditCallbacks[2].callback = (XIMProc) X11WindowPreeditDraw;
+        _preeditCallbacks[3].client_data = (XPointer) self;
+        _preeditCallbacks[3].callback = (XIMProc) X11WindowPreeditCaret;
+        XVaNestedList preedit = XVaCreateNestedList(0,
+                XNPreeditStartCallback, &_preeditCallbacks[0],
+                XNPreeditDoneCallback, &_preeditCallbacks[1],
+                XNPreeditDrawCallback, &_preeditCallbacks[2],
+                XNPreeditCaretCallback, &_preeditCallbacks[3], NULL);
+        xic = XCreateIC(xim,
+                XNInputStyle, XIMPreeditCallbacks | XIMStatusNothing,
+                XNClientWindow, _window,
+                XNFocusWindow, _window,
+                XNPreeditAttributes, preedit,
+                NULL);
+        XFree(preedit);
+    }
+
+    if (xic == NULL) {
+        xic = XCreateIC(xim,
+                XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
+                XNClientWindow, _window,
+                XNFocusWindow, _window,
+                NULL);
+    }
+
+    static BOOL logged = NO;
+    if (!logged) {
+        logged = YES;
+        NSLog(@"X11: input method %s, %s", XLocaleOfIM(xim),
+              onTheSpot && xic != NULL ? "preedit shown in the text (on-the-spot)" : "no preedit display");
+    }
+    return xic;
+}
+
+- (id) _preeditClient {
+    id client = [[NSApp keyWindow] firstResponder];
+    if (client == nil)
+        client = [_delegate firstResponder];
+    if (![client respondsToSelector: @selector(setMarkedText:selectedRange:replacementRange:)])
+        return nil;
+    return client;
+}
+
+- (void) _showPreedit {
+    id client = [self _preeditClient];
+    NSString *string = _preeditString != nil ? [[_preeditString copy] autorelease] : @"";
+
+    if (client == nil)
+        return;
+    if ([string length] == 0) {
+        if ([client hasMarkedText]) {
+            [client setMarkedText: @""
+                    selectedRange: NSMakeRange(0, 0)
+                 replacementRange: NSMakeRange(NSNotFound, 0)];
+            [client unmarkText];
+        }
+        return;
+    }
+    [client setMarkedText: string
+            selectedRange: NSMakeRange(_preeditCaret, 0)
+         replacementRange: NSMakeRange(NSNotFound, 0)];
+}
+
+- (void) _preeditStart {
+    [_preeditString release];
+    _preeditString = [[NSMutableString alloc] init];
+    _preeditCaret = 0;
+}
+
+- (void) _preeditDone {
+    [_preeditString release];
+    _preeditString = nil;
+    _preeditCaret = 0;
+    [self _showPreedit];
+}
+
+- (void) _preeditReplaceFrom: (int) first
+                      length: (int) length
+                    withText: (NSString *) text
+                       caret: (int) caret
+{
+    if (_preeditString == nil)
+        _preeditString = [[NSMutableString alloc] init];
+
+    NSUInteger total = [_preeditString length];
+    NSUInteger start = first < 0 ? 0 : MIN((NSUInteger) first, total);
+    NSUInteger count = length < 0 ? 0 : MIN((NSUInteger) length, total - start);
+
+    [_preeditString replaceCharactersInRange: NSMakeRange(start, count)
+                                  withString: text != nil ? text : @""];
+    _preeditCaret = caret < 0 ? 0 : MIN((NSUInteger) caret, [_preeditString length]);
+    [self _showPreedit];
+}
+
+- (NSUInteger) _preeditMoveCaret: (XIMCaretDirection) direction position: (int) position {
+    NSUInteger length = [_preeditString length];
+
+    switch (direction) {
+    case XIMForwardChar:
+        if (_preeditCaret < length)
+            _preeditCaret++;
+        break;
+    case XIMBackwardChar:
+        if (_preeditCaret > 0)
+            _preeditCaret--;
+        break;
+    case XIMLineStart:
+        _preeditCaret = 0;
+        break;
+    case XIMLineEnd:
+        _preeditCaret = length;
+        break;
+    case XIMAbsolutePosition:
+        _preeditCaret = position < 0 ? 0 : MIN((NSUInteger) position, length);
+        break;
+    default:
+        break;
+    }
+    [self _showPreedit];
+    return _preeditCaret;
+}
 
 + (Visual *) visual {
     static Visual *ret = NULL;
@@ -248,11 +451,7 @@ static NSData *makeWindowIcon() {
         XSetTransientForHint(_display, _window, [mainWindow windowHandle]);
     }
 
-    _xic = XCreateIC(x11disp->_xim,
-        XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
-        XNClientWindow, _window,
-        XNFocusWindow, _window,
-        NULL);
+    _xic = [self _createInputContextWithIM: x11disp->_xim];
 
     _cglWindow = CGLGetWindow((void *) _window);
 
@@ -412,7 +611,11 @@ static NSData *makeWindowIcon() {
     }
 
     if (_window) {
-        XDestroyIC(_xic);
+        if (_xic != NULL)
+            XDestroyIC(_xic);
+        _xic = NULL;
+        [_preeditString release];
+        _preeditString = nil;
 
         [(X11Display *) [NSDisplay currentDisplay] setWindow: nil
                                                        forID: _window];
