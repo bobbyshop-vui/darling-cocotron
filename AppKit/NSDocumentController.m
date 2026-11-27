@@ -502,35 +502,47 @@ static NSDocumentController *shared = nil;
     if ([url isFileURL] && mine != theirs)
         return [self openDocumentWithContentsOfFile: [url path]
                                             display: display];
-    else {
-        NSDocument *result = [self documentForURL: url];
+    else
+        return [self _openDocumentWithContentsOfURL: url
+                                            display: display
+                                              error: error];
+}
 
-        if (result == nil) {
-            NSError *type_error = nil;
-            NSString *type = [self typeForContentsOfURL: url
-                                                  error: &type_error];
+// Opens the document the way -openDocumentWithContentsOfURL:display:
+// completionHandler: does, without the deprecated synchronous methods that
+// subclasses may override (Xcode's IDEDocumentController asserts that
+// -openDocumentWithContentsOfURL:display:error: is never called).
+- (NSDocument *) _openDocumentWithContentsOfURL: (NSURL *) url
+                                        display: (BOOL) display
+                                          error: (NSError **) error
+{
+    NSDocument *result = [self documentForURL: url];
 
-            if (type_error) {
-                if (error) {
-                    *error = type_error;
-                }
-                return result;
+    if (result == nil) {
+        NSError *type_error = nil;
+        NSString *type = [self typeForContentsOfURL: url
+                                              error: &type_error];
+
+        if (type == nil || type_error != nil) {
+            if (error) {
+                *error = type_error;
             }
-
-            result = [self makeDocumentWithContentsOfURL: url
-                                                  ofType: type
-                                                   error: error];
-            if (result != nil) {
-                [self addDocument: result];
-                [result makeWindowControllers];
-                [self noteNewRecentDocument: result];
-            }
+            return nil;
         }
-        if (display)
-            [result showWindows];
 
-        return result;
+        result = [self makeDocumentWithContentsOfURL: url
+                                              ofType: type
+                                               error: error];
+        if (result != nil) {
+            [self addDocument: result];
+            [result makeWindowControllers];
+            [self noteNewRecentDocument: result];
+        }
     }
+    if (display)
+        [result showWindows];
+
+    return result;
 }
 
 - (void) openDocumentWithContentsOfURL: (NSURL *) url
@@ -541,9 +553,9 @@ static NSDocumentController *shared = nil;
 {
     BOOL alreadyOpen = [self documentForURL: url] != nil;
     NSError *error = nil;
-    NSDocument *document = [self openDocumentWithContentsOfURL: url
-                                                       display: displayDocument
-                                                         error: &error];
+    NSDocument *document = [self _openDocumentWithContentsOfURL: url
+                                                        display: displayDocument
+                                                          error: &error];
 
     if (completionHandler != nil)
         completionHandler(document, alreadyOpen, document == nil ? error : nil);

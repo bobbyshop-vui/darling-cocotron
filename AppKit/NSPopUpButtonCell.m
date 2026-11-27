@@ -624,8 +624,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 /* That's the action the menu items are connected to in nibs */
 - (void) _popUpItemAction: (id) sender {
-    NSUInteger itemIndex = [_popUpMenu indexOfItem: sender];
-    if (itemIndex != NSNotFound) {
+    NSInteger itemIndex = [_popUpMenu indexOfItem: sender];
+    if (itemIndex >= 0) {
         [self selectItemAtIndex: itemIndex];
     }
     [NSApp sendAction: [self action] to: [self target] from: _controlView];

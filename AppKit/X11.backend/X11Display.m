@@ -1093,15 +1093,18 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
             _lastKeySym = 0;
         }
 
-        // As on macOS, keys go to the key window (a sheet is key while the
-        // window it is attached to may have the X input focus).
-        NSWindow *keyWindow = [NSApp keyWindow];
+        // Keys typed in a window that has a sheet attached go to the sheet,
+        // as on macOS (the sheet is key while the window it is attached to
+        // may hold the X input focus).
+        NSWindow *keyTarget = delegate;
+        if ([keyTarget respondsToSelector: @selector(attachedSheet)] && [keyTarget attachedSheet] != nil)
+            keyTarget = [keyTarget attachedSheet];
         id event = [NSEvent keyEventWithType: ev->type == KeyPress ? NSKeyDown
                                                                    : NSKeyUp
                                     location: pos
                                modifierFlags: modifierFlags
                                    timestamp: 0.0
-                                windowNumber: keyWindow != nil ? [keyWindow windowNumber] : [delegate windowNumber]
+                                windowNumber: [keyTarget windowNumber]
                                      context: nil
                                   characters: str
                  charactersIgnoringModifiers: strIg

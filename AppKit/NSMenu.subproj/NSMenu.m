@@ -355,7 +355,10 @@ NSString *const _NSWindowsMenuName = @"Window";
 }
 
 - (NSInteger) indexOfItem: (NSMenuItem *) item {
-    return [_itemArray indexOfObjectIdenticalTo: item];
+    // -1 when the item is not in the menu, like the other indexOf methods
+    // (and Apple's AppKit): not NSNotFound.
+    NSUInteger index = [_itemArray indexOfObjectIdenticalTo: item];
+    return index == NSNotFound ? -1 : (NSInteger) index;
 }
 
 - (NSInteger) indexOfItemWithTag: (NSInteger) tag {
