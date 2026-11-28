@@ -3973,6 +3973,20 @@ static NSInteger NSWindowIndexForEdge(NSRectEdge edge) {
     _snapshotRestorationDisabled = YES;
 }
 
+// Private AppKit API: a window is marked while its state is being restored
+// (Xcode marks its workspace windows around restoring them).
+static char NSWindowPerformingRestorationKey;
+
+- (BOOL) _isPerformingRestoration {
+    return [objc_getAssociatedObject(self, &NSWindowPerformingRestorationKey) boolValue];
+}
+
+- (void) _setIsPerformingRestoration: (BOOL) flag {
+    objc_setAssociatedObject(self, &NSWindowPerformingRestorationKey,
+                             flag ? [NSNumber numberWithBool: YES] : nil,
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
 #pragma mark - Tabbing
 
 - (NSWindowTabbingMode) tabbingMode {
